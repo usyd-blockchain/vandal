@@ -12,6 +12,10 @@ Contents:
    :maxdepth: 2
 
    cfglib
+   lattice
+   opcodes
+   stacksizeanalysis
+   utils
 
 Indices and tables
 ==================
