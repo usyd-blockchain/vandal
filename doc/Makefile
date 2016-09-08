@@ -47,7 +47,7 @@ help:
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
-	rm -rf source/stubs
+	rm -rf source/modules/
 
 .PHONY: html
 html:
