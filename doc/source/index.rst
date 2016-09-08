@@ -6,10 +6,11 @@
 EVM Decompiler Documentation
 ============================
 
-Contents:
+Modules
+-------
 
-.. toctree::
-   :maxdepth: 2
+.. autosummary::
+   :toctree: stubs
 
    cfglib
    destackify
@@ -20,10 +21,10 @@ Contents:
    tac
    utils
 
+
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
