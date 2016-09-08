@@ -12,9 +12,12 @@ Contents:
    :maxdepth: 2
 
    cfglib
+   destackify
    lattice
    opcodes
+   optimise
    stacksizeanalysis
+   tac
    utils
 
 Indices and tables

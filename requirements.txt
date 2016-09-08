@@ -1,0 +1,12 @@
+# This is a Python pip requirements file
+# See: https://pip.pypa.io/en/stable/reference/pip_install/#requirements-file-format
+
+# Sphinx is used for documentation generation
+Sphinx==1.4.6
+
+# networkx and pydotplus are used for creating DOT representations of CFGs
+networkx==1.11
+pydotplus==2.0.2
+
+# Unit testing uses pytest
+pytest==3.0.2
