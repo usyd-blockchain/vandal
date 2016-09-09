@@ -42,31 +42,37 @@ class IntLatticeElement:
     if self.is_num() and other.is_num():
       return IntLatticeElement(self.value + other.value)
     if self.is_bottom or other.is_bottom:
-      return IntLatticeElement(bottom=True)
-    return IntLatticeElement(top=True)
+      return self.bottom()
+    return self.top()
 
+  @classmethod
+  def top(cls):
+    return cls(top=True)
 
-def meet(a:IntLatticeElement, b:IntLatticeElement) -> IntLatticeElement:
-  """Return the infimum of the given elements."""
+  def bottom(cls):
+    return cls(bottom=True)
 
-  if a.is_bottom or b.is_bottom:
-    return IntLatticeElement(bottom=True)
+  @classmethod
+  def meet(cls, a:'IntLatticeElement', b:'IntLatticeElement') -> 'IntLatticeElement':
+    """Return the infimum of the given elements."""
 
-  if a.is_top:
-    return b
-  if b.is_top:
-    return a
+    if a.is_bottom or b.is_bottom:
+      return cls.bottom()
 
-  return a if a.value == b.value else IntLatticeElement(bottom=True)
+    if a.is_top:
+      return b
+    if b.is_top:
+      return a
+    if a.value == b.value:
+      return a
 
-def meet_all(elements:typing.List[IntLatticeElement]) -> IntLatticeElement:
-  """Return the infimum of the given iterable of elements."""
-  return functools.reduce(
-    lambda a, b: meet(a, b),
-    elements,
-    IntLatticeElement(top=True)
-  )
+    return cls.bottom()
 
-# Define a global top and bottom for the lattice.
-TOP = IntLatticeElement(top=True)
-BOTTOM = IntLatticeElement(bottom=True)
+  @classmethod
+  def meet_all(cls, elements:typing.List['IntLatticeElement']) -> 'IntLatticeElement':
+    """Return the infimum of the given iterable of elements."""
+    return functools.reduce(
+      lambda a, b: cls.meet(a, b),
+      elements,
+      cls.top()
+    )
