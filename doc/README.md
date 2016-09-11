@@ -6,13 +6,6 @@ This directory contains files needed to build documentation for the EVM Decompil
 
 - [Sphinx](http://www.sphinx-doc.org/en/stable/) must be installed, with `sphinx-build` in your `$PATH`
 
-To install all dependencies using `pip3` (Python 3.x), assuming your working directory is `compiler/doc/`:
-
-```
-$ pip3 install --user -r requirements.txt
-$ export PATH=$PATH:$HOME/.local/bin
-```
-
 ## Usage
 
 Simply use the provided `Makefile`:
