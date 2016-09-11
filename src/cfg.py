@@ -1,15 +1,12 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 class ControlFlowGraph:
-  """Abstract Control Flow Graph (CFG)"""
+  """Generic Control Flow Graph (CFG)"""
   def __init__(self):
     """List of CFGNode objects"""
     self.blocks = []
     """The root CFGNode object, or None for the empty graph"""
     self.root = None
-
-    # This is an abstract class
-    raise NotImplementedError("Abstract class")
 
   def __len__(self):
     return len(self.blocks)
