@@ -59,7 +59,7 @@ class CFGNode:
     start line number. Returns the new CFGNode.
     """
     # Create the new block and assign the code line ranges
-    new = CFGNode(start, self.end)
+    new = type(self)(start, self.end)
     self.end = start - 1
 
     # Split the code lines between the two nodes
