@@ -3,10 +3,13 @@
 class ControlFlowGraph:
   """Generic Control Flow Graph (CFG)"""
   def __init__(self):
-    """List of CFGNode objects"""
+    """Create a new empty ControlFlowGraph"""
+
     self.blocks = []
-    """The root CFGNode object, or None for the empty graph"""
+    """List of CFGNode objects"""
+
     self.root = None
+    """The root CFGNode object, or None for the empty graph"""
 
   def __len__(self):
     return len(self.blocks)
@@ -33,14 +36,21 @@ class CFGNode:
     Creates a new CFG node containing code lines between the
     specified start index and the specified end index (inclusive).
     """
+
     self.start = start
+    """Index of the first code line contained in this node"""
+
     self.end = end
-    """List of CodeLines contained in this node"""
+    """Index of the last code line contained in this node"""
+
     self.lines = []
-    """List of CFGNodes which pass control to this node"""
+    """List of CodeLines contained in this node"""
+
     self.predecessors = []
-    """List of CFGNodes which receive control from this node"""
+    """List of nodes which pass control to this node"""
+
     self.successors = []
+    """List of nodes which receive control from this node"""
 
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
