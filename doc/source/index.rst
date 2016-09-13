@@ -10,9 +10,11 @@ Modules
    cfg
    destackify
    evm_cfg
+   exporter
    lattice
    opcodes
    optimise
+   patterns
    stacksizeanalysis
    tac_cfg
    utils
