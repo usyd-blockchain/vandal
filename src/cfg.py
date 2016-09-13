@@ -34,7 +34,7 @@ class ControlFlowGraph(abc.ABC):
       visitor: instance of a Visitor
     """
     for b in self.blocks:
-      b.accept(b)
+      b.accept(visitor)
 
 
 class CFGNode(abc.ABC):
