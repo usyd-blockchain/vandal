@@ -1,4 +1,4 @@
-"""cfglib.py: Classes for processing disasm output and building a CFG"""
+"""evm_cgfg.py: Classes for processing disasm output and building a CFG"""
 
 import typing
 
