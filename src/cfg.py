@@ -3,7 +3,7 @@
 import abc
 
 class ControlFlowGraph(abc.ABC):
-  """Generic Control Flow Graph (CFG)"""
+  """Abstract base class for a Control Flow Graph (CFG)"""
   def __init__(self):
     """Create a new empty ControlFlowGraph"""
 
@@ -26,7 +26,7 @@ class ControlFlowGraph(abc.ABC):
 
 class CFGNode(abc.ABC):
   """
-  Represents a single basic block (node) in a control flow graph (CFG),
+  Abstract base class for a single basic block (node) in a CFG.
   including references to its predecessor and successor nodes in the graph
   structure.
   """
