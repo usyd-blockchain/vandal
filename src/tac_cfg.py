@@ -1,4 +1,4 @@
-"""tac.py: Definitions of Three-Address Code operations and related
+"""tac_cfg.py: Definitions of Three-Address Code operations and related
 objects."""
 
 import typing
