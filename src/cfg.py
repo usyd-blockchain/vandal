@@ -1,6 +1,8 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
-class ControlFlowGraph:
+import abc
+
+class ControlFlowGraph(abc.ABC):
   """Generic Control Flow Graph (CFG)"""
   def __init__(self):
     """Create a new empty ControlFlowGraph"""
@@ -21,7 +23,8 @@ class ControlFlowGraph:
     """Returns a list of the CFG's edges in the form (pred, succ)."""
     return [(p,s) for s in p.successors for p in self.blocks]
 
-class CFGNode:
+
+class CFGNode(abc.ABC):
   """
   Represents a single basic block (node) in a control flow graph (CFG),
   including references to its predecessor and successor nodes in the graph
