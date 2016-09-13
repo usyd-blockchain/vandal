@@ -376,5 +376,9 @@ autosummary_generate = True
 autodoc_default_flags = [
   'members',
   'undoc-members',
-  'special-members __init__'
+  'show-inheritance',
+  'inherited-members',
 ]
+
+# Include __init__ and class-level docstring for autoclass bodies
+autoclass_content = "both"

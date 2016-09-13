@@ -7,6 +7,7 @@ Modules
 .. autosummary::
    :toctree: modules
 
+   cfg
    cfglib
    destackify
    lattice
