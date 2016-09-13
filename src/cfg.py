@@ -4,6 +4,7 @@ import abc
 
 class ControlFlowGraph(abc.ABC):
   """Abstract base class for a Control Flow Graph (CFG)"""
+  @abc.abstractmethod
   def __init__(self):
     """Create a new empty ControlFlowGraph"""
 
@@ -34,6 +35,7 @@ class CFGNode(abc.ABC):
   # Separator to be used for string representation of blocks
   __BLOCK_SEP = "\n---"
 
+  @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
     """
     Creates a new CFG node containing code lines between the
