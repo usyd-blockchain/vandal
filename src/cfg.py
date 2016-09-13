@@ -52,6 +52,9 @@ class CFGNode:
     self.succs = []
     """List of nodes which receive control from this node (successors)"""
 
+    self.has_unresolved_jump = False
+    """True if the node contains a jump whose destination is computer"""
+
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
     return self.exit - self.entry
