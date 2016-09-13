@@ -1,6 +1,7 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 import abc
+import patterns
 
 class ControlFlowGraph(abc.ABC):
   """Abstract base class for a Control Flow Graph (CFG)"""
@@ -24,15 +25,25 @@ class ControlFlowGraph(abc.ABC):
     """Returns a list of the CFG's edges in the form (pred, succ)."""
     return [(p,s) for p in self.blocks for s in p.succs]
 
+  def accept(self, visitor:patterns.Visitor):
+    """
+    Visitor design pattern: accepts a Visitor instance and visits every node
+    in the CFG in an arbitrary order.
+
+    Args:
+      visitor: instance of a Visitor
+    """
+    for b in self.blocks:
+      b.accept(b)
+
 
 class CFGNode(abc.ABC):
   """
-  Abstract base class for a single basic block (node) in a CFG.
-  including references to its predecessor and successor nodes in the graph
-  structure.
+  Abstract base class for a single basic block (node) in a CFG. Each block has
+  references to its predecessor and successor nodes in the graph structure.
   """
 
-  # Separator to be used for string representation of blocks
+  # Separator to be used for string representation
   __BLOCK_SEP = "\n---"
 
   @abc.abstractmethod
@@ -85,3 +96,12 @@ class CFGNode(abc.ABC):
     self.lines = self.lines[:entry-self.entry]
 
     return new
+
+  def accept(self, visitor:patterns.Visitor):
+    """
+    Visitor design pattern: accepts a Visitor instance and visits this node.
+
+    Args:
+      visitor: instance of a Visitor
+    """
+    visitor.visit(self)
