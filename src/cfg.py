@@ -22,7 +22,7 @@ class ControlFlowGraph(abc.ABC):
 
   def edge_list(self):
     """Returns a list of the CFG's edges in the form (pred, succ)."""
-    return [(p,s) for s in p.successors for p in self.blocks]
+    return [(p,s) for p in self.blocks for s in p.succs]
 
 
 class CFGNode(abc.ABC):
