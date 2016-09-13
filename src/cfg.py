@@ -4,6 +4,7 @@ import abc
 
 class ControlFlowGraph(abc.ABC):
   """Abstract base class for a Control Flow Graph (CFG)"""
+  @abc.abstractmethod
   def __init__(self):
     """Create a new empty ControlFlowGraph"""
 
@@ -21,7 +22,7 @@ class ControlFlowGraph(abc.ABC):
 
   def edge_list(self):
     """Returns a list of the CFG's edges in the form (pred, succ)."""
-    return [(p,s) for s in p.successors for p in self.blocks]
+    return [(p,s) for p in self.blocks for s in p.succs]
 
 
 class CFGNode(abc.ABC):
@@ -34,6 +35,7 @@ class CFGNode(abc.ABC):
   # Separator to be used for string representation of blocks
   __BLOCK_SEP = "\n---"
 
+  @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
     """
     Creates a new CFG node containing code lines between the
