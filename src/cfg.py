@@ -31,30 +31,30 @@ class CFGNode:
   # Separator to be used for string representation of blocks
   __BLOCK_SEP = "\n---"
 
-  def __init__(self, start:int=None, end:int=None):
+  def __init__(self, entry:int=None, exit:int=None):
     """
     Creates a new CFG node containing code lines between the
-    specified start index and the specified end index (inclusive).
+    specified entry index and the specified exit index (inclusive).
     """
 
-    self.start = start
+    self.entry = entry
     """Index of the first code line contained in this node"""
 
-    self.end = end
+    self.exit = exit
     """Index of the last code line contained in this node"""
 
     self.lines = []
     """List of CodeLines contained in this node"""
 
-    self.predecessors = []
-    """List of nodes which pass control to this node"""
+    self.preds = []
+    """List of nodes which pass control to this node (predecessors)"""
 
-    self.successors = []
-    """List of nodes which receive control from this node"""
+    self.succs = []
+    """List of nodes which receive control from this node (successors)"""
 
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
-    return self.end - self.start
+    return self.exit - self.entry
 
   def __str__(self):
     """Returns a string representation of this block and all lines in it."""
@@ -63,17 +63,17 @@ class CFGNode:
   def __hash__(self):
     return id(self)
 
-  def split(self, start:int) -> 'CFGNode':
+  def split(self, entry:int) -> 'CFGNode':
     """
     Splits this CFGNode into a new CFGNode, from at the specified
-    start line number. Returns the new CFGNode.
+    entry line number. Returns the new CFGNode.
     """
     # Create the new block and assign the code line ranges
-    new = type(self)(start, self.end)
-    self.end = start - 1
+    new = type(self)(entry, self.exit)
+    self.exit = entry - 1
 
     # Split the code lines between the two nodes
-    new.lines = self.lines[start-self.start:]
-    self.lines = self.lines[:start-self.start]
+    new.lines = self.lines[entry-self.entry:]
+    self.lines = self.lines[:entry-self.entry]
 
     return new
