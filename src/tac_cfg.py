@@ -24,6 +24,7 @@ class TACGraph(cfg.ControlFlowGraph):
     destack = Destackifier()
 
     self.blocks = [destack.convert_block(b) for b in evm_blocks]
+
     # The entry point is always going to be at index 0.
     self.root = next((b for b in self.blocks if b.entry == 0), None)
 
@@ -139,7 +140,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
   def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
                stack_adds:typing.Iterable['Variable'], stack_pops:int,
-               evm_ops:typing.Iterable[evm_cfg.EVMOp]=list()):
+               evm_ops:typing.Iterable[evm_cfg.EVMOp]=None):
     """
     Args:
       entry: The pc of the first byte in the source EVM block
