@@ -27,15 +27,6 @@ class TACGraph(cfg.ControlFlowGraph):
     # The entry point is always going to be at index 0.
     self.root = next((b for b in self.blocks if b.entry == 0), None)
 
-  def edge_list(self):
-    """Return a list of all edges in the graph."""
-    edges = []
-    for src in self.blocks:
-      for dest in src.succs:
-        edges.append((src.entry, dest.entry))
-
-    return edges
-
   def recalc_preds(self):
     """
     Given a cfg where block successor lists are populated,
