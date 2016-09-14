@@ -1,6 +1,7 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 import abc
+import patterns
 
 class ControlFlowGraph(abc.ABC):
   """Abstract base class for a Control Flow Graph (CFG)"""
@@ -9,10 +10,10 @@ class ControlFlowGraph(abc.ABC):
     """Create a new empty ControlFlowGraph"""
 
     self.blocks = []
-    """List of CFGNode objects"""
+    """List of BasicBlock objects"""
 
     self.root = None
-    """The root CFGNode object, or None for the empty graph"""
+    """The root BasicBlock object, or None for the empty graph"""
 
   def __len__(self):
     return len(self.blocks)
@@ -24,17 +25,23 @@ class ControlFlowGraph(abc.ABC):
     """Returns a list of the CFG's edges in the form (pred, succ)."""
     return [(p,s) for p in self.blocks for s in p.succs]
 
+  def accept(self, visitor:patterns.Visitor):
+    """
+    Visitor design pattern: accepts a Visitor instance and visits every node
+    in the CFG in an arbitrary order.
 
-class CFGNode(abc.ABC):
+    Args:
+      visitor: instance of a Visitor
+    """
+    for b in self.blocks:
+      b.accept(visitor)
+
+
+class BasicBlock(abc.ABC):
   """
-  Abstract base class for a single basic block (node) in a CFG.
-  including references to its predecessor and successor nodes in the graph
-  structure.
+  Abstract base class for a single basic block (node) in a CFG. Each block has
+  references to its predecessor and successor nodes in the graph structure.
   """
-
-  # Separator to be used for string representation of blocks
-  __BLOCK_SEP = "\n---"
-
   @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
     """
@@ -47,9 +54,6 @@ class CFGNode(abc.ABC):
 
     self.exit = exit
     """Index of the last code line contained in this node"""
-
-    self.lines = []
-    """List of CodeLines contained in this node"""
 
     self.preds = []
     """List of nodes which pass control to this node (predecessors)"""
@@ -64,24 +68,14 @@ class CFGNode(abc.ABC):
     """Returns the number of lines of code contained within this block."""
     return self.exit - self.entry
 
-  def __str__(self):
-    """Returns a string representation of this block and all lines in it."""
-    return "\n".join(str(l) for l in self.lines) + self.__BLOCK_SEP
-
   def __hash__(self):
     return id(self)
 
-  def split(self, entry:int) -> 'CFGNode':
+  def accept(self, visitor:patterns.Visitor):
     """
-    Splits this CFGNode into a new CFGNode, from at the specified
-    entry line number. Returns the new CFGNode.
+    Visitor design pattern: accepts a Visitor instance and visits this node.
+
+    Args:
+      visitor: instance of a Visitor
     """
-    # Create the new block and assign the code line ranges
-    new = type(self)(entry, self.exit)
-    self.exit = entry - 1
-
-    # Split the code lines between the two nodes
-    new.lines = self.lines[entry-self.entry:]
-    self.lines = self.lines[:entry-self.entry]
-
-    return new
+    visitor.visit(self)
