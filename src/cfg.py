@@ -46,7 +46,7 @@ class BasicBlock(abc.ABC):
   references to its predecessor and successor nodes in the graph structure.
 
   A BasicBlock must contain exactly one entry point at the start and
-  exactly one exit point at the beginning, which no branching in between.
+  exactly one exit point at the end, with no branching in between.
   That is, program flow must be linear/sequential within a basic block.
   """
 
