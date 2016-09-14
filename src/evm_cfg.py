@@ -12,22 +12,21 @@ class EVMBasicBlock(cfg.BasicBlock):
   its parent and child nodes in the graph structure.
   """
 
-  # Separator to be used for string representation
-  __BLOCK_SEP = "\n---"
-
-  def __init__(self, entry:int=None, exit:int=None):
+  def __init__(self, entry:int=None, exit:int=None,
+               evm_ops:typing.Iterable[EVMOp]=list()):
     """
     Creates a new basic block containing operations between the
     specified entry and exit instruction counters (inclusive).
     """
     super().__init__(entry, exit)
 
-    self.evm_ops = []
+    self.evm_ops = evm_ops
     """List of EVMOps contained within this EVMBasicBlock"""
 
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
-    return "\n".join(str(op) for op in self.evm_ops) + self.__BLOCK_SEP
+    op_seq = "\n".join(str(op) for op in self.evm_ops)
+    return "\n".join(super().__str__(), self._STR_SEP, op_seq)
 
   def split(self, entry:int) -> 'EVMBasicBlock':
     """
@@ -39,12 +38,11 @@ class EVMBasicBlock(cfg.BasicBlock):
              EVMOp at this index will become the first EVMOp of the new
              BasicBlock.
     """
-    # Create the new block and assign the code line ranges
-    new = type(self)(entry, self.exit)
-    self.exit = entry - 1
+    # Create the new block.
+    new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
 
-    # Split the code ops between the two blocks
-    new.evm_ops = self.evm_ops[entry - self.entry:]
+    # Update the current node.
+    self.exit = entry - 1
     self.evm_ops = self.evm_ops[:entry - self.entry]
 
     # Update the block pointer in each line object
