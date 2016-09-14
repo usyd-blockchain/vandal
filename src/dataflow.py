@@ -16,9 +16,15 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   entry size plus the delta incurred by the instructions in its body.
   """
 
-def block_stack_delta(block:evm_cfg.EVMBasicBlock):
+  def block_stack_delta(block:evm_cfg.EVMBasicBlock):
     """Calculate the net effect on the stack size of executing
     the instruction sequence within a block."""
+    
+    # if it's a TAC Block, then there's no need to go through the
+    # EVM operations again.
+    if isinstance(block, tac_cfg.TACBasicBlock):
+        return len(block.stack_adds) - block.stack_pops
+    
     delta = 0
 
     for op in block.evm_ops:
@@ -33,13 +39,14 @@ def block_stack_delta(block:evm_cfg.EVMBasicBlock):
                   for block in cfg.blocks}
 
   # Add a distinguished empty-stack start block which does nothing.
-  start_block = evm_cfg.EVMBasicBlock()
+  start_block = cfg.EVMBasicBlock()
   exit_info[start_block] = lattice.IntLatticeElement(0)
 
   # We will initialise entry stack size of all blocks with no predecesors
   # to zero in order to reason about the stack within a connected component.
-  init_blocks = {cfg.root} | {block for block in cfg.blocks \
-                              if len(block.preds) == 0}
+  init_blocks = ({cfg.root} if cfg.root is not None else {}) | \
+                 {block for block in cfg.blocks if len(block.preds) == 0}
+
   for block in init_blocks:
     block.preds.append(start_block)
 
