@@ -8,13 +8,13 @@ Modules
    :toctree: modules
 
    cfg
-   cfglib
    destackify
+   evm_cfg
    lattice
    opcodes
    optimise
    stacksizeanalysis
-   tac
+   tac_cfg
    utils
 
 
