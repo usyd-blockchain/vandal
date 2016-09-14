@@ -7,6 +7,7 @@ Modules
 .. autosummary::
    :toctree: modules
 
+   blockparse
    cfg
    destackify
    evm_cfg
