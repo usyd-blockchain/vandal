@@ -57,10 +57,6 @@ class TACGraph(cfg.ControlFlowGraph):
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      # TODO: Add new block containing a STOP if JUMPI fallthrough is from
-      # the very last instruction and no instruction is next.
-      # (Maybe add this anyway as a common exit point during CFG construction?)
-
       jumpdest = None
       fallthrough = None
       final_op = block.tac_ops[-1]
