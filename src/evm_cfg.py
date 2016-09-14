@@ -3,7 +3,6 @@
 import typing
 
 import cfg
-import utils
 import opcodes
 
 class EVMBasicBlock(cfg.BasicBlock):

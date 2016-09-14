@@ -14,15 +14,19 @@ class TACGraph(cfg.ControlFlowGraph):
   the edges between them.
   """
 
-  def __init__(self, dasm:typing.Iterable[str]):
+  def __init__(self, evm_blocks:typing.Iterable[evm_cfg.EVMBasicBlock]):
     """
     Args:
-      dasm: raw disassembly lines to convert into a three-address code CFG.
+      evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
+    
+    Note that no edges will exist in the graph until:
+      * Some constant folding and propagation has been performed.
+      * The jumps have been rechecked.
     """
-
-    evm_blocks = blockparse.EVMBlockParser(dasm).parse()
+    super().__init__()
+    
+    # Convert the input EVM blocks to TAC blocks.
     destack = Destackifier()
-
     self.blocks = [destack.convert_block(b) for b in evm_blocks]
 
     # The entry point is always going to be at index 0.

@@ -44,6 +44,10 @@ class BasicBlock(abc.ABC):
   """
   Abstract base class for a single basic block (node) in a CFG. Each block has
   references to its predecessor and successor nodes in the graph structure.
+
+  A BasicBlock must contain exactly one entry point at the start and
+  exactly one exit point at the beginning, which no branching in between.
+  That is, program flow must be linear/sequential within a basic block.
   """
 
   _STR_SEP = "---"
@@ -68,7 +72,7 @@ class BasicBlock(abc.ABC):
     """List of nodes which receive control from this node (successors)."""
 
     self.has_unresolved_jump = False
-    """True if the node contains a jump whose destination is computed."""
+    """True if the node contains a jump whose destination is a variable."""
 
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
