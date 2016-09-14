@@ -19,13 +19,25 @@ class EVMGraph(cfg.ControlFlowGraph):
     """
     super().__init__()
 
-    self.potential_leaders = dict()
+    self.__potential_leaders = dict()
     """
     Mapping of potential leaders (stored as base-10 PC values) based on JUMP
     destinations discovered by peephole analysis; in the form:
 
       PC => list(EVMBasicBlocks)
     """
+
+    self.__ops = []
+    """
+    Sequence of EVMOps from the raw dasm lines
+    """
+
+    self.__pc2line = dict()
+    """
+    Mapping of program counters to line indices (Used for mapping jump
+    destinations to actual disassembly lines)
+    """
+
     # Parse disassembly and set root/entry block of the CFG, containing PC 0
     self.root = self.__parse_disassembly(disasm)
 
@@ -43,33 +55,31 @@ class EVMGraph(cfg.ControlFlowGraph):
     # representation when using Ethereum's disasm tool). Any line which does
     # not produce enough tokens to be valid disassembly after being split() is
     # also ignored.
-    lines = [
+    self.__ops = [
       EVMOp.from_raw(l)
       for i, l in enumerate(disasm)
       if i != 0 and len(l.split()) > 1
     ]
 
-    # Mapping of base 10 program counters to line indices (Used for mapping
-    # jump destinations to actual disassembly lines)
-    pc2line = {l.pc: i for i, l in enumerate(lines)}
+    self.__pc2line = {l.pc: i for i, l in enumerate(self.__ops)}
 
-    self.__create_blocks(lines, pc2line)
-    self.__create_edges(lines, pc2line)
+    self._create_blocks()
+    self._create_edges()
 
     # Return the "root" or "entry" block if it exists, or None
     return self.blocks[0] if len(self.blocks) > 0 else None
 
-  def __create_blocks(self, lines, pc2line):
+  def _create_blocks(self):
     # block currently being processed
-    current = EVMBasicBlock(0, len(lines) - 1)
+    current = EVMBasicBlock(0, len(self.__ops) - 1)
 
     # Linear scan of all EVMOps to create initial EVMBasicBlocks
-    for i, l in enumerate(lines):
+    for i, l in enumerate(self.__ops):
       l.block = current
       current.lines.append(l)
 
-      if l.opcode == opcodes.JUMPDEST and l.pc not in self.potential_leaders:
-        self.potential_leaders[l.pc] = []
+      if l.opcode == opcodes.JUMPDEST and l.pc not in self.__potential_leaders:
+        self.__potential_leaders[l.pc] = []
 
       # Flow-altering opcodes indicate end-of-block
       if l.opcode.alters_flow():
@@ -79,37 +89,37 @@ class EVMGraph(cfg.ControlFlowGraph):
         # For JUMPs, look for the destination in the previous line only!
         # (Peephole analysis)
         if l.opcode in (opcodes.JUMP, opcodes.JUMPI):
-          if lines[i-1].opcode.is_push():
-            dest = lines[i-1].value
-            utils.listdict_add(self.potential_leaders, dest, current)
+          if self.__ops[i-1].opcode.is_push():
+            dest = self.__ops[i-1].value
+            utils.listdict_add(self.__potential_leaders, dest, current)
           else:
               current.has_unresolved_jump = True
 
           # For JUMPI, the next sequential block starting at pc+1 is a
           # possible child of this block in the CFG
           if l.opcode == opcodes.JUMPI:
-            utils.listdict_add(self.potential_leaders, l.pc + 1, current)
+            utils.listdict_add(self.__potential_leaders, l.pc + 1, current)
 
         # Process the next sequential block in our next iteration
         current = new
 
       # Always add last block if its last instruction does not alter flow
-      elif i == len(lines) - 1:
+      elif i == len(self.__ops) - 1:
         self.blocks.append(current)
 
-  def __create_edges(self, lines, pc2line):
+  def _create_edges(self):
     # Link EVMBasicBlock CFG nodes by following JUMP destinations
-    for to_pc, from_blocks in list(self.potential_leaders.items()):
-      to_line = lines[pc2line[to_pc]]
+    for to_pc, from_blocks in list(self.__potential_leaders.items()):
+      to_line = self.__ops[self.__pc2line[to_pc]]
       to_block = to_line.block
 
       if to_line.opcode != opcodes.JUMPDEST:
-        self.potential_leaders.pop(to_pc)
+        self.__potential_leaders.pop(to_pc)
         continue
 
       # Leader is in the middle of a block, so split the block
-      if pc2line[to_pc] > to_block.entry:
-        self.blocks.append(to_block.split(pc2line[to_pc]))
+      if self.__pc2line[to_pc] > to_block.entry:
+        self.blocks.append(to_block.split(self.__pc2line[to_pc]))
         to_block = self.blocks[-1]
 
       # Ignore potential leaders with no known JUMPs coming to them
@@ -119,7 +129,7 @@ class EVMGraph(cfg.ControlFlowGraph):
           to_block.preds.append(from_block)
 
         # We've dealt with this leader, remove it from potential_leaders
-        self.potential_leaders.pop(to_pc)
+        self.__potential_leaders.pop(to_pc)
 
 class EVMBasicBlock(cfg.CFGNode):
   """
