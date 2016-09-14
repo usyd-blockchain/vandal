@@ -21,7 +21,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
 
     evm_blocks = blockparse.EVMBlockParser(dasm).parse()
-    destack = destackify.Destackifier()
+    destack = Destackifier()
 
     self.blocks = [destack.convert_block(b) for b in evm_blocks]
     # The entry point is always going to be at index 0.
@@ -150,8 +150,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   equivalent EVM code, along with information about the transformation
   applied to the stack as a consequence of its execcution."""
 
-  def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable[TACOp],
-               stack_adds:typing.Iterable[Variable], stack_pops:int,
+  def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
+               stack_adds:typing.Iterable['Variable'], stack_pops:int,
                evm_ops:typing.Iterable[evm_cfg.EVMOp]=list()):
     """
     Args:
@@ -205,7 +205,7 @@ class TACOp:
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[Variable], \
+  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable['Variable'], \
                pc:int, block=None):
     """
     Args:
@@ -255,8 +255,8 @@ class TACAssignOp(TACOp):
   this operation's result is implicitly bound.
   """
 
-  def __init__(self, lhs:Variable, opcode:opcodes.OpCode,
-               args:typing.Iterable[Variable], pc:int, block=None,
+  def __init__(self, lhs:'Variable', opcode:opcodes.OpCode,
+               args:typing.Iterable['Variable'], pc:int, block=None,
                print_name=True):
     """
     Args:
@@ -635,9 +635,9 @@ class Destackifier:
     for op in evm_block.evm_ops:
       self.__handle_evm_op(op)
 
-    entry = block.evm_ops[0].pc if len(block.lines) > 0 else -1
-    exit = block.evm_ops[-1].pc + block.evm_ops[-1].opcode.push_len() \
-           if len(block.lines) > 0 else -1
+    entry = evm_block.evm_ops[0].pc if len(evm_block.evm_ops) > 0 else -1
+    exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
+           if len(evm_block.evm_ops) > 0 else -1
 
     new_block = TACBasicBlock(entry, exit, self.ops, self.stack, 
                               self.extern_pops, evm_block.evm_ops)
@@ -645,22 +645,22 @@ class Destackifier:
       op.block = new_block
     return new_block
 
-  def __handle_line(self, line:evm_cfg.EVMOp) -> None:
+  def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
     """
     Convert a line to its corresponding instruction, if there is one,
     and manipulate the stack in any needful way.
     """
 
-    if line.opcode.is_swap():
-      self.__swap(line.opcode.pop)
-    elif line.opcode.is_dup():
-      self.__dup(line.opcode.pop)
-    elif line.opcode == opcodes.POP:
+    if op.opcode.is_swap():
+      self.__swap(op.opcode.pop)
+    elif op.opcode.is_dup():
+      self.__dup(op.opcode.pop)
+    elif op.opcode == opcodes.POP:
       self.__pop()
     else:
-      self.__gen_instruction(line)
+      self.__gen_instruction(op)
 
-  def __gen_instruction(self, line:evm_cfg.EVMOp) -> None:
+  def __gen_instruction(self, op:evm_cfg.EVMOp) -> None:
     """
     Given a line, generate its corresponding TAC operation,
     append it to the op sequence, and push any generated
@@ -670,38 +670,38 @@ class Destackifier:
     inst = None
     # All instructions that push anything push exactly
     # one word to the stack. Assign that symbolic variable here.
-    var = self.__new_var() if line.opcode.push == 1 else None
+    var = self.__new_var() if op.opcode.push == 1 else None
 
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
-    if line.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [Constant(line.value)],
-                         line.pc, print_name=False)
-    elif line.opcode.is_log():
-      inst = TACOp(opcodes.LOG, self.__pop_many(line.opcode.pop), line.pc)
-    elif line.opcode == opcodes.MLOAD:
-      inst = TACAssignOp(var, line.opcode, [MLoc(self.__pop())],
-                         line.pc, print_name=False)
-    elif line.opcode == opcodes.MSTORE:
+    if op.opcode.is_push():
+      inst = TACAssignOp(var, opcodes.CONST, [Constant(op.value)],
+                         op.pc, print_name=False)
+    elif op.opcode.is_log():
+      inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
+    elif op.opcode == opcodes.MLOAD:
+      inst = TACAssignOp(var, op.opcode, [MLoc(self.__pop())],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.MSTORE:
       args = self.__pop_many(2)
-      inst = TACAssignOp(MLoc(args[0]), line.opcode, args[1:],
-                         line.pc, print_name=False)
-    elif line.opcode == opcodes.MSTORE8:
+      inst = TACAssignOp(MLoc(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.MSTORE8:
       args = self.__pop_many(2)
-      inst = TACAssignOp(MLocByte(args[0]), line.opcode, args[1:],
-                         line.pc, print_name=False)
-    elif line.opcode == opcodes.SLOAD:
-      inst = TACAssignOp(var, line.opcode, [SLoc(self.__pop())],
-                         line.pc, print_name=False)
-    elif line.opcode == opcodes.SSTORE:
+      inst = TACAssignOp(MLocByte(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.SLOAD:
+      inst = TACAssignOp(var, op.opcode, [SLoc(self.__pop())],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.SSTORE:
       args = self.__pop_many(2)
-      inst = TACAssignOp(SLoc(args[0]), line.opcode, args[1:],
-                         line.pc, print_name=False)
+      inst = TACAssignOp(SLoc(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
     elif var is not None:
-      inst = TACAssignOp(var, line.opcode,
-                         self.__pop_many(line.opcode.pop), line.pc)
+      inst = TACAssignOp(var, op.opcode,
+                         self.__pop_many(op.opcode.pop), op.pc)
     else:
-      inst = TACOp(line.opcode, self.__pop_many(line.opcode.pop), line.pc)
+      inst = TACOp(op.opcode, self.__pop_many(op.opcode.pop), op.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:

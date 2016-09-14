@@ -13,7 +13,7 @@ class EVMBasicBlock(cfg.BasicBlock):
   """
 
   def __init__(self, entry:int=None, exit:int=None,
-               evm_ops:typing.Iterable[EVMOp]=list()):
+               evm_ops:typing.Iterable['EVMOp']=list()):
     """
     Creates a new basic block containing operations between the
     specified entry and exit instruction counters (inclusive).
