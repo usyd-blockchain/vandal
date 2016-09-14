@@ -78,7 +78,7 @@ class BasicBlock(abc.ABC):
     return id(self)
 
   def __str__(self):
-    head = "Block {} - {}".format(hex(entry), hex(exit))
+    head = "Block {} - {}".format(hex(self.entry), hex(self.exit))
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
     succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
     unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""

@@ -26,7 +26,7 @@ class EVMBasicBlock(cfg.BasicBlock):
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
     op_seq = "\n".join(str(op) for op in self.evm_ops)
-    return "\n".join(super().__str__(), self._STR_SEP, op_seq)
+    return "\n".join([super().__str__(), self._STR_SEP, op_seq])
 
   def split(self, entry:int) -> 'EVMBasicBlock':
     """

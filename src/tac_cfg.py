@@ -63,7 +63,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
       jumpdest = None
       fallthrough = None
-      final_op = block.ops[-1]
+      final_op = block.tac_ops[-1]
       invalid_jump = False
       unresolved = True
 
@@ -75,7 +75,7 @@ class TACGraph(cfg.ControlFlowGraph):
         if cond.is_const():
           # If the condition can never be true, remove the jump.
           if cond.value == 0:
-            block.ops.pop()
+            block.tac_ops.pop()
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
           # If the condition is always true, the JUMPI behaves like a JUMP.
@@ -117,7 +117,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
-        block.ops[-1] = TACOp.convert_jump_to_throw(final_op)
+        block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
 
@@ -139,7 +139,7 @@ class TACGraph(cfg.ControlFlowGraph):
   def get_op_by_pc(self, pc:int):
     """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
-      for op in block.ops:
+      for op in block.tac_ops:
         if op.pc == pc:
           return op
     return None
@@ -190,11 +190,12 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     """Number of items removed from the stack during block execution."""
 
   def __str__(self):
-    op_seq = "\n".join(str(op) for op in self.ops)
+    op_seq = "\n".join(str(op) for op in self.tac_ops)
     stack_pops = "Stack pops: {}".format(self.stack_pops)
     stack_str = ", ".join([str(v) for v in self.stack_adds])
     stack_adds = "Stack additions: [{}]".format(stack_str)
-    return "\n".join([head, "---", op_seq, "---", stack_pops, stack_adds])
+    return "\n".join([super().__str__(), self._STR_SEP, op_seq, self._STR_SEP, \
+                      stack_pops, stack_adds])
 
 
 class TACOp:
