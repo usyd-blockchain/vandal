@@ -42,10 +42,6 @@ class BasicBlock(abc.ABC):
   Abstract base class for a single basic block (node) in a CFG. Each block has
   references to its predecessor and successor nodes in the graph structure.
   """
-
-  # Separator to be used for string representation
-  __BLOCK_SEP = "\n---"
-
   @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
     """
@@ -71,10 +67,6 @@ class BasicBlock(abc.ABC):
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
     return self.exit - self.entry
-
-  def __str__(self):
-    """Returns a string representation of this block and all lines in it."""
-    return "\n".join(str(l) for l in self.lines) + self.__BLOCK_SEP
 
   def __hash__(self):
     return id(self)

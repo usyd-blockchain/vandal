@@ -11,13 +11,54 @@ class EVMBasicBlock(cfg.BasicBlock):
   Represents a single basic block in the control flow graph (CFG), including
   its parent and child nodes in the graph structure.
   """
+
+  # Separator to be used for string representation
+  __BLOCK_SEP = "\n---"
+
   def __init__(self, entry:int=None, exit:int=None):
-    """Creates a new basic block containing disassembly lines between the
-    specified entry index and the specified exit index (inclusive)."""
+    """
+    Creates a new basic block containing operations between the
+    specified entry and exit instruction counters (inclusive).
+    """
     super().__init__(entry, exit)
 
     self.evm_ops = []
     """List of EVMOps contained within this EVMBasicBlock"""
+
+  def __str__(self):
+    """Returns a string representation of this block and all ops in it."""
+    return "\n".join(str(op) for op in self.evm_ops) + self.__BLOCK_SEP
+
+  def split(self, entry:int) -> 'EVMBasicBlock':
+    """
+    Splits current block into a new block, starting at the specified
+    entry op index. Returns a new EVMBasicBlock with no preds or succs.
+
+    Args:
+      entry: unique index of EVMOp from which the block should be split. The
+             EVMOp at this index will become the first EVMOp of the new
+             BasicBlock.
+    """
+    # Create the new block and assign the code line ranges
+    new = type(self)(entry, self.exit)
+    self.exit = entry - 1
+
+    # Split the code ops between the two blocks
+    new.evm_ops = self.evm_ops[entry - self.entry:]
+    self.evm_ops = self.evm_ops[:entry - self.entry]
+
+    # Update the block pointer in each line object
+    self.__update_evmop_refs()
+    new.__update_evmop_refs()
+
+    return new
+
+  def __update_evmop_refs(self):
+    # Update references back to parent block for each opcode
+    # This needs to be done when a block is split
+    for op in self.evm_ops:
+      op.block = self
+
 
 class EVMOp:
   """
