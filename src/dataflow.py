@@ -1,21 +1,10 @@
-"""stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
-in a CFG"""
+"""dataflow.py: fixed-point, dataflow, static analyses for CFGs"""
 
 import cfg
 import evm_cfg
 import lattice
 
-def block_stack_delta(block:evm_cfg.EVMBasicBlock):
-  """Calculate the net effect on the stack size of executing
-  the instruction sequence within a block."""
-  delta = 0
-
-  for line in block.lines:
-    delta += line.opcode.stack_delta()
-
-  return delta
-
-def run_analysis(cfg:cfg.ControlFlowGraph):
+def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
@@ -26,6 +15,16 @@ def run_analysis(cfg:cfg.ControlFlowGraph):
   the exit sizes of its predecessors. Its own exit size is then its
   entry size plus the delta incurred by the instructions in its body.
   """
+
+def block_stack_delta(block:evm_cfg.EVMBasicBlock):
+    """Calculate the net effect on the stack size of executing
+    the instruction sequence within a block."""
+    delta = 0
+
+    for op in block.evm_ops:
+      delta += op.opcode.stack_delta()
+
+    return delta
 
   # Stack size information per block at entry and exit points.
   entry_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
