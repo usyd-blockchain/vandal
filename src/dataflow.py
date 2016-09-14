@@ -39,7 +39,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
                   for block in cfg.blocks}
 
   # Add a distinguished empty-stack start block which does nothing.
-  start_block = cfg.EVMBasicBlock()
+  start_block = evm_cfg.EVMBasicBlock()
   exit_info[start_block] = lattice.IntLatticeElement(0)
 
   # We will initialise entry stack size of all blocks with no predecesors
