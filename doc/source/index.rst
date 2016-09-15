@@ -10,7 +10,6 @@ Modules
    blockparse
    cfg
    dataflow
-   destackify
    evm_cfg
    exporter
    lattice
