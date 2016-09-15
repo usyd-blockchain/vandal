@@ -38,7 +38,7 @@ class Variable:
   # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return hash(self.ident)
-  
+
   @property
   def is_const(self) -> bool:
     """

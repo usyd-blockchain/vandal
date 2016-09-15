@@ -19,12 +19,12 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   def block_stack_delta(block:evm_cfg.EVMBasicBlock):
     """Calculate the net effect on the stack size of executing
     the instruction sequence within a block."""
-    
+
     # if it's a TAC Block, then there's no need to go through the
     # EVM operations again.
     if isinstance(block, tac_cfg.TACBasicBlock):
         return len(block.stack_adds) - block.stack_pops
-    
+
     delta = 0
 
     for op in block.evm_ops:

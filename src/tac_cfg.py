@@ -18,13 +18,13 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     Args:
       evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
-    
+
     Note that no edges will exist in the graph until:
       * Some constant folding and propagation has been performed.
       * The jumps have been rechecked.
     """
     super().__init__()
-    
+
     # Convert the input EVM blocks to TAC blocks.
     destack = Destackifier()
 
@@ -144,7 +144,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
-  """A basic block containing both three-address code, and its 
+  """A basic block containing both three-address code, and its
   equivalent EVM code, along with information about the transformation
   applied to the stack as a consequence of its execcution."""
 
@@ -374,7 +374,7 @@ class Destackifier:
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
            if len(evm_block.evm_ops) > 0 else -1
 
-    new_block = TACBasicBlock(entry, exit, self.ops, self.stack, 
+    new_block = TACBasicBlock(entry, exit, self.ops, self.stack,
                               self.extern_pops, evm_block.evm_ops)
     for op in self.ops:
       op.block = new_block

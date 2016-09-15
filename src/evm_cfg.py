@@ -20,7 +20,7 @@ class EVMBasicBlock(cfg.BasicBlock):
     Args:
       entry: block entry point program counter
       exit: block exit point program counter
-      evm_ops: a sequence of operations that constitute this BasicBlock's code. Default empty. 
+      evm_ops: a sequence of operations that constitute this BasicBlock's code. Default empty.
     """
     super().__init__(entry, exit)
 
