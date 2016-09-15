@@ -38,7 +38,8 @@ class Variable:
   # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return hash(self.ident)
-
+  
+  @property
   def is_const(self) -> bool:
     """
     True if this variable is an instance of Constant.
@@ -64,6 +65,7 @@ class Constant(Variable):
   def __hash__(self):
     return self.value
 
+  @property
   def is_const(self) -> bool:
     """True if this Variable is a Constant."""
     return True
@@ -80,6 +82,7 @@ class Constant(Variable):
   # whose value is the result of applying the operation to the argument values.
   # For comparison operators, "True" and "False" are represented by Constants
   # with the value 1 and 0 respectively.
+  # These names should be identical to the opcode names themselves.
 
   @classmethod
   def ADD(cls, l: 'Constant', r: 'Constant') -> 'Constant':
@@ -240,6 +243,7 @@ class Location:
   def __hash__(self):
     return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
 
+  @property
   def is_const(self) -> bool:
     """
     True if this variable is an instance of Constant.

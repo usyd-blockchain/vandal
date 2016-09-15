@@ -78,9 +78,6 @@ class BasicBlock(abc.ABC):
     """Returns the number of lines of code contained within this block."""
     return self.exit - self.entry
 
-  def __hash__(self):
-    return id(self)
-
   def __str__(self):
     head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))

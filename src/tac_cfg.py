@@ -6,7 +6,7 @@ import opcodes
 import cfg
 import evm_cfg
 import memtypes as mem
-
+import blockparse
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -27,15 +27,21 @@ class TACGraph(cfg.ControlFlowGraph):
     
     # Convert the input EVM blocks to TAC blocks.
     destack = Destackifier()
-    self.blocks = [destack.convert_block(b) for b in evm_blocks]
 
-    # The entry point is always going to be at index 0, if it exists.
+    self.blocks = [destack.convert_block(b) for b in evm_blocks]
+    """The sequence of TACBasicBlocks contained in this graph."""
+
     self.root = next((b for b in self.blocks if b.entry == 0), None)
+    """The root block of this CFG. The entry point will always be at index 0, if it exists."""
+
+  @classmethod
+  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TacGraph':
+    return cls(blockparse.EVMBlockParser(dasm).parse())
 
   def recalc_preds(self):
     """
     Given a cfg where block successor lists are populated,
-    also populate the predecessor lists.
+    also repopulate the predecessor lists, after emptying them.
     """
     for block in self.blocks:
       block.preds = []
@@ -64,7 +70,7 @@ class TACGraph(cfg.ControlFlowGraph):
         cond = final_op.args[1]
 
         # If the condition is constant, there is only one jump destination.
-        if cond.is_const():
+        if cond.is_const:
           # If the condition can never be true, remove the jump.
           if cond.value == 0:
             block.tac_ops.pop()
@@ -72,7 +78,7 @@ class TACGraph(cfg.ControlFlowGraph):
             unresolved = False
           # If the condition is always true, the JUMPI behaves like a JUMP.
           # Check that the dest is constant and/or valid
-          elif dest.is_const():
+          elif dest.is_const:
             final_op.opcode = opcodes.JUMP
             final_op.args.pop()
             if self.is_valid_jump_dest(dest.value):
@@ -81,7 +87,7 @@ class TACGraph(cfg.ControlFlowGraph):
               invalid_jump = True
             unresolved = False
           # Otherwise, the jump has not been resolved.
-        elif dest.is_const():
+        elif dest.is_const:
           # We've already covered the case that both cond and dest are const
           # So only handle a variable condition
           unresolved = False
@@ -93,7 +99,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
       elif final_op.opcode == opcodes.JUMP:
         dest = final_op.args[0]
-        if dest.is_const():
+        if dest.is_const:
           unresolved = False
           if self.is_valid_jump_dest(dest.value):
             jumpdest = self.get_op_by_pc(dest.value).block
@@ -138,13 +144,13 @@ class TACGraph(cfg.ControlFlowGraph):
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
-  """A basic block containing both three-address code, and possibly its 
+  """A basic block containing both three-address code, and its 
   equivalent EVM code, along with information about the transformation
   applied to the stack as a consequence of its execcution."""
 
   def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
                stack_adds:typing.Iterable[mem.Variable], stack_pops:int,
-               evm_ops:typing.Iterable[evm_cfg.EVMOp]=None):
+               evm_ops:typing.Iterable[evm_cfg.EVMOp]):
     """
     Args:
       entry: The pc of the first byte in the source EVM block
@@ -154,7 +160,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
                   this block is executed. The new head is last in sequence.
       stack_pops: the number of items removed from the stack over the course of
                   block execution.
-      evm_ops: optionally, the source EVM code.
+      evm_ops: the source EVM code.
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
@@ -182,11 +188,12 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     """Number of items removed from the stack during block execution."""
 
   def __str__(self):
+    super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.tac_ops)
     stack_pops = "Stack pops: {}".format(self.stack_pops)
     stack_str = ", ".join([str(v) for v in self.stack_adds])
     stack_adds = "Stack additions: [{}]".format(stack_str)
-    return "\n".join([super().__str__(), self._STR_SEP, op_seq, self._STR_SEP, \
+    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP, \
                       stack_pops, stack_adds])
 
 
@@ -206,7 +213,7 @@ class TACOp:
       args: variables or constants that are operated upon.
       pc: the program counter at the corresponding instruction in the
           original bytecode.
-      block: the block this operation belongs to.
+      block: the block this operation belongs to. Defaults to None.
     """
     self.opcode = opcode
     self.args = args
@@ -226,7 +233,7 @@ class TACOp:
 
   def const_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
-    return all([arg.is_const() for arg in self.args])
+    return all([arg.is_const for arg in self.args])
 
   @classmethod
   def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':

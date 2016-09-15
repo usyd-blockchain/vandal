@@ -16,6 +16,11 @@ class EVMBasicBlock(cfg.BasicBlock):
     """
     Creates a new basic block containing operations between the
     specified entry and exit instruction counters (inclusive).
+
+    Args:
+      entry: block entry point program counter
+      exit: block exit point program counter
+      evm_ops: a sequence of operations that constitute this BasicBlock's code. Default empty. 
     """
     super().__init__(entry, exit)
 
@@ -24,8 +29,9 @@ class EVMBasicBlock(cfg.BasicBlock):
 
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
+    super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.evm_ops)
-    return "\n".join([super().__str__(), self._STR_SEP, op_seq])
+    return "\n".join([super_str, self._STR_SEP, op_seq])
 
   def split(self, entry:int) -> 'EVMBasicBlock':
     """
@@ -69,7 +75,7 @@ class EVMOp:
     Args:
       pc: program counter of this operation
       opcode: VM operation code
-      value: constant int value or None in case of non-PUSH operations
+      value: constant int value or default None in case of non-PUSH operations
 
     Each line of disasm output is structured as follows:
 

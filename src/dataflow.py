@@ -57,7 +57,8 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = lattice.IntLatticeElement.meet_all([exit_info[parent] for parent in current.preds])
+    new_entry = lattice.IntLatticeElement.meet_all([exit_info[p] \
+                                                   for p in current.preds])
 
     # If the entry value changed, we have to recompute
     # its exit value, and the entry value for its successors, eventually.
