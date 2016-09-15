@@ -3,7 +3,6 @@
 import typing
 
 import cfg
-import utils
 import opcodes
 
 class EVMBasicBlock(cfg.BasicBlock):
@@ -12,22 +11,27 @@ class EVMBasicBlock(cfg.BasicBlock):
   its parent and child nodes in the graph structure.
   """
 
-  # Separator to be used for string representation
-  __BLOCK_SEP = "\n---"
-
-  def __init__(self, entry:int=None, exit:int=None):
+  def __init__(self, entry:int=None, exit:int=None,
+               evm_ops:typing.Iterable['EVMOp']=None):
     """
     Creates a new basic block containing operations between the
     specified entry and exit instruction counters (inclusive).
+
+    Args:
+      entry: block entry point program counter
+      exit: block exit point program counter
+      evm_ops: a sequence of operations that constitute this BasicBlock's code. Default empty.
     """
     super().__init__(entry, exit)
 
-    self.evm_ops = []
+    self.evm_ops = evm_ops if evm_ops is not None else []
     """List of EVMOps contained within this EVMBasicBlock"""
 
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
-    return "\n".join(str(op) for op in self.evm_ops) + self.__BLOCK_SEP
+    super_str = super().__str__()
+    op_seq = "\n".join(str(op) for op in self.evm_ops)
+    return "\n".join([super_str, self._STR_SEP, op_seq])
 
   def split(self, entry:int) -> 'EVMBasicBlock':
     """
@@ -39,12 +43,11 @@ class EVMBasicBlock(cfg.BasicBlock):
              EVMOp at this index will become the first EVMOp of the new
              BasicBlock.
     """
-    # Create the new block and assign the code line ranges
-    new = type(self)(entry, self.exit)
-    self.exit = entry - 1
+    # Create the new block.
+    new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
 
-    # Split the code ops between the two blocks
-    new.evm_ops = self.evm_ops[entry - self.entry:]
+    # Update the current node.
+    self.exit = entry - 1
     self.evm_ops = self.evm_ops[:entry - self.entry]
 
     # Update the block pointer in each line object
@@ -72,7 +75,7 @@ class EVMOp:
     Args:
       pc: program counter of this operation
       opcode: VM operation code
-      value: constant int value or None in case of non-PUSH operations
+      value: constant int value or default None in case of non-PUSH operations
 
     Each line of disasm output is structured as follows:
 

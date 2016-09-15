@@ -9,16 +9,15 @@ Modules
 
    blockparse
    cfg
-   destackify
+   dataflow
    evm_cfg
    exporter
    lattice
+   memtypes
    opcodes
    optimise
    patterns
-   stacksizeanalysis
    tac_cfg
-   utils
 
 
 Indices and tables

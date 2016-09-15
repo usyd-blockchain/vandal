@@ -3,462 +3,45 @@ objects."""
 
 import typing
 import opcodes
-
-class Variable:
-  """A symbolic variable whose value is supposed to be
-  the result of some TAC operation. Its size is 32 bytes."""
-
-  SIZE = 32
-  """Variables are 32 bytes in size."""
-
-  CARDINALITY = 2**(SIZE * 8)
-  """
-  The number of distinct values representable by this variable.
-  The maximum integer representable by this Variable is then CARDINALITY - 1.
-  """
-
-  def __init__(self, ident:str):
-    """
-    Args:
-      ident: the name that uniquely identifies this variable.
-    """
-    self.ident = ident
-
-  def __str__(self):
-    return self.ident
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      self.__str__()
-    )
-
-  def __eq__(self, other):
-    return self.ident == other.ident
-
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
-  def __hash__(self):
-    return hash(self.ident)
-
-  def is_const(self) -> bool:
-    """
-    True if this variable is an instance of Constant.
-    Neater and more meaningful than using isinstance().
-    """
-    return False
-
-
-class Constant(Variable):
-  """A specialised variable whose value is a constant integer."""
-
-  def __init__(self, value:int):
-    self.value = value % self.CARDINALITY
-
-  def __str__(self):
-    return hex(self.value)
-
-  def __eq__(self, other):
-    return self.value == other.value
-
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
-  def __hash__(self):
-    return self.value
-
-  def is_const(self) -> bool:
-    """True if this Variable is a Constant."""
-    return True
-
-  def twos_compl(self) -> int:
-    """
-    Return the signed two's complement interpretation of this constant's value.
-    """
-    if self.value & (self.CARDINALITY - 1):
-      return self.CARDINALITY - self.value
-
-
-  # EVM arithmetic operations.
-  # Each takes in two Constant arguments, and returns a new Constant
-  # whose value is the result of applying the operation to the argument values.
-  # For comparison operators, "True" and "False" are represented by Constants
-  # with the value 1 and 0 respectively.
-
-  @classmethod
-  def ADD(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Return the sum of the inputs."""
-    return cls((l.value + r.value))
-
-  @classmethod
-  def MUL(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Return the product of the inputs."""
-    return cls((l.value * r.value))
-
-  @classmethod
-  def SUB(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Return the difference of the inputs."""
-    return cls((l.value - r.value))
-
-  @classmethod
-  def DIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Return the quotient of the inputs."""
-    return cls(0 if r.value == 0 else l.value // r.value)
-
-  @classmethod
-  def SDIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Return the signed quotient of the inputs."""
-    l_val, r_val = l.twos_compl(), r.twos_compl()
-    sign = 1 if l_val * r_val >= 0 else -1
-    return cls(0 if r_val == 0 else sign * (abs(l_val) // abs(r_val)))
-
-  @classmethod
-  def MOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
-    """Modulo operator."""
-    return cls(0 if m.value == 0 else v.value % m.value)
-
-  @classmethod
-  def SMOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
-    """Signed modulo operator. The output takes the sign of v."""
-    v_val, m_val = v.twos_compl(), m.twos_compl()
-    sign = 1 if v_val >= 0 else -1
-    return cls(0 if m.value == 0 else sign * (abs(v_val) % abs(m_val)))
-
-  @classmethod
-  def ADDMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
-    """Modular addition: return (l + r) modulo m."""
-    return cls(0 if m.value == 0 else (l.value + r.value) % m.value)
-
-  @classmethod
-  def MULMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
-    """Modular multiplication: return (l * r) modulo m."""
-    return cls(0 if m.value == 0 else (l.value * r.value) % m.value)
-
-  @classmethod
-  def EXP(cls, b: 'Constant', e: 'Constant') -> 'Constant':
-    """Exponentiation: return b to the power of e."""
-    return cls(b.value ** e.value)
-
-  @classmethod
-  def SIGNEXTEND(cls, b: 'Constant', v: 'Constant') -> 'Constant':
-    """
-    Return v, but with the high bit of its b'th byte extended all the way
-    to the most significant bit of the output.
-    """
-    pos = 8 * (b.value + 1)
-    mask = int("1"*((self.SIZE * 8) - pos) + "0"*pos, 2)
-    val = 1 if (v.value & (1 << (pos - 1))) > 0 else 0
-
-    return cls((v.value & mask) if val == 0 else (v.value | ~mask))
-
-  @classmethod
-  def LT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Less-than comparison."""
-    return cls(1 if l.value < r.value else 0)
-
-  @classmethod
-  def GT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Greater-than comparison."""
-    return cls(1 if l.value > r.value else 0)
-
-  @classmethod
-  def SLT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Signed less-than comparison."""
-    return cls(1 if l.twos_compl() < r.twos_compl() else 0)
-
-  @classmethod
-  def SGT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Signed greater-than comparison."""
-    return cls(1 if l.twos_compl() > r.twos_compl() else 0)
-
-  @classmethod
-  def EQ(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Equality comparison."""
-    return cls(1 if l.value == r.value else 0)
-
-  @classmethod
-  def ISZERO(cls, v: 'Constant') -> 'Constant':
-    """1 if the input is zero, 0 otherwise."""
-    return cls(1 if v.value == 0 else 0)
-
-  @classmethod
-  def AND(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Bitwise AND."""
-    return cls(l.value & r.value)
-
-  @classmethod
-  def OR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Bitwise OR."""
-    return cls(l.value | r.value)
-
-  @classmethod
-  def XOR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
-    """Bitwise XOR."""
-    return cls(l.value ^ r.value)
-
-  @classmethod
-  def NOT(cls, v: 'Constant') -> 'Constant':
-    """Bitwise NOT."""
-    return cls(~v.value)
-
-  @classmethod
-  def BYTE(cls, b: 'Constant', v: 'Constant') -> 'Constant':
-    """Return the b'th byte of v."""
-    return cls((v >> ((self.SIZE - b)*8)) & 0xFF)
-
-
-class Location:
-  """A generic storage location."""
-
-  def __init__(self, space_id:str, size:int, address:Variable):
-    """
-    Construct a location from the name of the space,
-    and the size of the storage location in bytes.
-
-    Args:
-      space_id: The identifier of an address space.
-      size: Size of this location in bytes.
-      address: Either a variable or a constant indicating the location.
-    """
-    self.space_id = space_id
-    self.size = size
-    self.address = address
-
-  def __str__(self):
-    return "{}[{}]".format(self.space_id, self.address)
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      self.__str__()
-    )
-
-  def __eq__(self, other):
-    return (self.space_id == other.space_id) \
-           and (self.address == other.address) \
-           and (self.size == other.size)
-
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
-  def __hash__(self):
-    return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
-
-  def is_const(self) -> bool:
-    """
-    True if this variable is an instance of Constant.
-    Neater and more meaningful than using isinstance().
-    """
-    return False
-
-class MLoc(Location):
-  """A symbolic memory region 32 bytes in length."""
-  def __init__(self, address:Variable):
-    super().__init__("M", 32, address)
-
-
-class MLocByte(Location):
-  """ A symbolic one-byte cell from memory."""
-  def __init__(self, address:Variable):
-    super().__init__("M1", 1, address)
-
-
-class SLoc(Location):
-  """A symbolic one word static storage location."""
-  def __init__(self, address:Variable):
-    super().__init__("S", 32, address)
-
-class TACOp:
-  """
-  A Three-Address Code operation.
-  Each operation consists of an opcode object defining its function,
-  a list of argument variables, and the unique program counter address
-  of the EVM instruction it was derived from.
-  """
-
-  def __init__(self, opcode:opcodes.OpCode, args:typing.List[Variable], \
-               pc:int, block=None):
-    """
-    Args:
-      opcode: the operation being performed.
-      args: variables or constants that are operated upon.
-      pc: the program counter at the corresponding instruction in the
-          original bytecode.
-      block: the block this operation belongs to.
-    """
-    self.opcode = opcode
-    self.args = args
-    self.pc = pc
-    self.block = block
-
-  def __str__(self):
-    return "{}: {} {}".format(hex(self.pc), self.opcode,
-                " ".join([str(arg) for arg in self.args]))
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      self.__str__()
-    )
-
-  def const_args(self) -> bool:
-    """True iff each of this operations arguments is a constant value."""
-    return all([arg.is_const() for arg in self.args])
-
-  @classmethod
-  def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
-    """
-    Given a jump, convert it to a throw, preserving the condition var if JUMPI.
-    Otherwise, return the given operation unchanged.
-    """
-    if op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
-      return op
-    elif op.opcode == opcodes.JUMP:
-      return cls(opcodes.THROW, [], op.pc, op.block)
-    elif op.opcode == opcodes.JUMPI:
-      return cls(opcodes.THROWI, [op.args[1]], op.pc, op.block)
-
-
-class TACAssignOp(TACOp):
-  """
-  A TAC operation that additionally takes a variable to which
-  this operation's result is implicitly bound.
-  """
-
-  def __init__(self, lhs:Variable, opcode:opcodes.OpCode,
-               args:typing.List[Variable], pc:int, block=None,
-               print_name=True):
-    """
-    Args:
-      lhs: The variable that will receive the result of this operation.
-      opcode: The operation being performed.
-      args: Variables or constants that are operated upon.
-      pc: The program counter at this instruction in the original bytecode.
-      block: The block this operation belongs to.
-      print_name: Some operations (e.g. CONST) don't need to print their
-                  name in order to be readable.
-    """
-    super().__init__(opcode, args, pc, block)
-    self.lhs = lhs
-    self.print_name = print_name
-
-  def __str__(self):
-    arglist = ([str(self.opcode)] if self.print_name else []) \
-              + [str(arg) for arg in self.args]
-    return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
-
-
-class TACBlock:
-  def __init__(self, entry:int, exit:int, ops:typing.List[TACOp],
-               stack_adds:typing.List[Variable], stack_pops:int):
-    """
-    Args:
-      entry: The program counter of the first byte in the source EVM block
-      exit: The pc of the last byte in the source EVM block
-      ops: A sequence of TACOps whose execution is equivalent to the source EVM
-      stack_adds: A sequence of new items inhabiting the top of stack after
-                       this block is executed. The new head is last in sequence.
-      stack_pops: the number of items removed from the stack over the course of
-                  block execution.
-
-      Entry and exit variables should span the entire range of values enclosed
-      in this block, taking care to note that the exit address may not be an
-      instruction, but an argument of a POP.
-      The range of pc values spanned by all blocks in the CFG should be a
-      continuous range from 0 to the maximum value with no gaps between blocks.
-
-      The stack_adds and stack_pops members together describe the change
-      in the stack state as a result of running this block. That is, delete the
-      top stack_pops items from the entry stack, then add the stack_additions
-      items, to obtain the new stack.
-    """
-
-    self.entry = entry
-    """The program counter of the first byte in the source EVM block"""
-
-    self.exit = exit
-    """The pc of the last byte in the source EVM block"""
-
-    self.ops = ops
-    """A sequence of TACOps whose execution is equivalent to the source EVM
-       code"""
-
-    self.stack_adds = stack_adds
-    """A sequence of new items inhabiting the top of stack after this block is
-       executed. The new head is last in sequence."""
-
-    self.stack_pops = stack_pops
-    """Number of items removed from the stack during block execution."""
-
-    self.preds = []
-    """List of predecessor blocks that could branch to this block."""
-
-    self.succs = []
-    """List of successor blocks that this one could branch to."""
-
-    self.has_unresolved_jump = False
-    """True if the last instruction is a jump whose destination is
-       computed."""
-
-  def __str__(self):
-    head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
-    op_seq = "\n".join(str(op) for op in self.ops)
-    stack_state = "Stack pops: {}\nStack additions: [{}]".format( \
-                              self.stack_pops, \
-                              ", ".join([str(add) for add in self.stack_adds]))
-    pred = "Predecessors: [{}]".format(", ".join(hex(block.entry) \
-                                               for block in self.preds))
-    succ = "Successors: [{}]".format(", ".join(hex(block.entry) \
-                                               for block in self.succs))
-    unresolved = "Unresolved Jump" if self.has_unresolved_jump else ""
-    return "\n".join([head, "---", op_seq, "---", \
-                      stack_state, pred, succ, unresolved])
-
-class TacCfg:
+import cfg
+import evm_cfg
+import memtypes as mem
+import blockparse
+
+class TACGraph(cfg.ControlFlowGraph):
   """
   A control flow graph holding Three-Address Code blocks and
   the edges between them.
   """
 
-  def __init__(self, cfg):
+  def __init__(self, evm_blocks:typing.Iterable[evm_cfg.EVMBasicBlock]):
     """
     Args:
-      cfg: an EVM control flow graph to convert into three-address form.
+      evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
+
+    Note that no edges will exist in the graph until:
+      * Some constant folding and propagation has been performed.
+      * The jumps have been rechecked.
     """
-    destack = destackify.Destackifier()
+    super().__init__()
 
-    # Convert all EVM blocks to TAC blocks.
-    converted_map = {block: destack.convert_block(block) \
-                     for block in cfg.blocks}
+    # Convert the input EVM blocks to TAC blocks.
+    destack = Destackifier()
 
-    # Determine which blocks have indeterminate jump destinations.
-    for b in cfg.blocks:
-      converted_map[b].has_unresolved_jump = b.has_unresolved_jump
+    self.blocks = [destack.convert_block(b) for b in evm_blocks]
+    """The sequence of TACBasicBlocks contained in this graph."""
 
-    # Connect all the edges.
-    for block in converted_map:
-      converted = converted_map[block]
-      converted.preds = [converted_map[parent] \
-                                for parent in block.preds]
-      converted.succs = [converted_map[child] \
-                              for child in block.succs]
+    self.root = next((b for b in self.blocks if b.entry == 0), None)
+    """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
-    self.blocks = converted_map.values()
-
-  def edge_list(self):
-    """Return a list of all edges in the graph."""
-    edges = []
-    for src in self.blocks:
-      for dest in src.succs:
-        edges.append((src.entry, dest.entry))
-
-    return edges
+  @classmethod
+  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TACGraph':
+    return cls(blockparse.EVMBlockParser(dasm).parse())
 
   def recalc_preds(self):
     """
     Given a cfg where block successor lists are populated,
-    also populate the predecessor lists.
+    also repopulate the predecessor lists, after emptying them.
     """
     for block in self.blocks:
       block.preds = []
@@ -476,13 +59,9 @@ class TacCfg:
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      # TODO: Add new block containing a STOP if JUMPI fallthrough is from
-      # the very last instruction and no instruction is next.
-      # (Maybe add this anyway as a common exit point during CFG construction?)
-
       jumpdest = None
       fallthrough = None
-      final_op = block.ops[-1]
+      final_op = block.tac_ops[-1]
       invalid_jump = False
       unresolved = True
 
@@ -491,15 +70,15 @@ class TacCfg:
         cond = final_op.args[1]
 
         # If the condition is constant, there is only one jump destination.
-        if cond.is_const():
+        if cond.is_const:
           # If the condition can never be true, remove the jump.
           if cond.value == 0:
-            block.ops.pop()
+            block.tac_ops.pop()
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
           # If the condition is always true, the JUMPI behaves like a JUMP.
           # Check that the dest is constant and/or valid
-          elif dest.is_const():
+          elif dest.is_const:
             final_op.opcode = opcodes.JUMP
             final_op.args.pop()
             if self.is_valid_jump_dest(dest.value):
@@ -508,7 +87,7 @@ class TacCfg:
               invalid_jump = True
             unresolved = False
           # Otherwise, the jump has not been resolved.
-        elif dest.is_const():
+        elif dest.is_const:
           # We've already covered the case that both cond and dest are const
           # So only handle a variable condition
           unresolved = False
@@ -520,7 +99,7 @@ class TacCfg:
 
       elif final_op.opcode == opcodes.JUMP:
         dest = final_op.args[0]
-        if dest.is_const():
+        if dest.is_const:
           unresolved = False
           if self.is_valid_jump_dest(dest.value):
             jumpdest = self.get_op_by_pc(dest.value).block
@@ -536,7 +115,7 @@ class TacCfg:
 
       # Block's jump went to an invalid location, replace the jump with a throw
       if invalid_jump:
-        block.ops[-1] = TACOp.convert_jump_to_throw(final_op)
+        block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
 
@@ -558,11 +137,309 @@ class TacCfg:
   def get_op_by_pc(self, pc:int):
     """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
-      for op in block.ops:
+      for op in block.tac_ops:
         if op.pc == pc:
           return op
     return None
 
-# We must import this here instead of at the top to resolve a circular
-# dependency issue. Don't move this import. Beware dragons, etc.
-import destackify
+
+class TACBasicBlock(evm_cfg.EVMBasicBlock):
+  """A basic block containing both three-address code, and its
+  equivalent EVM code, along with information about the transformation
+  applied to the stack as a consequence of its execcution."""
+
+  def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
+               stack_adds:typing.Iterable[mem.Variable], stack_pops:int,
+               evm_ops:typing.Iterable[evm_cfg.EVMOp]):
+    """
+    Args:
+      entry: The pc of the first byte in the source EVM block
+      exit: The pc of the last byte in the source EVM block
+      ops: A sequence of TACOps whose execution is equivalent to the source EVM
+      stack_adds: A sequence of new items inhabiting the top of stack after
+                  this block is executed. The new head is last in sequence.
+      stack_pops: the number of items removed from the stack over the course of
+                  block execution.
+      evm_ops: the source EVM code.
+
+      Entry and exit variables should span the entire range of values enclosed
+      in this block, taking care to note that the exit address may not be an
+      instruction, but an argument of a POP.
+      The range of pc values spanned by all blocks in the CFG should be a
+      continuous range from 0 to the maximum value with no gaps between blocks.
+
+      The stack_adds and stack_pops members together describe the change
+      in the stack state as a result of running this block. That is, delete the
+      top stack_pops items from the entry stack, then add the stack_additions
+      items, to obtain the new stack.
+    """
+
+    super().__init__(entry, exit, evm_ops)
+
+    self.tac_ops = tac_ops
+    """A sequence of TACOps whose execution is equivalent to the source EVM
+       code"""
+
+    self.stack_adds = stack_adds
+    """A sequence of new items inhabiting the top of stack after this block is
+       executed. The new head is last in sequence."""
+
+    self.stack_pops = stack_pops
+    """Number of items removed from the stack during block execution."""
+
+  def __str__(self):
+    super_str = super().__str__()
+    op_seq = "\n".join(str(op) for op in self.tac_ops)
+    stack_pops = "Stack pops: {}".format(self.stack_pops)
+    stack_str = ", ".join([str(v) for v in self.stack_adds])
+    stack_adds = "Stack additions: [{}]".format(stack_str)
+    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP, \
+                      stack_pops, stack_adds])
+
+
+class TACOp:
+  """
+  A Three-Address Code operation.
+  Each operation consists of an opcode object defining its function,
+  a list of argument variables, and the unique program counter address
+  of the EVM instruction it was derived from.
+  """
+
+  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[mem.Variable], \
+               pc:int, block=None):
+    """
+    Args:
+      opcode: the operation being performed.
+      args: variables or constants that are operated upon.
+      pc: the program counter at the corresponding instruction in the
+          original bytecode.
+      block: the block this operation belongs to. Defaults to None.
+    """
+    self.opcode = opcode
+    self.args = args
+    self.pc = pc
+    self.block = block
+
+  def __str__(self):
+    return "{}: {} {}".format(hex(self.pc), self.opcode,
+                " ".join([str(arg) for arg in self.args]))
+
+  def __repr__(self):
+    return "<{0} object {1}, {2}>".format(
+      self.__class__.__name__,
+      hex(id(self)),
+      self.__str__()
+    )
+
+  def const_args(self) -> bool:
+    """True iff each of this operations arguments is a constant value."""
+    return all([arg.is_const for arg in self.args])
+
+  @classmethod
+  def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
+    """
+    Given a jump, convert it to a throw, preserving the condition var if JUMPI.
+    Otherwise, return the given operation unchanged.
+    """
+    if op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
+      return op
+    elif op.opcode == opcodes.JUMP:
+      return cls(opcodes.THROW, [], op.pc, op.block)
+    elif op.opcode == opcodes.JUMPI:
+      return cls(opcodes.THROWI, [op.args[1]], op.pc, op.block)
+
+
+class TACAssignOp(TACOp):
+  """
+  A TAC operation that additionally takes a variable to which
+  this operation's result is implicitly bound.
+  """
+
+  def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
+               args:typing.Iterable[mem.Variable], pc:int, block=None,
+               print_name=True):
+    """
+    Args:
+      lhs: The variable that will receive the result of this operation.
+      opcode: The operation being performed.
+      args: Variables or constants that are operated upon.
+      pc: The program counter at this instruction in the original bytecode.
+      block: The block this operation belongs to.
+      print_name: Some operations (e.g. CONST) don't need to print their
+                  name in order to be readable.
+    """
+    super().__init__(opcode, args, pc, block)
+    self.lhs = lhs
+    self.print_name = print_name
+
+  def __str__(self):
+    arglist = ([str(self.opcode)] if self.print_name else []) \
+              + [str(arg) for arg in self.args]
+    return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
+
+
+class Destackifier:
+  """Converts EVMBasicBlocks into corresponding TAC operation sequences.
+
+  Most instructions get mapped over directly, except:
+      POP: generates no TAC op, but pops the symbolic stack;
+      PUSH: generates a CONST TAC assignment operation;
+      DUP, SWAP: these simply permute the symbolic stack, generate no ops;
+      LOG0 ... LOG4: all translated to a generic LOG instruction
+  """
+
+  def __fresh_init(self) -> None:
+    """Reinitialise all structures in preparation for converting a block."""
+
+    # A sequence of three-address operations
+    self.ops = []
+
+    # The symbolic variable stack we'll be operating on.
+    self.stack = []
+
+    # The number of TAC variables we've assigned,
+    # in order to produce unique identifiers. Typically the same as
+    # the number of items pushed to the stack.
+    self.stack_vars = 0
+
+    # The depth we've eaten into the external stack. Incremented whenever
+    # we pop and the main stack is empty.
+    self.extern_pops = 0
+
+  def __new_var(self) -> mem.Variable:
+    """Construct and return a new variable with the next free identifier."""
+    var = mem.Variable("V{}".format(self.stack_vars))
+    self.stack_vars += 1
+    return var
+
+  def __pop_extern(self) -> mem.Variable:
+    """Generate and return the next variable from the external stack."""
+    var = mem.Variable("S{}".format(self.extern_pops))
+    self.extern_pops += 1
+    return var
+
+  def __pop(self) -> mem.Variable:
+    """
+    Pop an item off our symbolic stack if one exists, otherwise
+    generate an external stack variable.
+    """
+    if len(self.stack):
+      return self.stack.pop()
+    else:
+      return self.__pop_extern()
+
+  def __pop_many(self, n:int) -> typing.Iterable[mem.Variable]:
+    """
+    Pop and return n items from the stack.
+    First-popped elements inhabit low indices.
+    """
+    return [self.__pop() for _ in range(n)]
+
+  def __push(self, element:mem.Variable) -> None:
+    """Push an element to the stack."""
+    self.stack.append(element)
+
+  def __push_many(self, elements:typing.Iterable[mem.Variable]) -> None:
+    """
+    Push a sequence of elements in the stack.
+    Low index elements are pushed first.
+    """
+
+    for element in elements:
+      self.__push(element)
+
+  def __dup(self, n:int) -> None:
+    """Place a copy of stack[n-1] on the top of the stack."""
+    items = self.__pop_many(n)
+    duplicated = [items[-1]] + items
+    self.__push_many(reversed(duplicated))
+
+  def __swap(self, n:int) -> None:
+    """Swap stack[0] with stack[n]."""
+    items = self.__pop_many(n)
+    swapped = [items[-1]] + items[1:-1] + [items[0]]
+    self.__push_many(reversed(swapped))
+
+  def convert_block(self, evm_block:evm_cfg.EVMBasicBlock) -> TACBasicBlock:
+    """
+    Given a EVMBasicBlock, convert its instructions to Three-Address Code
+    and return the resulting TACBasicBlock.
+    """
+    self.__fresh_init()
+
+    for op in evm_block.evm_ops:
+      self.__handle_evm_op(op)
+
+    entry = evm_block.evm_ops[0].pc if len(evm_block.evm_ops) > 0 else -1
+    exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
+           if len(evm_block.evm_ops) > 0 else -1
+
+    new_block = TACBasicBlock(entry, exit, self.ops, self.stack,
+                              self.extern_pops, evm_block.evm_ops)
+    for op in self.ops:
+      op.block = new_block
+    return new_block
+
+  def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
+    """
+    Convert a line to its corresponding instruction, if there is one,
+    and manipulate the stack in any needful way.
+    """
+
+    if op.opcode.is_swap():
+      self.__swap(op.opcode.pop)
+    elif op.opcode.is_dup():
+      self.__dup(op.opcode.pop)
+    elif op.opcode == opcodes.POP:
+      self.__pop()
+    else:
+      self.__gen_instruction(op)
+
+  def __gen_instruction(self, op:evm_cfg.EVMOp) -> None:
+    """
+    Given a line, generate its corresponding TAC operation,
+    append it to the op sequence, and push any generated
+    variables to the stack.
+    """
+
+    inst = None
+    # All instructions that push anything push exactly
+    # one word to the stack. Assign that symbolic variable here.
+    var = self.__new_var() if op.opcode.push == 1 else None
+
+    # Generate the appropriate TAC operation.
+    # Special cases first, followed by the fallback to generic instructions.
+    if op.opcode.is_push():
+      inst = TACAssignOp(var, opcodes.CONST, [mem.Constant(op.value)],
+                         op.pc, print_name=False)
+    elif op.opcode.is_log():
+      inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
+    elif op.opcode == opcodes.MLOAD:
+      inst = TACAssignOp(var, op.opcode, [mem.MLoc(self.__pop())],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.MSTORE:
+      args = self.__pop_many(2)
+      inst = TACAssignOp(mem.MLoc(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.MSTORE8:
+      args = self.__pop_many(2)
+      inst = TACAssignOp(mem.MLocByte(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.SLOAD:
+      inst = TACAssignOp(var, op.opcode, [mem.SLoc(self.__pop())],
+                         op.pc, print_name=False)
+    elif op.opcode == opcodes.SSTORE:
+      args = self.__pop_many(2)
+      inst = TACAssignOp(mem.SLoc(args[0]), op.opcode, args[1:],
+                         op.pc, print_name=False)
+    elif var is not None:
+      inst = TACAssignOp(var, op.opcode,
+                         self.__pop_many(op.opcode.pop), op.pc)
+    else:
+      inst = TACOp(op.opcode, self.__pop_many(op.opcode.pop), op.pc)
+
+    # This var must only be pushed after the operation is performed.
+    if var is not None:
+      self.__push(var)
+    self.ops.append(inst)
+

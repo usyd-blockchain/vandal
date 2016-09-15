@@ -1,21 +1,10 @@
-"""stacksizeanalysis.py: fixed-point static analysis to determine stack sizes
-in a CFG"""
+"""dataflow.py: fixed-point, dataflow, static analyses for CFGs"""
 
 import cfg
 import evm_cfg
 import lattice
 
-def block_stack_delta(block:evm_cfg.EVMBasicBlock):
-  """Calculate the net effect on the stack size of executing
-  the instruction sequence within a block."""
-  delta = 0
-
-  for line in block.lines:
-    delta += line.opcode.stack_delta()
-
-  return delta
-
-def run_analysis(cfg:cfg.ControlFlowGraph):
+def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   """Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
@@ -26,6 +15,22 @@ def run_analysis(cfg:cfg.ControlFlowGraph):
   the exit sizes of its predecessors. Its own exit size is then its
   entry size plus the delta incurred by the instructions in its body.
   """
+
+  def block_stack_delta(block:evm_cfg.EVMBasicBlock):
+    """Calculate the net effect on the stack size of executing
+    the instruction sequence within a block."""
+
+    # if it's a TAC Block, then there's no need to go through the
+    # EVM operations again.
+    if isinstance(block, tac_cfg.TACBasicBlock):
+        return len(block.stack_adds) - block.stack_pops
+
+    delta = 0
+
+    for op in block.evm_ops:
+      delta += op.opcode.stack_delta()
+
+    return delta
 
   # Stack size information per block at entry and exit points.
   entry_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
@@ -39,8 +44,9 @@ def run_analysis(cfg:cfg.ControlFlowGraph):
 
   # We will initialise entry stack size of all blocks with no predecesors
   # to zero in order to reason about the stack within a connected component.
-  init_blocks = {cfg.root} | {block for block in cfg.blocks \
-                              if len(block.preds) == 0}
+  init_blocks = ({cfg.root} if cfg.root is not None else {}) | \
+                 {block for block in cfg.blocks if len(block.preds) == 0}
+
   for block in init_blocks:
     block.preds.append(start_block)
 
@@ -51,7 +57,8 @@ def run_analysis(cfg:cfg.ControlFlowGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = lattice.IntLatticeElement.meet_all([exit_info[parent] for parent in current.preds])
+    new_entry = lattice.IntLatticeElement.meet_all([exit_info[p] \
+                                                   for p in current.preds])
 
     # If the entry value changed, we have to recompute
     # its exit value, and the entry value for its successors, eventually.

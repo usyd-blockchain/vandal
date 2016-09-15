@@ -1,7 +1,6 @@
 """lattice.py: define lattices for use in meet-over-paths calculations."""
 
 import typing
-import functools
 
 class IntLatticeElement:
   """An element of the meet-semilattice defined by augmenting
@@ -69,8 +68,10 @@ class IntLatticeElement:
     return cls.bottom()
 
   @classmethod
-  def meet_all(cls, elements:typing.List['IntLatticeElement']) -> 'IntLatticeElement':
+  def meet_all(cls, elements:typing.Iterable['IntLatticeElement']) -> 'IntLatticeElement':
     """Return the infimum of the given iterable of elements."""
+    import functools
+
     return functools.reduce(
       lambda a, b: cls.meet(a, b),
       elements,
