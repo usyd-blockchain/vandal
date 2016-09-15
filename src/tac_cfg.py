@@ -35,7 +35,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
   @classmethod
-  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TacGraph':
+  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TACGraph':
     return cls(blockparse.EVMBlockParser(dasm).parse())
 
   def recalc_preds(self):
