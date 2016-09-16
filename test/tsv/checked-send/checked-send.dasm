@@ -1,0 +1,53 @@
+606060405260478060106000396000f360606040523615600a575b604360405173ffffffffffffffffffffffffffffffffffffffff33169060009060649082818181858883f1935050505015156045576002565b005b56
+0      PUSH1  => 60
+2      PUSH1  => 40
+4      MSTORE
+5      PUSH1  => 47
+7      DUP1
+8      PUSH1  => 10
+10     PUSH1  => 00
+12     CODECOPY
+13     PUSH1  => 00
+15     RETURN
+16     PUSH1  => 60
+18     PUSH1  => 40
+20     MSTORE
+21     CALLDATASIZE
+22     ISZERO
+23     PUSH1  => 0a
+25     JUMPI
+26     JUMPDEST
+27     PUSH1  => 43
+29     PUSH1  => 40
+31     MLOAD
+32     PUSH20  => ffffffffffffffffffffffffffffffffffffffff
+53     CALLER
+54     AND
+55     SWAP1
+56     PUSH1  => 00
+58     SWAP1
+59     PUSH1  => 64
+61     SWAP1
+62     DUP3
+63     DUP2
+64     DUP2
+65     DUP2
+66     DUP6
+67     DUP9
+68     DUP4
+69     CALL
+70     SWAP4
+71     POP
+72     POP
+73     POP
+74     POP
+75     ISZERO
+76     ISZERO
+77     PUSH1  => 45
+79     JUMPI
+80     PUSH1  => 02
+82     JUMP
+83     JUMPDEST
+84     STOP
+85     JUMPDEST
+86     JUMP
