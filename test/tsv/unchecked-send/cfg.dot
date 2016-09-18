@@ -1,7 +1,0 @@
-strict digraph "" {
-"0x0" [color=green];
-"0x4c" [color=blue];
-"0x1a" [color=red];
-"0x10" [color=red];
-"0x10" -> "0x1a";
-}
