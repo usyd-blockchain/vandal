@@ -36,6 +36,10 @@ do
     disasm < $bytecode > $filename/$filename.dasm
 done
 
+# Generate TAC output and save into new directory
+echo "Generating TAC output ..."
+(cd $filename; ../../../bin/decompile $filename.dasm > $filename.tac)
+
 # Generate .facts files for Souffle in new directory
 echo "Generating fact files for Souffle ..."
 (cd $filename; ../../../bin/decompile2 $filename.dasm)
