@@ -1,0 +1,33 @@
+#include "library.dl"
+
+// --------------------------------
+// Checked/Unchecked Send relations
+// --------------------------------
+
+.decl callStmt(stmt:Statement, var:Variable) output
+callStmt(stmt, var) :- op(stmt, "CALL"), write(stmt, var).
+
+.decl throwStmt(stmt:Statement)
+throwStmt(stmt) :- op(stmt, "THROW").
+throwStmt(stmt) :- op(stmt, "THROWI").
+
+.decl ifStmt(stmt:Statement)
+ifStmt(stmt) :- op(stmt, "THROWI").
+ifStmt(stmt) :- op(stmt, "JUMPI").
+
+.decl ifCond(stmt:Statement, var:Variable)
+ifCond(stmt, var) :- ifStmt(stmt), read(stmt, var).
+
+.decl controlledWith(x:Statement, y:Statement, cond:Variable)
+controlledWith(x, y, cond) :- controls(y, x), ifCond(x, cond).
+
+// --------------------------------------
+
+.decl safeCall(u:Statement) output
+safeCall(u) :- callStmt(u, var), throwStmt(v), controlledWith(v, _, cond), usedFor(var, cond).
+safeCall(u) :- callStmt(u, var), throwStmt(v), usedFor(var, cond), read(v, cond).
+
+.decl unsafeCall(u:Statement) output
+unsafeCall(u) :- callStmt(u, _), !safeCall(u).
+
+// ===============================================================
