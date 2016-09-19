@@ -382,6 +382,3 @@ autosummary_generate = True
 
 # Include __init__ and class-level docstring for autoclass bodies
 autoclass_content = "both"
-
-# Use SVG format for inheritance diagrams generated with graphviz
-graphviz_output_format = 'svg'
