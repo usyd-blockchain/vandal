@@ -45,3 +45,23 @@
 
    {% endif %}
    {% endblock %}
+
+
+   {% block members %}
+   {% set datamembers = [] %}
+
+   {% for item in members %}
+   {% if "__" not in item and item.isupper() %}
+      {% set dummy = datamembers.append(item) %}
+   {% endif %}
+   {% endfor %}
+
+   {% if datamembers|length > 0 %}
+   .. rubric:: Constant Members
+   {% for item in datamembers %}
+   .. autodata:: {{ item }}
+      :annotation:
+   {%- endfor %}
+   {% endif %}
+
+   {% endblock %}
