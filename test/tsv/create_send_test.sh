@@ -46,6 +46,7 @@ echo "Generating fact files for Souffle ..."
 
 # Copy the checked/unchecked send Datalog template with new filename to new directory
 echo "Copying over template test ..."
+cp checked-send/library.dl $filename/
 cp checked-send/checked-send.dl $filename/$filename.dl
 
 # Generatae cfg.dot file in new directory
