@@ -30,6 +30,20 @@ class Visitor(abc.ABC):
       target: object to visit.
     """
 
+  def can_visit(self, type_):
+    """
+    Checks if this :obj:`Visitor` can visit an object of the given `type_`.
+    By default a :obj:`Visitor` can visit all types, so subclasses of
+    :obj:`Visitor` should override this method if necessary.
+
+    Args:
+      type_ (type): a valid Python :obj:`type` to be checked.
+
+    Returns:
+      True (by default)
+    """
+    return True
+
 
 class DynamicVisitor(Visitor):
   """
@@ -72,17 +86,46 @@ class DynamicVisitor(Visitor):
       **kwargs: optional/keyword arguments to be passed to the type-specific
         visit method.
     """
-    # Try all the type names in the target's MRO
-    for base in inspect.getmro(type(target)):
-      visit_name = "visit_{}".format(base.__name__)
+    # Try to find a visit method for our target's type
+    visit_method = self.__get_visit_method(type(target))
 
-      # If we found a matching visit_TYPE method, call it
-      if hasattr(self, visit_name):
-        visit_method = getattr(self, visit_name)
-        return visit_method(target, *args, **kwargs)
+    # If we found a visit method, call it and return its returned value
+    if visit_method is not None:
+      return visit_method(target, *args, **kwargs)
 
     # If no matching visit_TYPE method exists, call _no_visit_found
     return self._no_visit_found(target, *args, **kwargs)
+
+  def can_visit(self, type_):
+    """
+    Checks if this :obj:`DynamicVisitor` can visit an object of the given
+    `type_`.
+
+    Args:
+      type_ (type): a valid Python :obj:`type` to be checked.
+
+    Returns:
+      True if the current :obj:`DynamicVisitor` can visit the specified
+      `type_` or False otherwise.
+    """
+    return self.__get_visit_method(type_) is not None
+
+  def __get_visit_method(self, type_):
+    """
+    Returns a visit method for the given type_, or None if none could be
+    found.
+    """
+    # Try all the type names in the target's MRO
+    for base in inspect.getmro(type_):
+      visit_name = "visit_{}".format(base.__name__)
+
+      # If we found a matching visit_TYPE method, return it
+      if hasattr(self, visit_name):
+        visit_method = getattr(self, visit_name)
+        return visit_method
+
+    # Not found => return None
+    return None
 
   def _no_visit_found(self, target, *args, **kwargs):
     """
