@@ -37,14 +37,14 @@ printf $format "Creating directories for logical relations"
 
 # Generate temporary directory with binary output of solidity compiler (bytecode)
 printf $format "Generating bytecode from Solidity compiler"
-solc --optimize --optimize-runs 300000 --bin -o tempbin $1
+solc --bin-runtime -o tempbin $1
 
 # Copy input Solidity contract into new directory
 cp $1 $filename
 
 # Generate disasm output and save into new directory
 printf $format "Generating disasm output"
-for bytecode in tempbin/*.bin
+for bytecode in tempbin/*
 do
     sed -i '' -e '$a\' $bytecode
     disasm < $bytecode > $filename/$filename.dasm
