@@ -1,46 +1,44 @@
-6060604052603e8060106000396000f360606040523615600a575b603c60405173ffffffffffffffffffffffffffffffffffffffff33169060009060649082818181858883f15050505050565b00
+60606040523615600d57600d565b60475b3373ffffffffffffffffffffffffffffffffffffffff1660006064604051809050600060405180830381858888f19350505050505b565b00
 0      PUSH1  => 60
 2      PUSH1  => 40
 4      MSTORE
-5      PUSH1  => 3e
-7      DUP1
-8      PUSH1  => 10
-10     PUSH1  => 00
-12     CODECOPY
-13     PUSH1  => 00
-15     RETURN
-16     PUSH1  => 60
-18     PUSH1  => 40
-20     MSTORE
-21     CALLDATASIZE
-22     ISZERO
-23     PUSH1  => 0a
-25     JUMPI
-26     JUMPDEST
-27     PUSH1  => 3c
-29     PUSH1  => 40
-31     MLOAD
-32     PUSH20  => ffffffffffffffffffffffffffffffffffffffff
-53     CALLER
-54     AND
-55     SWAP1
-56     PUSH1  => 00
-58     SWAP1
-59     PUSH1  => 64
-61     SWAP1
-62     DUP3
-63     DUP2
-64     DUP2
-65     DUP2
-66     DUP6
-67     DUP9
-68     DUP4
-69     CALL
-70     POP
-71     POP
-72     POP
-73     POP
-74     POP
-75     JUMP
-76     JUMPDEST
-77     STOP
+5      CALLDATASIZE
+6      ISZERO
+7      PUSH1  => 0d
+9      JUMPI
+10     PUSH1  => 0d
+12     JUMP
+13     JUMPDEST
+14     PUSH1  => 47
+16     JUMPDEST
+17     CALLER
+18     PUSH20  => ffffffffffffffffffffffffffffffffffffffff
+39     AND
+40     PUSH1  => 00
+42     PUSH1  => 64
+44     PUSH1  => 40
+46     MLOAD
+47     DUP1
+48     SWAP1
+49     POP
+50     PUSH1  => 00
+52     PUSH1  => 40
+54     MLOAD
+55     DUP1
+56     DUP4
+57     SUB
+58     DUP2
+59     DUP6
+60     DUP9
+61     DUP9
+62     CALL
+63     SWAP4
+64     POP
+65     POP
+66     POP
+67     POP
+68     POP
+69     JUMPDEST
+70     JUMP
+71     JUMPDEST
+72     STOP

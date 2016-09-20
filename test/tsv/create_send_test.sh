@@ -50,21 +50,17 @@ do
     disasm < $bytecode > $filename/$filename.dasm
 done
 
-# Generate TAC output and save into new directory
-printf $format "Generating TAC output"
-(cd $filename; ../../../bin/decompile $filename.dasm > $filename.tac)
+# Generate TAC output and .dot file for visual graph and save into new directory
+printf $format "Generating TAC output and .dot file for graph generation"
+(cd $filename; ../../../bin/decompile --print --graph --file $filename.dasm > $filename.tac)
 
 # Generate .facts files for Souffle in new directory
 printf $format "Generating fact files for Souffle"
-(cd $filename/facts; ../../../../bin/decompile2 ../$filename.dasm)
+(cd $filename/facts; ../../../../bin/decompile --tsv --file ../$filename.dasm)
 
 # Copy the checked/unchecked send Datalog template with new filename to new directory
 printf $format "Copying over analysis library"
 cp checked-send/lib/* $filename/lib/
-
-# Generatae cfg.dot file in new directory
-printf $format "Generating .dot file for graph generation"
-(cd $filename; ../../../bin/decompile3 $filename.dasm)
 
 # Generate PDF of the control flow graph in new directory
 printf $format "Generating PDF of control flow graph"
