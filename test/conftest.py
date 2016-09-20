@@ -12,7 +12,12 @@ DISASM_TEST_PROGS = join(dirname(abspath(__file__)), DISASM_TEST_PROGS)
 
 @pytest.fixture(params=list(glob.glob(DISASM_TEST_PROGS)))
 def cfg(request):
-  from cfglib import ControlFlowGraph
+  from tac_cfg import TACGraph
+  import blockparse
+  import optimise
   with open(request.param) as f:
     disasm = f.read()
-  yield ControlFlowGraph(disasm)
+  cfg = TACGraph.from_dasm(fileinput.input())
+  optimise.fold_constants(cfg)
+  cfg.recheck_jumps()
+  yield cfg
