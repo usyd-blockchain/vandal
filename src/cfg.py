@@ -1,6 +1,8 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 import abc
+import typing as T
+
 import patterns
 
 class ControlFlowGraph(patterns.Visitable):
@@ -24,7 +26,7 @@ class ControlFlowGraph(patterns.Visitable):
   def __str__(self):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
 
-  def edge_list(self):
+  def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
     """
     Returns:
       a list of the CFG's edges, with each edge in the form
