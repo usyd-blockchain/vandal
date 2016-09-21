@@ -2,11 +2,13 @@
 objects."""
 
 import typing
+
 import opcodes
 import cfg
 import evm_cfg
 import memtypes as mem
 import blockparse
+import patterns
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -195,6 +197,19 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     stack_adds = "Stack additions: [{}]".format(stack_str)
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP, \
                       stack_pops, stack_adds])
+
+  def accept(self, visitor:patterns.Visitor):
+    """
+    Accepts a visitor and visits itself and all TACOps in the block.
+
+    Args:
+      visitor: an instance of :obj:`patterns.Visitor` to accept.
+    """
+    super().accept(visitor)
+
+    if visitor.can_visit(TACOp) or visitor.can_visit(TACAssignOp):
+      for tac_op in self.tac_ops:
+        visitor.visit(tac_op)
 
 
 class TACOp:
