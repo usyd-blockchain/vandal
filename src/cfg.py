@@ -28,9 +28,9 @@ class ControlFlowGraph(patterns.Visitable):
     """
     Returns:
       a list of the CFG's edges, with each edge in the form
-        ( pred.ident(), succ.ident() )
+        ( pred, succ )
     """
-    return [(p.ident(), s.ident()) for p in self.blocks for s in p.succs]
+    return [(p, s) for p in self.blocks for s in p.succs]
 
   def accept(self, visitor:patterns.Visitor):
     """
@@ -68,8 +68,11 @@ class BasicBlock(patterns.Visitable):
 
   @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
-    if entry < 0 or exit < 0:
-      raise ValueError("entry and exit must be positive integers or zero")
+    if entry is not None and entry < 0:
+      raise ValueError("entry must be a positive integer or zero")
+
+    if exit is not None and exit < 0:
+      raise ValueError("exit must be a positive integer or zero")
 
     self.entry = entry
     """Index of the first operation contained in this node."""
@@ -91,13 +94,21 @@ class BasicBlock(patterns.Visitable):
     return self.exit - self.entry
 
   def __str__(self):
-    head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
+    entry, exit = map(lambda n: hex(n) if n is not None else 'Unknown',
+                      (self.entry, self.exit))
+    head = "Block [{}:{}]".format(entry, exit)
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
     succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
     unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""
     return "\n".join([head, self._STR_SEP, pred, succ]) + unresolved
 
   def ident(self) -> str:
-    """Returns this block's unique identifier, which is the index of its first
-    operation, as a hex string."""
+    """
+    Returns this block's unique identifier, which is its entry value.
+
+    Raises:
+      ValueError if the block's entry is None.
+    """
+    if self.entry is None:
+      raise ValueError("Can't compute ident() for block with unknown entry")
     return hex(self.entry)

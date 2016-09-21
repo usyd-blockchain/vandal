@@ -11,6 +11,9 @@ import cfg
   (0, 0),
   (0, 1),
   (1, 0),
+  (None, None),
+  (5, None),
+  (None, 5),
 ])
 def basicblock(request):
   """
@@ -64,6 +67,18 @@ def negative_pairs(request):
     [ (1,10) ], # blocks
     []  # edges
   ],
+  [
+    [ (None, None) ], # blocks
+    []  # edges
+  ],
+  [
+    [ (None, 1) ], # blocks
+    []  # edges
+  ],
+  [
+    [ (1, None) ], # blocks
+    []  # edges
+  ],
 ])
 def blocks_edges(request):
   """Returns: a list of [blocks[], edges[]]"""
@@ -83,7 +98,7 @@ class TestBasicBlock:
     en, ex = negative_pairs
     with pytest.raises(ValueError,
                        message="Negative entry/exit val should raise ValueError"):
-      b = SubBlock(en, ex)
+      SubBlock(en, ex)
 
   def test_construction(self, basicblock):
     b, (en, ex) = basicblock
@@ -95,8 +110,12 @@ class TestBasicBlock:
 
   def test_ident(self, basicblock):
     b, param = basicblock
-    assert b.ident().startswith("0x"), \
-           "ident() must return hex string with '0x' prefix"
+    if b.entry is None:
+      with pytest.raises(ValueError):
+        b.ident()
+    else:
+      assert b.ident().startswith("0x"), \
+             "ident() must return hex string with '0x' prefix"
 
 
 class TestControlFlowGraph:
@@ -129,20 +148,20 @@ class TestControlFlowGraph:
     # Add blocks to graph and build edge connections
     graph.blocks.extend(blocks.values())
     for e_en, e_ex in edges:
-      # Check the edge isn't in the edge_list() already
-      assert (e_en, e_ex) not in graph.edge_list()
-
-      # Connect the edge in the corresponding blocks
       pred = blocks[e_en]
       succ = blocks[e_ex]
+
+      # Check the edge isn't in the edge_list() already
+      assert (pred, succ) not in graph.edge_list()
+
+      # Connect the edge in the corresponding blocks
       if pred not in succ.preds:
         succ.preds.append(pred)
       if succ not in pred.succs:
         pred.succs.append(succ)
 
       # Now check that the edge we just added is in edge_list()
-      edges = [tuple(int(n, 16) for n in e) for e in graph.edge_list()]
-      assert (e_en, e_ex) in edges
+      assert (pred, succ) in graph.edge_list()
 
     assert len(graph.edge_list()) == len(edges), \
            "unexpected number of edges in the graph"
