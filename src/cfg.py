@@ -25,8 +25,12 @@ class ControlFlowGraph(patterns.Visitable):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
 
   def edge_list(self):
-    """Returns a list of the CFG's edges in the form (pred, succ)."""
-    return [(p.ident(),s.ident()) for p in self.blocks for s in p.succs]
+    """
+    Returns:
+      a list of the CFG's edges, with each edge in the form
+        ( pred.ident(), succ.ident() )
+    """
+    return [(p.ident(), s.ident()) for p in self.blocks for s in p.succs]
 
   def accept(self, visitor:patterns.Visitor):
     """
@@ -51,16 +55,21 @@ class BasicBlock(patterns.Visitable):
   A BasicBlock must contain exactly one entry point at the start and
   exactly one exit point at the end, with no branching in between.
   That is, program flow must be linear/sequential within a basic block.
+
+  Args:
+    entry (int, default None): entry index.
+    exit (int, default None): exit index.
+
+  Raises:
+    ValueError: if entry or exit is a negative int.
   """
 
   _STR_SEP = "---"
 
   @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
-    """
-    Creates a new CFG node containing code operations between the
-    specified entry index and the specified exit index (inclusive).
-    """
+    if entry < 0 or exit < 0:
+      raise ValueError("entry and exit must be positive integers or zero")
 
     self.entry = entry
     """Index of the first operation contained in this node."""
