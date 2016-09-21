@@ -3,7 +3,7 @@
 import abc
 import patterns
 
-class ControlFlowGraph(abc.ABC):
+class ControlFlowGraph(patterns.Visitable):
   """Abstract base class for a Control Flow Graph (CFG)"""
 
   __STR_SEP = "\n\n-----\n\n"
@@ -36,11 +36,14 @@ class ControlFlowGraph(abc.ABC):
     Args:
       visitor: instance of a Visitor
     """
-    for b in self.blocks:
-      b.accept(visitor)
+    super().accept(visitor)
+
+    if visitor.can_visit(BasicBlock):
+      for b in self.blocks:
+        b.accept(visitor)
 
 
-class BasicBlock(abc.ABC):
+class BasicBlock(patterns.Visitable):
   """
   Abstract base class for a single basic block (node) in a CFG. Each block has
   references to its predecessor and successor nodes in the graph structure.
@@ -89,12 +92,3 @@ class BasicBlock(abc.ABC):
     """Returns this block's unique identifier, which is the index of its first
     operation, as a hex string."""
     return hex(self.entry)
-
-  def accept(self, visitor:patterns.Visitor):
-    """
-    Visitor design pattern: accepts a Visitor instance and visits this node.
-
-    Args:
-      visitor: instance of a Visitor
-    """
-    visitor.visit(self)
