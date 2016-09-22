@@ -20,7 +20,9 @@
 import os
 import sys
 import datetime
+import sphinx
 
+sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../../src/'))
 
 # -- General configuration ------------------------------------------------
@@ -34,6 +36,11 @@ sys.path.insert(0, os.path.abspath('../../src/'))
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+
+    # we need to import our custom_skip extension here otherwise napoleon
+    # binds to the event instead:
+    'sphinxext.custom_skip',
+
     'sphinx.ext.intersphinx',
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
@@ -41,10 +48,11 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
+    'sphinx.ext.inheritance_diagram',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ['../templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
@@ -371,14 +379,6 @@ autodoc_member_order = 'bysource'
 
 # Auto-generate summaries of all Python modules
 autosummary_generate = True
-
-# Default flags for autodoc generation done by autosummary
-autodoc_default_flags = [
-  'members',
-  'undoc-members',
-  'show-inheritance',
-  'inherited-members',
-]
 
 # Include __init__ and class-level docstring for autoclass bodies
 autoclass_content = "both"
