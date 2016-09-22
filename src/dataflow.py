@@ -2,6 +2,7 @@
 
 import cfg
 import evm_cfg
+import tac_cfg
 import lattice
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):

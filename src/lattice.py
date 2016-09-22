@@ -1,28 +1,22 @@
 """lattice.py: define lattices for use in meet-over-paths calculations."""
 
 import typing
+import functools
+import abc
 
-class IntLatticeElement:
-  """An element of the meet-semilattice defined by augmenting
-  the (unordered) set of integers with top and bottom elements.
 
-  Integers are incomparable with one another, while top and bottom
-  compare superior and inferior with every other element, respectively."""
-
-  def __init__(self, value:int=None, top:bool=False, bottom:bool=False) -> None:
+class BoundedLatticeElement(abc.ABC):
+  @abc.abstractmethod
+  def __init__(self, value, top:bool=False, bottom:bool=False):
     """Construct a lattice element with the given value."""
     self.value = value
     self.is_top = top
     self.is_bottom = bottom
 
     if top:
-      self.value = "TOP"
+      self.value = "⊤"
     elif bottom or not self.is_num():
-      self.value = "BOTTOM"
-
-  def is_num(self) -> bool:
-    """True iff the value of this element is an integer."""
-    return isinstance(self.value, int)
+      self.value = "⊥"
 
   def __eq__(self, other) -> bool:
     return self.value == other.value
@@ -37,19 +31,65 @@ class IntLatticeElement:
       self.__str__()
     )
 
+  @classmethod
+  def top(cls):
+    return cls(top=True)
+
+  @classmethod
+  def bottom(cls):
+    return cls(bottom=True)
+
+  @abc.abstractclassmethod
+  def meet(cls, a:'BoundedLatticeElement', \
+           b:'BoundedLatticeElement') -> 'BoundedLatticeElement':
+    """Return the infimum of the given elements."""
+
+  @classmethod
+  def meet_all(cls, elements:typing.Iterable['BoundedLatticeElement']) \
+    -> 'BoundedLatticeElement':
+    """Return the infimum of the given iterable of elements."""
+    return functools.reduce(
+      lambda a, b: cls.meet(a, b),
+      elements,
+      cls.top()
+    )
+
+  @abc.abstractclassmethod
+  def join(cls, a:'BoundedLatticeElement', \
+           b:'BoundedLatticeElement') -> 'BoundedLatticeElement':
+    """Return the infimum of the given elements."""
+
+  @classmethod
+  def join_all(cls, elements:typing.Iterable['BoundedLatticeElement']) \
+    -> 'BoundedLatticeElement':
+    """Return the supremum of the given iterable of elements."""
+    return functools.reduce(
+      lambda a, b: cls.join(a, b),
+      elements,
+      cls.bottom()
+    )
+
+
+class IntLatticeElement(BoundedLatticeElement):
+  """An element of the meet-semilattice defined by augmenting
+  the (unordered) set of integers with top and bottom elements.
+
+  Integers are incomparable with one another, while top and bottom
+  compare superior and inferior with every other element, respectively."""
+
+  def __init__(self, value:int=None, top:bool=False, bottom:bool=False) -> None:
+    super().__init__(value, top, bottom)
+
+  def is_num(self) -> bool:
+    """True iff the value of this element is an integer."""
+    return isinstance(self.value, int)
+
   def __add__(self, other):
     if self.is_num() and other.is_num():
       return IntLatticeElement(self.value + other.value)
     if self.is_bottom or other.is_bottom:
       return self.bottom()
     return self.top()
-
-  @classmethod
-  def top(cls):
-    return cls(top=True)
-
-  def bottom(cls):
-    return cls(bottom=True)
 
   @classmethod
   def meet(cls, a:'IntLatticeElement', b:'IntLatticeElement') -> 'IntLatticeElement':
@@ -68,12 +108,18 @@ class IntLatticeElement:
     return cls.bottom()
 
   @classmethod
-  def meet_all(cls, elements:typing.Iterable['IntLatticeElement']) -> 'IntLatticeElement':
-    """Return the infimum of the given iterable of elements."""
-    import functools
+  def join(cls, a:'IntLatticeElement', b:'IntLatticeElement') -> 'IntLatticeElement':
+    """Return the supremum of the given elements."""
 
-    return functools.reduce(
-      lambda a, b: cls.meet(a, b),
-      elements,
-      cls.top()
-    )
+    if a.is_top or b.is_top:
+      return cls.top()
+
+    if a.is_bottom:
+      return b
+    if b.is_bottom:
+      return a
+    if a.value == b.value:
+      return a
+
+    return cls.bottom()
+
