@@ -1,6 +1,8 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 import abc
+import typing as T
+
 import patterns
 
 class ControlFlowGraph(patterns.Visitable):
@@ -24,9 +26,13 @@ class ControlFlowGraph(patterns.Visitable):
   def __str__(self):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
 
-  def edge_list(self):
-    """Returns a list of the CFG's edges in the form (pred, succ)."""
-    return [(p.ident(),s.ident()) for p in self.blocks for s in p.succs]
+  def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
+    """
+    Returns:
+      a list of the CFG's edges, with each edge in the form
+        ( pred, succ )
+    """
+    return [(p, s) for p in self.blocks for s in p.succs]
 
   def accept(self, visitor:patterns.Visitor):
     """
@@ -51,16 +57,24 @@ class BasicBlock(patterns.Visitable):
   A BasicBlock must contain exactly one entry point at the start and
   exactly one exit point at the end, with no branching in between.
   That is, program flow must be linear/sequential within a basic block.
+
+  Args:
+    entry (int, default None): entry index.
+    exit (int, default None): exit index.
+
+  Raises:
+    ValueError: if entry or exit is a negative int.
   """
 
   _STR_SEP = "---"
 
   @abc.abstractmethod
   def __init__(self, entry:int=None, exit:int=None):
-    """
-    Creates a new CFG node containing code operations between the
-    specified entry index and the specified exit index (inclusive).
-    """
+    if entry is not None and entry < 0:
+      raise ValueError("entry must be a positive integer or zero")
+
+    if exit is not None and exit < 0:
+      raise ValueError("exit must be a positive integer or zero")
 
     self.entry = entry
     """Index of the first operation contained in this node."""
@@ -82,13 +96,21 @@ class BasicBlock(patterns.Visitable):
     return self.exit - self.entry
 
   def __str__(self):
-    head = "Block [{}:{}]".format(hex(self.entry), hex(self.exit))
+    entry, exit = map(lambda n: hex(n) if n is not None else 'Unknown',
+                      (self.entry, self.exit))
+    head = "Block [{}:{}]".format(entry, exit)
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
     succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
     unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""
     return "\n".join([head, self._STR_SEP, pred, succ]) + unresolved
 
   def ident(self) -> str:
-    """Returns this block's unique identifier, which is the index of its first
-    operation, as a hex string."""
+    """
+    Returns this block's unique identifier, which is its entry value.
+
+    Raises:
+      ValueError if the block's entry is None.
+    """
+    if self.entry is None:
+      raise ValueError("Can't compute ident() for block with unknown entry")
     return hex(self.entry)
