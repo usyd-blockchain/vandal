@@ -145,7 +145,7 @@ class Constant(Variable):
     to the most significant bit of the output.
     """
     pos = 8 * (b.value + 1)
-    mask = int("1"*((self.SIZE * 8) - pos) + "0"*pos, 2)
+    mask = int("1"*((cls.SIZE * 8) - pos) + "0"*pos, 2)
     val = 1 if (v.value & (1 << (pos - 1))) > 0 else 0
 
     return cls((v.value & mask) if val == 0 else (v.value | ~mask))

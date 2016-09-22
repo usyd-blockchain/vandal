@@ -195,7 +195,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     stack_pops = "Stack pops: {}".format(self.stack_pops)
     stack_str = ", ".join([str(v) for v in self.stack_adds])
     stack_adds = "Stack additions: [{}]".format(stack_str)
-    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP, \
+    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
                       stack_pops, stack_adds])
 
   def accept(self, visitor:patterns.Visitor):
@@ -220,7 +220,7 @@ class TACOp:
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[mem.Variable], \
+  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[mem.Variable],
                pc:int, block=None):
     """
     Args:
@@ -457,4 +457,3 @@ class Destackifier:
     if var is not None:
       self.__push(var)
     self.ops.append(inst)
-

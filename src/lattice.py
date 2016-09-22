@@ -40,7 +40,7 @@ class BoundedLatticeElement(abc.ABC):
     return cls(bottom=True)
 
   @abc.abstractclassmethod
-  def meet(cls, a:'BoundedLatticeElement', \
+  def meet(cls, a:'BoundedLatticeElement',
            b:'BoundedLatticeElement') -> 'BoundedLatticeElement':
     """Return the infimum of the given elements."""
 
@@ -55,7 +55,7 @@ class BoundedLatticeElement(abc.ABC):
     )
 
   @abc.abstractclassmethod
-  def join(cls, a:'BoundedLatticeElement', \
+  def join(cls, a:'BoundedLatticeElement',
            b:'BoundedLatticeElement') -> 'BoundedLatticeElement':
     """Return the infimum of the given elements."""
 

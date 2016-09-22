@@ -24,7 +24,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
     # if it's a TAC Block, then there's no need to go through the
     # EVM operations again.
     if isinstance(block, tac_cfg.TACBasicBlock):
-        return len(block.stack_adds) - block.stack_pops
+      return len(block.stack_adds) - block.stack_pops
 
     delta = 0
 
@@ -36,7 +36,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   # Stack size information per block at entry and exit points.
   entry_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
   exit_info = {block: lattice.IntLatticeElement.top() for block in cfg.blocks}
-  block_deltas = {block: lattice.IntLatticeElement(block_stack_delta(block)) \
+  block_deltas = {block: lattice.IntLatticeElement(block_stack_delta(block))
                   for block in cfg.blocks}
 
   # Add a distinguished empty-stack start block which does nothing.
@@ -58,7 +58,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
     current = queue.pop()
 
     # Calculate the new entry value for the current block.
-    new_entry = lattice.IntLatticeElement.meet_all([exit_info[p] \
+    new_entry = lattice.IntLatticeElement.meet_all([exit_info[p]
                                                    for p in current.preds])
 
     # If the entry value changed, we have to recompute
