@@ -54,7 +54,7 @@ class BoundedLatticeElement(abc.ABC):
   @classmethod
   def bottom(cls) -> 'BoundedLatticeElement':
     """Return the Bottom lattice element."""
-    return cls(top=False)
+    return cls(bottom=True)
 
   @abc.abstractclassmethod
   def meet(cls, a:'BoundedLatticeElement',
@@ -155,8 +155,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
   elements, the bottom is the empty set, and other elements are subsets of top.
   """
 
-  def __init__(self, value:typing.Set=None, top:bool=False, bottom:bool=False):
-    super().__init__(value, top, bottom)
+  def __init__(self, value:typing.Iterable=None, top:bool=False, bottom:bool=False):
+    super().__init__(set(value), top, bottom)
 
   @classmethod
   def _top_val(cls):
