@@ -44,7 +44,7 @@ class ControlFlowGraph(patterns.Visitable):
     """
     super().accept(visitor)
 
-    if visitor.can_visit(BasicBlock):
+    if len(self.blocks) > 0 and visitor.can_visit(type(self.blocks[0])):
       for b in self.blocks:
         b.accept(visitor)
 
