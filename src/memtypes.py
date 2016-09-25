@@ -1,6 +1,8 @@
 """memtypes.py: Symbolic representations of ways of storing information
 in the ethereum machine."""
 
+from .lattice import SubsetLatticeElement as ssle
+
 class Variable:
   """A symbolic variable whose value is supposed to be
   the result of some TAC operation. Its size is 32 bytes."""
@@ -10,18 +12,21 @@ class Variable:
 
   CARDINALITY = 2**(SIZE * 8)
   """
-  The number of distinct values representable by this variable.
+  The number of distinct values this variable could contain.
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, ident:str):
+  def __init__(self, ident:str, values:ssle=ssle.top()):
     """
     Args:
       ident: the name that uniquely identifies this variable.
+      value: the set of values this variable could take.
     """
     self.ident = ident
+    self.values = values
 
   def __str__(self):
+    if
     return self.ident
 
   def __repr__(self):
@@ -42,10 +47,16 @@ class Variable:
   @property
   def is_const(self) -> bool:
     """
-    True if this variable is an instance of Constant.
-    Neater and more meaningful than using isinstance().
+    True iff this variable has exactly one possible value.
     """
-    return False
+    return len(self.value) == 1
+
+  @property
+  def is_unconstrained(self) -> bool:
+    """
+    True iff this variable could take on all possible values.
+    """
+    return self.values.is_top
 
 
 class Constant(Variable):

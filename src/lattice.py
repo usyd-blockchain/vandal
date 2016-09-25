@@ -1,4 +1,8 @@
-"""lattice.py: define lattices for use in meet-over-paths calculations."""
+"""lattice.py: define lattices for use in meet-over-paths calculations.
+
+We will take bottom elements to mean maximal value constraint
+(uninitialised, or empty set), while top elements will be taken to mean a
+maximally-unconstrained element (all possible values, universal set)."""
 
 import typing
 import functools
@@ -18,6 +22,16 @@ class BoundedLatticeElement(abc.ABC):
     self.is_bottom = bottom
 
     if value is None and not (top or bottom):
+      self.is_top = True
+    elif top:
+      self.value = self._top_val()
+    elif bottom:
+      self.value = self._bottom_val()
+    elif value == self._bottom_val():
+      self.is_bottom = True
+      self.is_top = False
+    elif value == self._top_val():
+      self.is_bottom = False
       self.is_top = True
 
   def __eq__(self, other):
@@ -88,7 +102,7 @@ class BoundedLatticeElement(abc.ABC):
 
 
 class IntLatticeElement(BoundedLatticeElement):
-  """An element of the meet-semilattice defined by augmenting
+  """An element of the lattice defined by augmenting
   the (unordered) set of integers with top and bottom elements.
 
   Integers are incomparable with one another, while top and bottom
@@ -157,6 +171,11 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
   def __init__(self, value:typing.Iterable=None, top:bool=False, bottom:bool=False):
     super().__init__(set(value), top, bottom)
+
+  def __len__(self):
+    if self.is_top or self.is_bottom:
+      return 0
+    return len(self.value)
 
   @classmethod
   def _top_val(cls):
