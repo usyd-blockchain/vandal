@@ -170,12 +170,20 @@ class SubsetLatticeElement(BoundedLatticeElement):
   """
 
   def __init__(self, value:typing.Iterable=None, top:bool=False, bottom:bool=False):
-    super().__init__(set(value), top, bottom)
+    if value is not None:
+      value = set(value)
+    super().__init__(value, top, bottom)
 
   def __len__(self):
     if self.is_top or self.is_bottom:
       return 0
     return len(self.value)
+
+  def value_list(self):
+    if self.is_top:
+      raise TypeError("Value list cannot be generated for Top lattice element.")
+
+    return list(self.value)
 
   @classmethod
   def _top_val(cls):
