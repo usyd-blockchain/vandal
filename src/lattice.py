@@ -191,7 +191,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     """
     Return the result of applying a function to each of this element's values.
 
-    This is actually a special case of application_product(), for arity 1.
+    Incidentally, this could be seen as special case of application_product().
     """
     if self.is_top:
       return copy(self)

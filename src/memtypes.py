@@ -1,7 +1,10 @@
 """memtypes.py: Symbolic representations of ways of storing information
 in the ethereum machine."""
 
+import typing
+
 from .lattice import SubsetLatticeElement as ssle
+
 
 class Variable:
   """A symbolic variable whose value is supposed to be
@@ -16,7 +19,7 @@ class Variable:
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, ident:str, values:ssle=ssle.top()):
+  def __init__(self, ident: str, values: ssle=ssle.top()):
     """
     Args:
       ident: the name that uniquely identifies this variable.
@@ -64,148 +67,163 @@ class Variable:
     """
     return self.values.is_top
 
-  def twos_comp(self) -> int:
+  def complement(self) -> 'Variable':
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    def complement(v):
-      return v - self.CARDINALITY if v & (self.CARDINALITY >> 1) else v
-    return self.values.map(complement)
+    return self.values.map(self.twos_comp)
+
+  @classmethod
+  def twos_comp(cls, v: int) -> int:
+    """
+    Return the signed two's complement interpretation of the given integer.
+    """
+    return v - cls.CARDINALITY if v & (cls.CARDINALITY >> 1) else v
 
 
   # EVM arithmetic operations.
-  # Each takes in two Constant arguments, and returns a new Constant
-  # whose value is the result of applying the operation to the argument values.
   # For comparison operators, "True" and "False" are represented by Constants
   # with the value 1 and 0 respectively.
-  # These names should be identical to the opcode names themselves.
+  # Op function names should be identical to the opcode names themselves.
 
   @classmethod
-  def ADD(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def arith_op(cls, opname: str, args: typing.Iterable['Variable'], name="R") \
+  -> 'Variable':
+    """
+    Apply the named arithmetic operation to the given Variables' values
+    in all ordered combinations, the result contained in the returned Variable.
+    """
+    result = ssle.application_product(getattr(cls, opname),
+                                      [arg.values for arg in args])
+    return cls(name, result)
+
+
+  @classmethod
+  def ADD(cls, l: int, r: int) -> int:
     """Return the sum of the inputs."""
-    return cls((l.value + r.value))
+    return l + r
 
   @classmethod
-  def MUL(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def MUL(cls, l: int, r: int) -> int:
     """Return the product of the inputs."""
-    return cls((l.value * r.value))
+    return l * r
 
   @classmethod
-  def SUB(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def SUB(cls, l: int, r: int) -> int:
     """Return the difference of the inputs."""
-    return cls((l.value - r.value))
+    return l - r
 
   @classmethod
-  def DIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def DIV(cls, l: int, r: int) -> int:
     """Return the quotient of the inputs."""
-    return cls(0 if r.value == 0 else l.value // r.value)
+    return 0 if (r == 0) else (l // r)
 
   @classmethod
-  def SDIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def SDIV(cls, l: int, r: int) -> int:
     """Return the signed quotient of the inputs."""
-    l_val, r_val = l.twos_comp(), r.twos_comp()
-    sign = 1 if l_val * r_val >= 0 else -1
-    return cls(0 if r_val == 0 else sign * (abs(l_val) // abs(r_val)))
+    l_val, r_val = cls.twos_comp(l), cls.twos_comp(r)
+    sign = 1 if ((l_val * r_val) >= 0) else -1
+    return 0 if (r_val == 0) else (sign * (abs(l_val) // abs(r_val)))
 
   @classmethod
-  def MOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
+  def MOD(cls, v: int, m: int) -> int:
     """Modulo operator."""
-    return cls(0 if m.value == 0 else v.value % m.value)
+    return 0 if (m == 0) else (v % m)
 
   @classmethod
-  def SMOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
+  def SMOD(cls, v: int, m: int) -> int:
     """Signed modulo operator. The output takes the sign of v."""
-    v_val, m_val = v.twos_comp(), m.twos_comp()
-    sign = 1 if v_val >= 0 else -1
-    return cls(0 if m.value == 0 else sign * (abs(v_val) % abs(m_val)))
+    v_val, m_val = cls.twos_comp(v), cls.twos_comp(m)
+    sign = 1 if (v_val >= 0) else -1
+    return 0 if (m == 0) else (sign * (abs(v_val) % abs(m_val)))
 
   @classmethod
-  def ADDMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
+  def ADDMOD(cls, l: int, r: int, m: int) -> int:
     """Modular addition: return (l + r) modulo m."""
-    return cls(0 if m.value == 0 else (l.value + r.value) % m.value)
+    return 0 if (m == 0) else ((l + r) % m)
 
   @classmethod
-  def MULMOD(cls, l: 'Constant', r: 'Constant', m: 'Constant') -> 'Constant':
+  def MULMOD(cls, l: int, r: int, m: int) -> int:
     """Modular multiplication: return (l * r) modulo m."""
-    return cls(0 if m.value == 0 else (l.value * r.value) % m.value)
+    return 0 if (m == 0) else ((l * r) % m)
 
   @classmethod
-  def EXP(cls, b: 'Constant', e: 'Constant') -> 'Constant':
+  def EXP(cls, b: int, e: int) -> int:
     """Exponentiation: return b to the power of e."""
-    return cls(b.value ** e.value)
+    return b ** e
 
   @classmethod
-  def SIGNEXTEND(cls, b: 'Constant', v: 'Constant') -> 'Constant':
+  def SIGNEXTEND(cls, b: int, v: int) -> int:
     """
     Return v, but with the high bit of its b'th byte extended all the way
     to the most significant bit of the output.
     """
-    pos = 8 * (b.value + 1)
+    pos = 8 * (b + 1)
     mask = int("1"*((cls.SIZE * 8) - pos) + "0"*pos, 2)
-    val = 1 if (v.value & (1 << (pos - 1))) > 0 else 0
+    val = 1 if (v & (1 << (pos - 1))) > 0 else 0
 
-    return cls((v.value & mask) if val == 0 else (v.value | ~mask))
+    return (v & mask) if (val == 0) else (v | ~mask)
 
   @classmethod
-  def LT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def LT(cls, l: int, r: int) -> int:
     """Less-than comparison."""
-    return cls(1 if l.value < r.value else 0)
+    return 1 if (l < r) else 0
 
   @classmethod
-  def GT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def GT(cls, l: int, r: int) -> int:
     """Greater-than comparison."""
-    return cls(1 if l.value > r.value else 0)
+    return 1 if (l > r) else 0
 
   @classmethod
-  def SLT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def SLT(cls, l: int, r: int) -> int:
     """Signed less-than comparison."""
-    return cls(1 if l.twos_comp() < r.twos_comp() else 0)
+    return 1 if (cls.twos_comp(l) < cls.twos_comp(r)) else 0
 
   @classmethod
-  def SGT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def SGT(cls, l: int, r: int) -> int:
     """Signed greater-than comparison."""
-    return cls(1 if l.twos_comp() > r.twos_comp() else 0)
+    return 1 if (cls.twos_comp(l) > cls.twos_comp(r)) else 0
 
   @classmethod
-  def EQ(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def EQ(cls, l: int, r: int) -> int:
     """Equality comparison."""
-    return cls(1 if l.value == r.value else 0)
+    return 1 if (l == r) else 0
 
   @classmethod
-  def ISZERO(cls, v: 'Constant') -> 'Constant':
+  def ISZERO(cls, v: int) -> int:
     """1 if the input is zero, 0 otherwise."""
-    return cls(1 if v.value == 0 else 0)
+    return 1 if (v == 0) else 0
 
   @classmethod
-  def AND(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def AND(cls, l: int, r: int) -> int:
     """Bitwise AND."""
-    return cls(l.value & r.value)
+    return l & r
 
   @classmethod
-  def OR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def OR(cls, l: int, r: int) -> int:
     """Bitwise OR."""
-    return cls(l.value | r.value)
+    return l | r
 
   @classmethod
-  def XOR(cls, l: 'Constant', r: 'Constant') -> 'Constant':
+  def XOR(cls, l: int, r: int) -> int:
     """Bitwise XOR."""
-    return cls(l.value ^ r.value)
+    return l ^ r
 
   @classmethod
-  def NOT(cls, v: 'Constant') -> 'Constant':
+  def NOT(cls, v: int) -> int:
     """Bitwise NOT."""
-    return cls(~v.value)
+    return ~v
 
   @classmethod
-  def BYTE(cls, b: 'Constant', v: 'Constant') -> 'Constant':
+  def BYTE(cls, b: int, v: int) -> int:
     """Return the b'th byte of v."""
-    return cls((v >> ((self.SIZE - b)*8)) & 0xFF)
+    return (v >> ((cls.SIZE - b)*8)) & 0xFF
 
 
 class Location:
   """A generic storage location."""
 
-  def __init__(self, space_id:str, size:int, address:Variable):
+  def __init__(self, space_id: str, size: int, address: Variable):
     """
     Construct a location from the name of the space,
     and the size of the storage location in bytes.
@@ -250,19 +268,19 @@ class Location:
 
 class MLoc(Location):
   """A symbolic memory region 32 bytes in length."""
-  def __init__(self, address:Variable):
+  def __init__(self, address: Variable):
     super().__init__("M", 32, address)
 
 
 class MLocByte(Location):
   """ A symbolic one-byte cell from memory."""
-  def __init__(self, address:Variable):
+  def __init__(self, address: Variable):
     super().__init__("M1", 1, address)
 
 
 class SLoc(Location):
   """A symbolic one word static storage location."""
-  def __init__(self, address:Variable):
+  def __init__(self, address: Variable):
     super().__init__("S", 32, address)
 
 
