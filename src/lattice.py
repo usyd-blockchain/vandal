@@ -178,9 +178,10 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
   def __len__(self):
     if self.is_top:
-      return -1
+      return 0 #TODO: determine if this is the right thing here. TOP has unbounded size.
     return len(self.value)
 
+  @property
   def value_list(self):
     if self.is_top:
       raise TypeError("Value list cannot be generated for Top lattice element.")
@@ -215,7 +216,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     if any([e.is_top for e in elements]):
       return cls.top()
 
-    prod = itertools.product(*(e.value_list() for e in elements))
+    prod = itertools.product(*(e.value_list for e in elements))
     return cls([f(*args) for args in prod])
 
   @classmethod

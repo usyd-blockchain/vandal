@@ -9,6 +9,7 @@ import evm_cfg
 import memtypes as mem
 import blockparse
 import patterns
+from lattice import SubsetLatticeElement as ssle
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -425,7 +426,7 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [mem.Constant(op.value)],
+      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable("C", ssle([op.value]))],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
       inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
@@ -457,3 +458,4 @@ class Destackifier:
     if var is not None:
       self.__push(var)
     self.ops.append(inst)
+

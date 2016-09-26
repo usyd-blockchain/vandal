@@ -3,7 +3,7 @@ in the ethereum machine."""
 
 import typing
 
-from .lattice import SubsetLatticeElement as ssle
+from lattice import SubsetLatticeElement as ssle
 
 
 class Variable:
@@ -34,8 +34,8 @@ class Variable:
     if self.is_unconstrained:
       return self.ident
     if self.is_const:
-      return hex(self.values.value_list()[0])
-    val_str = "".join([hex(val) for val in self.values.value_list()])
+      return hex(self.value)
+    val_str = "".join([hex(val) for val in self.values.value_list])
     return "{}: \{{}\}".format(self.ident, val_str)
 
   def __repr__(self):
@@ -54,11 +54,17 @@ class Variable:
     return hash(self.ident)
 
   @property
+  def value(self):
+    if len(self.values) != 1:
+      return None
+    return self.values.value_list[0]
+
+  @property
   def is_const(self) -> bool:
     """
     True iff this variable has exactly one possible value.
     """
-    return len(self.value) == 1
+    return len(self.values) == 1
 
   @property
   def is_unconstrained(self) -> bool:
