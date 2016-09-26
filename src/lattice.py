@@ -5,7 +5,9 @@ We will take bottom elements to mean maximal value constraint
 maximally-unconstrained element (all possible values, universal set)."""
 
 import typing
+import types
 import functools
+import itertools
 from copy import copy
 import abc
 
@@ -185,24 +187,36 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
     return list(self.value)
 
-  def map(self, f:typing.Callable) -> 'SubsetLatticeElement':
+  def map(self, f:types.FunctionType) -> 'SubsetLatticeElement':
     """
     Return the result of applying a function to each of this element's values.
+
+    This is actually a special case of application_product(), for arity 1.
     """
     if self.is_top:
       return copy(self)
-    return type(self)([f(val) for val in self.values])
+    return type(self)([f(val) for val in self.value])
 
   @classmethod
-  def application_product(cls, f:typing.Callable,
-                  a:'SubsetLatticeElement', b:'SubsetLatticeElement') \
+  def application_product(cls, f:types.FunctionType,
+                          elements:typing.Iterable['SubsetLatticeElement']) \
   -> 'SubsetLatticeElement':
-    """Apply the given function to each pair of members (u, v) for each
-    u in a, v in b, return the resulting lattice element."""
+    """
+    Apply the given function to each tuple of members in the product of the
+    input elements, and return the resulting lattice element.
 
-    if a.is_top or b.is_top:
+    The function's arity must match the number of input elements.
+    For example, for a binary function, and input elements a, b, the result is
+    the element defined by the set f(u, v) for each u in a, v in b.
+    """
+
+    # Symbolic manipulations could be performed here as some operations might
+    # constrain the results, even if some input set is unconstrained.
+    if any([e.is_top for e in elements]):
       return cls.top()
-    return cls([f(u, v) for u in a.value_list() for v in b.value_list()])
+
+    prod = itertools.product(*(e.value_list() for e in elements))
+    return cls([f(*args) for args in prod])
 
   @classmethod
   def _top_val(cls):
