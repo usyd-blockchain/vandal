@@ -23,11 +23,17 @@ class Variable:
       value: the set of values this variable could take.
     """
     self.ident = ident
-    self.values = values
+
+    # Make sure the input values are not out of range.
+    self.values = values.map(lambda v: v % self.CARDINALITY)
 
   def __str__(self):
-    if
-    return self.ident
+    if self.is_unconstrained:
+      return self.ident
+    if self.is_const:
+      return hex(self.values.value_list()[0])
+    val_str = "".join([hex(val) for val in self.values.value_list()])
+    return "{}: \{{}\}".format(self.ident, val_str)
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -58,35 +64,14 @@ class Variable:
     """
     return self.values.is_top
 
-
-class Constant(Variable):
-  """A specialised variable whose value is a constant integer."""
-
-  def __init__(self, value:int):
-    self.value = value % self.CARDINALITY
-
-  def __str__(self):
-    return hex(self.value)
-
-  def __eq__(self, other):
-    return self.value == other.value
-
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
-  def __hash__(self):
-    return self.value
-
-  @property
-  def is_const(self) -> bool:
-    """True if this Variable is a Constant."""
-    return True
-
-  def twos_compl(self) -> int:
+  def twos_comp(self) -> int:
     """
-    Return the signed two's complement interpretation of this constant's value.
+    Return the signed two's complement interpretation of this constant's values.
     """
-    if self.value & (self.CARDINALITY - 1):
-      return self.CARDINALITY - self.value
+    def complement(v):
+      return v - self.CARDINALITY if v & (self.CARDINALITY >> 1) else v
+    return self.values.map(complement)
+
 
   # EVM arithmetic operations.
   # Each takes in two Constant arguments, and returns a new Constant
@@ -118,7 +103,7 @@ class Constant(Variable):
   @classmethod
   def SDIV(cls, l: 'Constant', r: 'Constant') -> 'Constant':
     """Return the signed quotient of the inputs."""
-    l_val, r_val = l.twos_compl(), r.twos_compl()
+    l_val, r_val = l.twos_comp(), r.twos_comp()
     sign = 1 if l_val * r_val >= 0 else -1
     return cls(0 if r_val == 0 else sign * (abs(l_val) // abs(r_val)))
 
@@ -130,7 +115,7 @@ class Constant(Variable):
   @classmethod
   def SMOD(cls, v: 'Constant', m: 'Constant') -> 'Constant':
     """Signed modulo operator. The output takes the sign of v."""
-    v_val, m_val = v.twos_compl(), m.twos_compl()
+    v_val, m_val = v.twos_comp(), m.twos_comp()
     sign = 1 if v_val >= 0 else -1
     return cls(0 if m.value == 0 else sign * (abs(v_val) % abs(m_val)))
 
@@ -174,12 +159,12 @@ class Constant(Variable):
   @classmethod
   def SLT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
     """Signed less-than comparison."""
-    return cls(1 if l.twos_compl() < r.twos_compl() else 0)
+    return cls(1 if l.twos_comp() < r.twos_comp() else 0)
 
   @classmethod
   def SGT(cls, l: 'Constant', r: 'Constant') -> 'Constant':
     """Signed greater-than comparison."""
-    return cls(1 if l.twos_compl() > r.twos_compl() else 0)
+    return cls(1 if l.twos_comp() > r.twos_comp() else 0)
 
   @classmethod
   def EQ(cls, l: 'Constant', r: 'Constant') -> 'Constant':
