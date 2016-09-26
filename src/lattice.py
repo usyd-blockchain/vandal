@@ -198,8 +198,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
     return type(self)([f(val) for val in self.value])
 
   @classmethod
-  def application_product(cls, f:types.FunctionType,
-                          elements:typing.Iterable['SubsetLatticeElement']) \
+  def cartesian_map(cls, f:types.FunctionType,
+                    elements:typing.Iterable['SubsetLatticeElement']) \
   -> 'SubsetLatticeElement':
     """
     Apply the given function to each tuple of members in the product of the

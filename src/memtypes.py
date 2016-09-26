@@ -93,8 +93,8 @@ class Variable:
     Apply the named arithmetic operation to the given Variables' values
     in all ordered combinations, the result contained in the returned Variable.
     """
-    result = ssle.application_product(getattr(cls, opname),
-                                      [arg.values for arg in args])
+    result = ssle.cartesian_map(getattr(cls, opname),
+                                [arg.values for arg in args])
     return cls(name, result)
 
 
@@ -231,7 +231,7 @@ class Location:
     Args:
       space_id: The identifier of an address space.
       size: Size of this location in bytes.
-      address: Either a variable or a constant indicating the location.
+      address: A variable indicating the location.
     """
     self.space_id = space_id
     self.size = size
@@ -260,8 +260,7 @@ class Location:
   @property
   def is_const(self) -> bool:
     """
-    True if this variable is an instance of Constant.
-    Neater and more meaningful than using isinstance().
+    True if this location has a known constant value.
     """
     return False
 
