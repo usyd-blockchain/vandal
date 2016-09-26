@@ -175,8 +175,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
     super().__init__(value, top, bottom)
 
   def __len__(self):
-    if self.is_top or self.is_bottom:
-      return 0
+    if self.is_top:
+      return -1
     return len(self.value)
 
   def value_list(self):
@@ -184,6 +184,25 @@ class SubsetLatticeElement(BoundedLatticeElement):
       raise TypeError("Value list cannot be generated for Top lattice element.")
 
     return list(self.value)
+
+  def map(self, f:typing.Callable) -> 'SubsetLatticeElement':
+    """
+    Return the result of applying a function to each of this element's values.
+    """
+    if self.is_top:
+      return copy(self)
+    return type(self)([f(val) for val in self.values])
+
+  @classmethod
+  def application_product(cls, f:typing.Callable,
+                  a:'SubsetLatticeElement', b:'SubsetLatticeElement') \
+  -> 'SubsetLatticeElement':
+    """Apply the given function to each pair of members (u, v) for each
+    u in a, v in b, return the resulting lattice element."""
+
+    if a.is_top or b.is_top:
+      return cls.top()
+    return cls([f(u, v) for u in a.value_list() for v in b.value_list()])
 
   @classmethod
   def _top_val(cls):
