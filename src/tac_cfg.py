@@ -463,3 +463,10 @@ class Destackifier:
       self.__push(var)
     self.ops.append(inst)
 
+
+class Stack:
+  """A stack that holds TAC variables."""
+
+  def __init__(self):
+
+    self.

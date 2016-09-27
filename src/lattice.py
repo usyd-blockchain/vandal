@@ -12,19 +12,94 @@ from copy import copy
 import abc
 
 
-class BoundedLatticeElement(abc.ABC):
+class LatticeElement(abc.ABC):
+  def __init__(self, value):
+    """Construct a lattice element with the given value."""
+    self.value = value
+
+  @abc.abstractclassmethod
+  def meet(cls, a: 'LatticeElement',
+           b: 'LatticeElement') -> 'LatticeElement':
+    """Return the infimum of the given elements."""
+
+  @classmethod
+  def meet_all(cls, elements: t.Iterable['LatticeElement'],
+               initial:'LatticeElement'=None) -> 'LatticeElement':
+    """Return the infimum of the given iterable of elements."""
+    if initial is not None:
+      return functools.reduce(
+        lambda a, b: cls.meet(a, b),
+        elements,
+        initial
+      )
+    return functools.reduce(
+      lambda a, b: cls.meet(a, b),
+      elements,
+    )
+
+  @abc.abstractclassmethod
+  def join(cls, a: 'LatticeElement',
+           b: 'LatticeElement') -> 'LatticeElement':
+    """Return the infimum of the given elements."""
+
+  @classmethod
+  def join_all(cls, elements: t.Iterable['LatticeElement'],
+               initial: 'LatticeElement=None') -> 'LatticeElement':
+    """Return the supremum of the given iterable of elements."""
+    if initial is not None:
+      return functools.reduce(
+        lambda a, b: cls.join(a, b),
+        elements,
+        initial
+      )
+    return functools.reduce(
+      lambda a, b: cls.join(a, b),
+      elements,
+    )
+
+  def __eq__(self, other):
+    return self.value == other.value
+
+  def __str__(self):
+    return str(self.value)
+
+  def __repr__(self):
+    return "<{0} object {1}, {2}>".format(
+      self.__class__.__name__,
+      hex(id(self)),
+      str(self)
+    )
+
+
+class BoundedLatticeElement(LatticeElement):
   TOP_SYMBOL = "⊤"
   BOTTOM_SYMBOL = "⊥"
 
-  @abc.abstractmethod
   def __init__(self, value=None, top: bool=False, bottom: bool=False):
-    """Construct a lattice element with the given value."""
-    self.value = value
+    """
+    Construct a bounded lattice element with the given value.
+
+    Args:
+      value: the value this lattice element should take.
+      top: if true, construct the Top element.
+      bottom: if true, construct the Bottom element.
+    """
+    super().__init__(value)
 
     if top or (value is None and not (top or bottom)):
       self.value = self._top_val()
     elif bottom:
       self.value = self._bottom_val()
+
+  @classmethod
+  def meet_all(cls, elements: t.Iterable['BoundedLatticeElement']) \
+  -> 'BoundedLatticeElement':
+    return super().meet_all(elements, cls.top())
+
+  @classmethod
+  def join_all(cls, elements: t.Iterable['BoundedLatticeElement']) \
+    -> 'BoundedLatticeElement':
+    return super().join_all(elements, cls.bottom())
 
   @property
   def is_top(self):
@@ -34,9 +109,6 @@ class BoundedLatticeElement(abc.ABC):
   def is_bottom(self):
     return self.value == self._bottom_val()
 
-  def __eq__(self, other):
-    return self.value == other.value
-
   def __str__(self):
     if self.is_top:
       return self.TOP_SYMBOL
@@ -44,13 +116,6 @@ class BoundedLatticeElement(abc.ABC):
       return self.BOTTOM_SYMBOL
     else:
       return str(self.value)
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      str(self)
-    )
 
   @abc.abstractclassmethod
   def _top_val(cls):
@@ -70,43 +135,15 @@ class BoundedLatticeElement(abc.ABC):
     """Return the Bottom lattice element."""
     return cls(bottom=True)
 
-  @abc.abstractclassmethod
-  def meet(cls, a: 'BoundedLatticeElement',
-           b: 'BoundedLatticeElement') -> 'BoundedLatticeElement':
-    """Return the infimum of the given elements."""
-
-  @classmethod
-  def meet_all(cls, elements: t.Iterable['BoundedLatticeElement']) \
-  -> 'BoundedLatticeElement':
-    """Return the infimum of the given iterable of elements."""
-    return functools.reduce(
-      lambda a, b: cls.meet(a, b),
-      elements,
-      cls.top()
-    )
-
-  @abc.abstractclassmethod
-  def join(cls, a: 'BoundedLatticeElement',
-           b: 'BoundedLatticeElement') -> 'BoundedLatticeElement':
-    """Return the infimum of the given elements."""
-
-  @classmethod
-  def join_all(cls, elements: t.Iterable['BoundedLatticeElement']) \
-  -> 'BoundedLatticeElement':
-    """Return the supremum of the given iterable of elements."""
-    return functools.reduce(
-      lambda a, b: cls.join(a, b),
-      elements,
-      cls.bottom()
-    )
-
 
 class IntLatticeElement(BoundedLatticeElement):
-  """An element of the lattice defined by augmenting
+  """
+  An element of the lattice defined by augmenting
   the (unordered) set of integers with top and bottom elements.
 
   Integers are incomparable with one another, while top and bottom
-  compare superior and inferior with every other element, respectively."""
+  compare superior and inferior with every other element, respectively.
+  """
 
   def __init__(self, value: int=None, top: bool=False, bottom: bool=False) \
   -> None:
@@ -231,6 +268,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
   @classmethod
   def meet(cls, a: 'SubsetLatticeElement', b: 'SubsetLatticeElement') \
   -> 'SubsetLatticeElement':
+    """Return the set intersection of the given elements."""
     if a.is_top:
       return copy(b)
     if b.is_top:
@@ -241,6 +279,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
   @classmethod
   def join(cls, a: 'SubsetLatticeElement', b: 'SubsetLatticeElement') \
   -> 'SubsetLatticeElement':
+    """Return the set union of the given elements."""
     if a.is_top or b.is_top:
       return cls.top()
 

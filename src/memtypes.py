@@ -37,8 +37,10 @@ class Location(abc.ABC):
 
 
 class Variable(Location):
-  """A symbolic variable whose value is supposed to be
-  the result of some TAC operation. Its size is 32 bytes."""
+  """
+  A symbolic variable whose value is supposed to be
+  the result of some TAC operation. Its size is 32 bytes.
+  """
 
   SIZE = 32
   """Variables are 32 bytes in size."""
