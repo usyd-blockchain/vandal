@@ -219,12 +219,10 @@ class SubsetLatticeElement(BoundedLatticeElement):
       return 0
     return len(self.value)
 
-  @property
-  def value_list(self):
-    if self.is_top:
-      raise TypeError("Value list cannot be generated for Top lattice element.")
-
-    return list(self.value)
+  def __iter__(self):
+    if len(self) == 0:
+      raise TypeError("Top lattice element cannot be iterated.")
+    return iter(self.value)
 
   def map(self, f: types.FunctionType) -> 'SubsetLatticeElement':
     """
@@ -254,7 +252,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     if any([e.is_top for e in elements]):
       return cls.top()
 
-    prod = itertools.product(*(e.value_list for e in elements))
+    prod = itertools.product(*(list(e) for e in elements))
     return cls([f(*args) for args in prod])
 
   @classmethod
@@ -274,7 +272,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     if b.is_top:
       return copy(a)
 
-    return SubsetLatticeElement(a.value & b.value)
+    return cls(a.value & b.value)
 
   @classmethod
   def join(cls, a: 'SubsetLatticeElement', b: 'SubsetLatticeElement') \
@@ -283,4 +281,4 @@ class SubsetLatticeElement(BoundedLatticeElement):
     if a.is_top or b.is_top:
       return cls.top()
 
-    return SubsetLatticeElement(a.value | b.value)
+    return cls(a.value | b.value)

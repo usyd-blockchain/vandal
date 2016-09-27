@@ -11,7 +11,7 @@ class Location(abc.ABC):
   """A generic storage location: variables, memory, static storage."""
 
   @property
-  def name(self) -> str:
+  def identifier(self) -> str:
     """Return the basic string representation of this object."""
     return str(self)
 
@@ -36,7 +36,7 @@ class Location(abc.ABC):
     return ssle.top()
 
 
-class Variable(Location):
+class Variable(ssle, Location):
   """
   A symbolic variable whose value is supposed to be
   the result of some TAC operation. Its size is 32 bytes.
@@ -51,48 +51,50 @@ class Variable(Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, ident: str, values: ssle=ssle.top()):
+  def __init__(self, values: typing.Union[ssle, typing.Iterable]=ssle.top(),
+               name: str= "Var"):
     """
     Args:
-      ident: the name that uniquely identifies this variable.
+      name: the name that uniquely identifies this variable.
       values: the set of values this variable could take.
     """
-    super().__init__()
-
-    self.ident = ident
 
     # Make sure the input values are not out of range.
-    self._values = values.map(lambda v: v % self.CARDINALITY)
+    if isinstance(values, ssle) and values.is_top:
+      super().__init__(top=True)
+    else:
+      super().__init__(value=[v % self.CARDINALITY for v in values])
+    self.name = name
 
   @property
   def values(self):
-    return self._values
+    return self
 
   @values.setter
-  def values(self, v):
-    if isinstance(v, ssle):
-      self._values = v
+  def values(self, v: ssle):
+    if not isinstance(v, ssle):
+      raise TypeError("Value set of a variable must be a subset lattice element.")
     else:
-      raise TypeError("Value of a variable must be a subset lattice element.")
+      self.value = v.map(lambda v: v % self.CARDINALITY).value
 
   @property
-  def name(self):
-    return self.ident
+  def identifier(self):
+    return self.name
 
   @property
   def is_const(self) -> bool:
     """
     True iff this variable has exactly one possible value.
     """
-    return len(self._values) == 1
+    return len(self) == 1
 
   def __str__(self):
     if self.is_unconstrained:
-      return self.ident
+      return self.identifier
     if self.is_const:
-      return hex(self.value)
-    val_str = ", ".join([hex(val) for val in self._values.value_list])
-    return "{}: {{{}}}".format(self.ident, val_str)
+      return hex(self.const_value)
+    val_str = ", ".join([hex(val) for val in self.value])
+    return "{}: {{{}}}".format(self.identifier, val_str)
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -101,25 +103,18 @@ class Variable(Location):
       self.__str__()
     )
 
-  def __eq__(self, other):
-    return self.ident == other.ident
-
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
-  def __hash__(self):
-    return hash(self.ident)
-
   @property
-  def value(self):
-    if len(self._values) != 1:
+  def const_value(self):
+    """If this variable is constant, return its value."""
+    if not self.is_const:
       return None
-    return self._values.value_list[0]
+    return next(iter(self))
 
   def complement(self) -> 'Variable':
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    return self._values.map(self.twos_comp)
+    return type(self)("R", self.value.map(self.twos_comp))
 
   @classmethod
   def twos_comp(cls, v: int) -> int:
@@ -128,23 +123,20 @@ class Variable(Location):
     """
     return v - cls.CARDINALITY if v & (cls.CARDINALITY >> 1) else v
 
-
-  # EVM arithmetic operations.
+  # EVM arithmetic operations follow.
   # For comparison operators, "True" and "False" are represented by Constants
   # with the value 1 and 0 respectively.
   # Op function names should be identical to the opcode names themselves.
 
   @classmethod
-  def arith_op(cls, opname: str, args: typing.Iterable['Variable'], name="R") \
+  def arith_op(cls, opname: str, args: typing.Iterable['Variable'], name="Res") \
   -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
     in all ordered combinations, the result contained in the returned Variable.
     """
-    result = ssle.cartesian_map(getattr(cls, opname),
-                                [arg._values for arg in args])
-    return cls(name, result)
-
+    result = ssle.cartesian_map(getattr(cls, opname), args)
+    return cls(result, name)
 
   @classmethod
   def ADD(cls, l: int, r: int) -> int:
@@ -288,7 +280,7 @@ class MemLoc(Location):
     self.address = address
 
   @property
-  def name(self):
+  def identifier(self):
     return str(self)
 
   def __str__(self):

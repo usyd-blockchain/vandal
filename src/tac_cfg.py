@@ -9,7 +9,7 @@ import evm_cfg
 import memtypes as mem
 import blockparse
 import patterns
-from lattice import SubsetLatticeElement as ssle
+from lattice import LatticeElement, SubsetLatticeElement as ssle
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -75,7 +75,7 @@ class TACGraph(cfg.ControlFlowGraph):
         # If the condition is constant, there is only one jump destination.
         if cond.is_const:
           # If the condition can never be true, remove the jump.
-          if cond.value == 0:
+          if cond.const_value == 0:
             block.tac_ops.pop()
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
@@ -84,8 +84,8 @@ class TACGraph(cfg.ControlFlowGraph):
           elif dest.is_const:
             final_op.opcode = opcodes.JUMP
             final_op.args.pop()
-            if self.is_valid_jump_dest(dest.value):
-              jumpdest = self.get_op_by_pc(dest.value).block
+            if self.is_valid_jump_dest(dest.const_value):
+              jumpdest = self.get_op_by_pc(dest.const_value).block
             else:
               invalid_jump = True
             unresolved = False
@@ -95,8 +95,8 @@ class TACGraph(cfg.ControlFlowGraph):
           # So only handle a variable condition
           unresolved = False
           fallthrough = self.get_block_by_pc(final_op.pc + 1)
-          if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_pc(dest.value).block
+          if self.is_valid_jump_dest(dest.const_value):
+            jumpdest = self.get_op_by_pc(dest.const_value).block
           else:
             invalid_jump = True
 
@@ -104,8 +104,8 @@ class TACGraph(cfg.ControlFlowGraph):
         dest = final_op.args[0]
         if dest.is_const:
           unresolved = False
-          if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_pc(dest.value).block
+          if self.is_valid_jump_dest(dest.const_value):
+            jumpdest = self.get_op_by_pc(dest.const_value).block
           else:
             invalid_jump = True
 
@@ -295,7 +295,7 @@ class TACAssignOp(TACOp):
   def __str__(self):
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
-    return "{}: {} = {}".format(hex(self.pc), self.lhs.name, " ".join(arglist))
+    return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier, " ".join(arglist))
 
 
 class Destackifier:
@@ -328,13 +328,13 @@ class Destackifier:
 
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
-    var = mem.Variable("V{}".format(self.stack_vars))
+    var = mem.Variable(name="V{}".format(self.stack_vars))
     self.stack_vars += 1
     return var
 
   def __pop_extern(self) -> mem.Variable:
     """Generate and return the next variable from the external stack."""
-    var = mem.Variable("S{}".format(self.extern_pops))
+    var = mem.Variable(name="S{}".format(self.extern_pops))
     self.extern_pops += 1
     return var
 
@@ -430,7 +430,7 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable("C", ssle([op.value]))],
+      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable(ssle([op.value]), "C")],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
       inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
@@ -463,10 +463,9 @@ class Destackifier:
       self.__push(var)
     self.ops.append(inst)
 
+#
+# class Stack(LatticeElement):
+#   """A stack that holds TAC variables."""
+#
+#   def __init__(self):
 
-class Stack:
-  """A stack that holds TAC variables."""
-
-  def __init__(self):
-
-    self.
