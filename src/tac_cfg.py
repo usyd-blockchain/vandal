@@ -2,6 +2,7 @@
 objects."""
 
 import typing
+from itertools import zip_longest, dropwhile
 
 import opcodes
 import cfg
@@ -9,7 +10,7 @@ import evm_cfg
 import memtypes as mem
 import blockparse
 import patterns
-from lattice import LatticeElement, SubsetLatticeElement as ssle
+from lattice import LatticeElement
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -378,7 +379,7 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable(ssle([op.value]), "C")],
+      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable([op.value], "C")],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
       inst = TACOp(opcodes.LOG, self.stack.pop_many(op.opcode.pop), op.pc)
@@ -427,8 +428,8 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
-  def __init__(self, state=None):
-    super().__init__([] if state is None else state)
+  def __init__(self, state: typing.Iterable[mem.Variable]=None):
+    super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
@@ -446,7 +447,7 @@ class VariableStack(LatticeElement):
       return self.value.pop()
     else:
       self.empty_pops += 1
-      return mem.Variable(name="S{}".format(self.empty_pops))
+      return mem.Variable(name="S{}".format(self.empty_pops), bottom=True)
 
   def push_many(self, vars: typing.Iterable[mem.Variable]) -> None:
     """
@@ -477,8 +478,13 @@ class VariableStack(LatticeElement):
 
   @classmethod
   def meet(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
-    pass
+    pairs = zip_longest(reversed(a.value), reversed(b.value),
+                                  fillvalue=mem.Variable.bottom())
+    return cls(dropwhile(lambda x: x.is_bottom,
+                         [mem.Variable.meet(*p) for p in pairs][::-1]))
 
   @classmethod
   def join(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
-    pass
+    pairs = zip_longest(reversed(a.value), reversed(b.value),
+                                  fillvalue=mem.Variable.bottom())
+    return cls([mem.Variable.join(*p) for p in pairs][::-1])

@@ -51,8 +51,8 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values: typing.Union[ssle, typing.Iterable]=ssle.top(),
-               name: str= "Var"):
+  def __init__(self, values: typing.Iterable=None,
+               name: str= "Var", top=False, bottom=False):
     """
     Args:
       name: the name that uniquely identifies this variable.
@@ -60,10 +60,8 @@ class Variable(ssle, Location):
     """
 
     # Make sure the input values are not out of range.
-    if isinstance(values, ssle) and values.is_top:
-      super().__init__(top=True)
-    else:
-      super().__init__(value=[v % self.CARDINALITY for v in values])
+    mod = None if values is None else [v % self.CARDINALITY for v in values]
+    super().__init__(value=mod, top=top, bottom=bottom)
     self.name = name
 
   @property
