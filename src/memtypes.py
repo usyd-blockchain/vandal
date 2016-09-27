@@ -2,11 +2,41 @@
 in the ethereum machine."""
 
 import typing
+import abc
 
 from lattice import SubsetLatticeElement as ssle
 
 
-class Variable:
+class Location(abc.ABC):
+  """A generic storage location: variables, memory, static storage."""
+
+  @property
+  def name(self) -> str:
+    """Return the basic string representation of this object."""
+    return str(self)
+
+  @property
+  def is_const(self) -> bool:
+    """True if the set of possible values this Location stores is known."""
+    return False
+
+  @property
+  def is_unconstrained(self) -> bool:
+    """
+    True iff this variable could take on all possible values.
+    """
+    return self.values.is_top
+
+  @property
+  def values(self) -> ssle:
+    """
+    Return the set of values this location may contain.
+    Generically, this set is unconstrained.
+    """
+    return ssle.top()
+
+
+class Variable(Location):
   """A symbolic variable whose value is supposed to be
   the result of some TAC operation. Its size is 32 bytes."""
 
@@ -23,19 +53,43 @@ class Variable:
     """
     Args:
       ident: the name that uniquely identifies this variable.
-      value: the set of values this variable could take.
+      values: the set of values this variable could take.
     """
+    super().__init__()
+
     self.ident = ident
 
     # Make sure the input values are not out of range.
-    self.values = values.map(lambda v: v % self.CARDINALITY)
+    self._values = values.map(lambda v: v % self.CARDINALITY)
+
+  @property
+  def values(self):
+    return self._values
+
+  @values.setter
+  def values(self, v):
+    if isinstance(v, ssle):
+      self._values = v
+    else:
+      raise TypeError("Value of a variable must be a subset lattice element.")
+
+  @property
+  def name(self):
+    return self.ident
+
+  @property
+  def is_const(self) -> bool:
+    """
+    True iff this variable has exactly one possible value.
+    """
+    return len(self._values) == 1
 
   def __str__(self):
     if self.is_unconstrained:
       return self.ident
     if self.is_const:
       return hex(self.value)
-    val_str = "".join([hex(val) for val in self.values.value_list])
+    val_str = "".join([hex(val) for val in self._values.value_list])
     return "{}: \{{}\}".format(self.ident, val_str)
 
   def __repr__(self):
@@ -55,29 +109,15 @@ class Variable:
 
   @property
   def value(self):
-    if len(self.values) != 1:
+    if len(self._values) != 1:
       return None
-    return self.values.value_list[0]
-
-  @property
-  def is_const(self) -> bool:
-    """
-    True iff this variable has exactly one possible value.
-    """
-    return len(self.values) == 1
-
-  @property
-  def is_unconstrained(self) -> bool:
-    """
-    True iff this variable could take on all possible values.
-    """
-    return self.values.is_top
+    return self._values.value_list[0]
 
   def complement(self) -> 'Variable':
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    return self.values.map(self.twos_comp)
+    return self._values.map(self.twos_comp)
 
   @classmethod
   def twos_comp(cls, v: int) -> int:
@@ -100,7 +140,7 @@ class Variable:
     in all ordered combinations, the result contained in the returned Variable.
     """
     result = ssle.cartesian_map(getattr(cls, opname),
-                                [arg.values for arg in args])
+                                [arg._values for arg in args])
     return cls(name, result)
 
 
@@ -226,7 +266,7 @@ class Variable:
     return (v >> ((cls.SIZE - b)*8)) & 0xFF
 
 
-class Location:
+class MemLoc(Location):
   """A generic storage location."""
 
   def __init__(self, space_id: str, size: int, address: Variable):
@@ -239,9 +279,15 @@ class Location:
       size: Size of this location in bytes.
       address: A variable indicating the location.
     """
+    super().__init__()
+
     self.space_id = space_id
     self.size = size
     self.address = address
+
+  @property
+  def name(self):
+    return str(self)
 
   def __str__(self):
     return "{}[{}]".format(self.space_id, self.address)
@@ -263,30 +309,20 @@ class Location:
   def __hash__(self):
     return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
 
-  @property
-  def is_const(self) -> bool:
-    """
-    True if this location has a known constant value.
-    """
-    return False
 
-
-class MLoc(Location):
+class MLoc32(MemLoc):
   """A symbolic memory region 32 bytes in length."""
   def __init__(self, address: Variable):
     super().__init__("M", 32, address)
 
 
-class MLocByte(Location):
+class MLoc1(MemLoc):
   """ A symbolic one-byte cell from memory."""
   def __init__(self, address: Variable):
     super().__init__("M1", 1, address)
 
 
-class SLoc(Location):
+class SLoc32(MemLoc):
   """A symbolic one word static storage location."""
   def __init__(self, address: Variable):
     super().__init__("S", 32, address)
-
-
-

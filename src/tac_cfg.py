@@ -291,7 +291,7 @@ class TACAssignOp(TACOp):
   def __str__(self):
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
-    return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
+    return "{}: {} = {}".format(hex(self.pc), self.lhs.name, " ".join(arglist))
 
 
 class Destackifier:
@@ -431,22 +431,22 @@ class Destackifier:
     elif op.opcode.is_log():
       inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
     elif op.opcode == opcodes.MLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.MLoc(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.MLoc32(self.__pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
       args = self.__pop_many(2)
-      inst = TACAssignOp(mem.MLoc(args[0]), op.opcode, args[1:],
+      inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE8:
       args = self.__pop_many(2)
-      inst = TACAssignOp(mem.MLocByte(args[0]), op.opcode, args[1:],
+      inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.SLoc(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.SLoc32(self.__pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
       args = self.__pop_many(2)
-      inst = TACAssignOp(mem.SLoc(args[0]), op.opcode, args[1:],
+      inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif var is not None:
       inst = TACAssignOp(var, op.opcode,
