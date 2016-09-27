@@ -247,9 +247,13 @@ class TACOp:
       self.__str__()
     )
 
-  def const_args(self) -> bool:
+  def constant_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
     return all([arg.is_const for arg in self.args])
+
+  def constrained_args(self) -> bool:
+    """True iff none of this operations arguments is value-unconstrained."""
+    return all([not arg.is_unconstrained for arg in self.args])
 
   @classmethod
   def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':

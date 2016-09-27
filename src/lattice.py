@@ -27,8 +27,10 @@ class BoundedLatticeElement(abc.ABC):
       self.is_top = True
     elif top:
       self.value = self._top_val()
+      self.is_bottom = False
     elif bottom:
       self.value = self._bottom_val()
+      self.is_top = False
     elif value == self._bottom_val():
       self.is_bottom = True
       self.is_top = False
@@ -178,7 +180,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
   def __len__(self):
     if self.is_top:
-      return 0 #TODO: determine if this is the right thing here. TOP has unbounded size.
+      #TODO: determine if this is the right thing here. TOP has unbounded size.
+      return 0
     return len(self.value)
 
   @property

@@ -89,8 +89,8 @@ class Variable(Location):
       return self.ident
     if self.is_const:
       return hex(self.value)
-    val_str = "".join([hex(val) for val in self._values.value_list])
-    return "{}: \{{}\}".format(self.ident, val_str)
+    val_str = ", ".join([hex(val) for val in self._values.value_list])
+    return "{}: {{{}}}".format(self.ident, val_str)
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
