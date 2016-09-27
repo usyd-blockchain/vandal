@@ -18,8 +18,7 @@ class LatticeElement(abc.ABC):
     self.value = value
 
   @abc.abstractclassmethod
-  def meet(cls, a: 'LatticeElement',
-           b: 'LatticeElement') -> 'LatticeElement':
+  def meet(cls, a: 'LatticeElement', b: 'LatticeElement') -> 'LatticeElement':
     """Return the infimum of the given elements."""
 
   @classmethod
@@ -38,8 +37,7 @@ class LatticeElement(abc.ABC):
     )
 
   @abc.abstractclassmethod
-  def join(cls, a: 'LatticeElement',
-           b: 'LatticeElement') -> 'LatticeElement':
+  def join(cls, a: 'LatticeElement', b: 'LatticeElement') -> 'LatticeElement':
     """Return the infimum of the given elements."""
 
   @classmethod

@@ -315,70 +315,18 @@ class Destackifier:
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
-    self.stack = []
+    self.stack = VariableStack()
 
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
     # the number of items pushed to the stack.
     self.stack_vars = 0
 
-    # The depth we've eaten into the external stack. Incremented whenever
-    # we pop and the main stack is empty.
-    self.extern_pops = 0
-
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
     var = mem.Variable(name="V{}".format(self.stack_vars))
     self.stack_vars += 1
     return var
-
-  def __pop_extern(self) -> mem.Variable:
-    """Generate and return the next variable from the external stack."""
-    var = mem.Variable(name="S{}".format(self.extern_pops))
-    self.extern_pops += 1
-    return var
-
-  def __pop(self) -> mem.Variable:
-    """
-    Pop an item off our symbolic stack if one exists, otherwise
-    generate an external stack variable.
-    """
-    if len(self.stack):
-      return self.stack.pop()
-    else:
-      return self.__pop_extern()
-
-  def __pop_many(self, n:int) -> typing.Iterable[mem.Variable]:
-    """
-    Pop and return n items from the stack.
-    First-popped elements inhabit low indices.
-    """
-    return [self.__pop() for _ in range(n)]
-
-  def __push(self, element:mem.Variable) -> None:
-    """Push an element to the stack."""
-    self.stack.append(element)
-
-  def __push_many(self, elements:typing.Iterable[mem.Variable]) -> None:
-    """
-    Push a sequence of elements in the stack.
-    Low index elements are pushed first.
-    """
-
-    for element in elements:
-      self.__push(element)
-
-  def __dup(self, n:int) -> None:
-    """Place a copy of stack[n-1] on the top of the stack."""
-    items = self.__pop_many(n)
-    duplicated = [items[-1]] + items
-    self.__push_many(reversed(duplicated))
-
-  def __swap(self, n:int) -> None:
-    """Swap stack[0] with stack[n]."""
-    items = self.__pop_many(n)
-    swapped = [items[-1]] + items[1:-1] + [items[0]]
-    self.__push_many(reversed(swapped))
 
   def convert_block(self, evm_block:evm_cfg.EVMBasicBlock) -> TACBasicBlock:
     """
@@ -394,8 +342,8 @@ class Destackifier:
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
            if len(evm_block.evm_ops) > 0 else -1
 
-    new_block = TACBasicBlock(entry, exit, self.ops, self.stack,
-                              self.extern_pops, evm_block.evm_ops)
+    new_block = TACBasicBlock(entry, exit, self.ops, self.stack.value,
+                              self.stack.empty_pops, evm_block.evm_ops)
     for op in self.ops:
       op.block = new_block
     return new_block
@@ -407,11 +355,11 @@ class Destackifier:
     """
 
     if op.opcode.is_swap():
-      self.__swap(op.opcode.pop)
+      self.stack.swap(op.opcode.pop)
     elif op.opcode.is_dup():
-      self.__dup(op.opcode.pop)
+      self.stack.dup(op.opcode.pop)
     elif op.opcode == opcodes.POP:
-      self.__pop()
+      self.stack.pop()
     else:
       self.__gen_instruction(op)
 
@@ -433,39 +381,104 @@ class Destackifier:
       inst = TACAssignOp(var, opcodes.CONST, [mem.Variable(ssle([op.value]), "C")],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
-      inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
+      inst = TACOp(opcodes.LOG, self.stack.pop_many(op.opcode.pop), op.pc)
     elif op.opcode == opcodes.MLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.MLoc32(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.MLoc32(self.stack.pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
-      args = self.__pop_many(2)
+      args = self.stack.pop_many(2)
       inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE8:
-      args = self.__pop_many(2)
+      args = self.stack.pop_many(2)
       inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.SLoc32(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.SLoc32(self.stack.pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
-      args = self.__pop_many(2)
+      args = self.stack.pop_many(2)
       inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif var is not None:
       inst = TACAssignOp(var, op.opcode,
-                         self.__pop_many(op.opcode.pop), op.pc)
+                         self.stack.pop_many(op.opcode.pop), op.pc)
     else:
-      inst = TACOp(op.opcode, self.__pop_many(op.opcode.pop), op.pc)
+      inst = TACOp(op.opcode, self.stack.pop_many(op.opcode.pop), op.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:
-      self.__push(var)
+      self.stack.push(var)
     self.ops.append(inst)
 
-#
-# class Stack(LatticeElement):
-#   """A stack that holds TAC variables."""
-#
-#   def __init__(self):
 
+class VariableStack(LatticeElement):
+  """
+  A stack that holds TAC variables.
+  It is also a lattice, so meet and join are defined, and they operate
+  element-wise from the top of the stack down.
+
+  The stack is taken to be of infinite capacity, with empty slots extending
+  indefinitely downwards. An empty stack slot is interpreted as a Variable
+  with Bottom value, for the purposes of the lattice definition.
+  Thus an empty stack would be this lattice's Bottom, and a stack "filled" with
+  Top Variables would be its Top.
+  We therefore have a bounded lattice, but we don't need the extra complexity
+  associated with the BoundedLatticeElement class.
+  """
+
+  def __init__(self, state=None):
+    super().__init__([] if state is None else state)
+
+    self.empty_pops = 0
+    """The number of times the stack was popped while empty."""
+
+  def push(self, var: mem.Variable) -> None:
+    """Push a variable to the stack."""
+    self.value.append(var)
+
+  def pop(self) -> mem.Variable:
+    """
+    Pop a variable off our symbolic stack if one exists, otherwise
+    generate a variable from past the bottom.
+    """
+    if len(self.value):
+      return self.value.pop()
+    else:
+      self.empty_pops += 1
+      return mem.Variable(name="S{}".format(self.empty_pops))
+
+  def push_many(self, vars: typing.Iterable[mem.Variable]) -> None:
+    """
+    Push a sequence of elements onto the stack.
+    Low index elements are pushed first.
+    """
+    for v in vars:
+      self.push(v)
+
+  def pop_many(self, n:int) -> typing.Iterable[mem.Variable]:
+    """
+    Pop and return n items from the stack.
+    First-popped elements inhabit low indices.
+    """
+    return [self.pop() for _ in range(n)]
+
+  def dup(self, n:int) -> None:
+    """Place a copy of stack[n-1] on the top of the stack."""
+    items = self.pop_many(n)
+    duplicated = [items[-1]] + items
+    self.push_many(reversed(duplicated))
+
+  def swap(self, n:int) -> None:
+    """Swap stack[0] with stack[n]."""
+    items = self.pop_many(n)
+    swapped = [items[-1]] + items[1:-1] + [items[0]]
+    self.push_many(reversed(swapped))
+
+  @classmethod
+  def meet(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
+    pass
+
+  @classmethod
+  def join(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
+    pass
