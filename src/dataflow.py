@@ -7,7 +7,8 @@ import lattice
 import memtypes
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
-                   die_on_empty_pop=False, reinit_stacks=True):
+                   die_on_empty_pop=False, reinit_stacks=True,
+                   hook_up_stack_vars=True, hook_up_jumps=True):
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -77,6 +78,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     curr_block.exit_stack = entry_stack
     queue += curr_block.succs
     visited[curr_block] = True
+
+  # Recondition the graph if desired, to hook up new relationships
+  # possible to determine after performing stack analysis discovered.
+  if hook_up_stack_vars:
+    cfg.hook_up_stack_vars()
+  if hook_up_jumps:
+    cfg.hook_up_jumps()
+
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):
