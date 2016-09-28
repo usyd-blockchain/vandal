@@ -3,6 +3,7 @@ objects."""
 
 import typing as t
 from itertools import zip_longest, dropwhile
+from copy import copy
 
 import opcodes
 import cfg
@@ -193,17 +194,21 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     from the top of the stack at entry to this block.
     """
 
+    self.entry_stack = VariableStack()
+    """Holds the complete stack state before execution of the block."""
+
     self.exit_stack = VariableStack()
-    """A member that should hold the complete stack state after execution."""
+    """Holds the complete stack state after execution of the block."""
 
   def __str__(self):
     super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.tac_ops)
+    entry_stack = "Entry stack: {}".format(str(self.entry_stack))
     stack_pops = "Stack pops: {}".format(self.delta_stack.empty_pops)
     stack_adds = "Stack additions: {}".format(str(self.delta_stack))
     exit_stack = "Exit stack: {}".format(str(self.exit_stack))
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
-                      stack_pops, stack_adds, exit_stack])
+                      entry_stack, stack_pops, stack_adds, exit_stack])
 
   def accept(self, visitor:patterns.Visitor):
     """
@@ -455,6 +460,12 @@ class VariableStack(LatticeElement):
            all(v1 == v2 for v1, v2 in \
                zip(reversed(self.value), reversed(other.value)))
 
+  def copy(self):
+    new_stack = type(self)()
+    new_stack.value = copy(self.value)
+    new_stack.empty_pops = self.empty_pops
+    return new_stack
+
   def __new_metavar(self, n:int):
     return mem.MetaVariable(name = "S{}".format(n), payload = n)
 
@@ -462,7 +473,7 @@ class VariableStack(LatticeElement):
     """Return the n'th element from the top without popping anything."""
     if n >= len(self):
       return self.__new_metavar(n - len(self) + self.empty_pops)
-    return self.value[n]
+    return self.value[-(n+1)]
 
   def push(self, var: mem.Variable) -> None:
     """Push a variable to the stack."""

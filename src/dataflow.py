@@ -24,15 +24,15 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   where empty stack exceptions will be thrown, at compile time.
   """
 
-  # Initialise all exit stacks to be empty.
+  # Initialise all entry and exit stacks to be empty.
   if reinit_stacks:
     for block in cfg.blocks:
+      block.entry_stack = tac_cfg.VariableStack()
       block.exit_stack = tac_cfg.VariableStack()
 
   # Initialise a worklist with blocks that have no precedessors
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
   visited = {block: False for block in cfg.blocks}
-
 
   # Churn until we reach a fixed point.
   while queue:
@@ -44,8 +44,17 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.
-    if die_on_empty_pop and (entry_stack) < curr_block.delta_stack.empty_pops:
+    if die_on_empty_pop and (entry_stack < curr_block.delta_stack.empty_pops):
       raise RuntimeError("EMPTY STACK BEING POPPED OMG THE PROGRAM IS BOROKEN")
+
+    # If there was no change to the entry stack, then there will be no
+    # change to the exit stack; no need to do anything for this block.
+    # But visit everything at least once.
+    if entry_stack == curr_block.entry_stack and visited[curr_block]:
+      continue
+
+    # Update the block's entry stack if it changed.
+    curr_block.entry_stack = entry_stack.copy()
 
     # Construct the new exit stack from the entry stack and the stack delta
 
@@ -59,16 +68,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
     # Construct the exit stack itself.
     entry_stack.pop_many(curr_block.delta_stack.empty_pops)
-
     for var in list(curr_block.delta_stack)[::-1]:
       if isinstance(var, memtypes.MetaVariable):
         entry_stack.push(metavar_map[var])
+        print("In {}, pushed metavar {} with val {}".format(hex(curr_block.entry),
+                                                            var,
+                                                            metavar_map[var]))
       else:
         entry_stack.push(var)
-
-    # If there was no change to the exit stack, no need to do anything
-    if entry_stack == curr_block.exit_stack and visited[curr_block]:
-      continue
 
     curr_block.exit_stack = entry_stack
     queue += curr_block.succs
