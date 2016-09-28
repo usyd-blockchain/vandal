@@ -258,6 +258,20 @@ class Variable(ssle, Location):
     return (v >> ((cls.SIZE - b)*8)) & 0xFF
 
 
+class MetaVariable(Variable):
+  """A Variable to stand in for Variables."""
+  def __init__(self, name, payload=None):
+    """
+    Args:
+      payload: some information to carry along with this MetaVariable.
+    """
+    super().__init__(name=name, bottom=True)
+    self.payload = payload
+
+  def __str__(self):
+    return self.identifier
+
+
 class MemLoc(Location):
   """A generic storage location."""
 

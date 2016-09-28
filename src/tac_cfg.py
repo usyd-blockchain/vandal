@@ -1,7 +1,7 @@
 """tac_cfg.py: Definitions of Three-Address Code operations and related
 objects."""
 
-import typing
+import typing as t
 from itertools import zip_longest, dropwhile
 
 import opcodes
@@ -18,7 +18,7 @@ class TACGraph(cfg.ControlFlowGraph):
   the edges between them.
   """
 
-  def __init__(self, evm_blocks:typing.Iterable[evm_cfg.EVMBasicBlock]):
+  def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
     Args:
       evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
@@ -39,7 +39,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
   @classmethod
-  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TACGraph':
+  def from_dasm(cls, dasm:t.Iterable[str]) -> 'TACGraph':
     return cls(blockparse.EVMBlockParser(dasm).parse())
 
   def recalc_preds(self):
@@ -152,19 +152,22 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   equivalent EVM code, along with information about the transformation
   applied to the stack as a consequence of its execcution."""
 
-  def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
-               stack_adds:typing.Iterable[mem.Variable], stack_pops:int,
-               evm_ops:typing.Iterable[evm_cfg.EVMOp]):
+  def __init__(self, entry: int, exit: int,
+               tac_ops: t.Iterable['TACOp'],
+               evm_ops: t.Iterable[evm_cfg.EVMOp],
+               delta_stack: 'VariableStack'):
     """
     Args:
       entry: The pc of the first byte in the source EVM block
       exit: The pc of the last byte in the source EVM block
-      ops: A sequence of TACOps whose execution is equivalent to the source EVM
-      stack_adds: A sequence of new items inhabiting the top of stack after
-                  this block is executed. The new head is last in sequence.
-      stack_pops: the number of items removed from the stack over the course of
-                  block execution.
+      tac_ops: A sequence of TACOps whose execution is equivalent to the source
+               EVM code.
       evm_ops: the source EVM code.
+      delta_stack: A stack describing the change in the stack state as a result
+                   of running this block.
+                   This stack contains the new items inhabiting the top of
+                   stack after execution, along with the number of items
+                   removed from the stack.
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
@@ -172,10 +175,9 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
       The range of pc values spanned by all blocks in the CFG should be a
       continuous range from 0 to the maximum value with no gaps between blocks.
 
-      The stack_adds and stack_pops members together describe the change
-      in the stack state as a result of running this block. That is, delete the
-      top stack_pops items from the entry stack, then add the stack_additions
-      items, to obtain the new stack.
+      If the input stack state is known, obtain the exit stack state by
+      popping off delta_stack.empty_pops items and add the delta_stack items
+      to the top.
     """
 
     super().__init__(entry, exit, evm_ops)
@@ -184,19 +186,21 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     """A sequence of TACOps whose execution is equivalent to the source EVM
        code"""
 
-    self.stack_adds = stack_adds
-    """A sequence of new items inhabiting the top of stack after this block is
-       executed. The new head is last in sequence."""
+    self.delta_stack = delta_stack
+    """
+    A stack describing the stack state changes caused by running this block.
+    Variables named Sn symbolically denote the variable that was n places
+    from the top of the stack at entry to this block.
+    """
 
-    self.stack_pops = stack_pops
-    """Number of items removed from the stack during block execution."""
+    self.exit_stack = VariableStack()
+    """A member that should hold the complete stack state after execution."""
 
   def __str__(self):
     super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.tac_ops)
-    stack_pops = "Stack pops: {}".format(self.stack_pops)
-    stack_str = ", ".join([str(v) for v in self.stack_adds])
-    stack_adds = "Stack additions: [{}]".format(stack_str)
+    stack_pops = "Stack pops: {}".format(self.delta_stack.empty_pops)
+    stack_adds = "Stack additions: {}".format(str(self.delta_stack))
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
                       stack_pops, stack_adds])
 
@@ -222,7 +226,7 @@ class TACOp:
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[mem.Variable],
+  def __init__(self, opcode:opcodes.OpCode, args:t.Iterable[mem.Variable],
                pc:int, block=None):
     """
     Args:
@@ -277,7 +281,7 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
-               args:typing.Iterable[mem.Variable], pc:int, block=None,
+               args:t.Iterable[mem.Variable], pc:int, block=None,
                print_name=True):
     """
     Args:
@@ -343,8 +347,9 @@ class Destackifier:
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
            if len(evm_block.evm_ops) > 0 else -1
 
-    new_block = TACBasicBlock(entry, exit, self.ops, self.stack.value,
-                              self.stack.empty_pops, evm_block.evm_ops)
+    new_block = TACBasicBlock(entry, exit, self.ops, evm_block.evm_ops,
+                              self.stack)
+
     for op in self.ops:
       op.block = new_block
     return new_block
@@ -428,11 +433,18 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
-  def __init__(self, state: typing.Iterable[mem.Variable]=None):
+  def __init__(self, state: t.Iterable[mem.Variable]=None):
     super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
+
+  def __iter__(self):
+    """Iteration occurs from head of stack downwards."""
+    return iter(reversed(self.value))
+
+  def __str__(self):
+    return "[{}]".format(",".join(str(v) for v in self.value))
 
   def push(self, var: mem.Variable) -> None:
     """Push a variable to the stack."""
@@ -446,10 +458,12 @@ class VariableStack(LatticeElement):
     if len(self.value):
       return self.value.pop()
     else:
+      res = mem.MetaVariable(name="S{}".format(self.empty_pops),
+                             payload=self.empty_pops)
       self.empty_pops += 1
-      return mem.Variable(name="S{}".format(self.empty_pops), bottom=True)
+      return res
 
-  def push_many(self, vars: typing.Iterable[mem.Variable]) -> None:
+  def push_many(self, vars: t.Iterable[mem.Variable]) -> None:
     """
     Push a sequence of elements onto the stack.
     Low index elements are pushed first.
@@ -457,7 +471,7 @@ class VariableStack(LatticeElement):
     for v in vars:
       self.push(v)
 
-  def pop_many(self, n:int) -> typing.Iterable[mem.Variable]:
+  def pop_many(self, n:int) -> t.Iterable[mem.Variable]:
     """
     Pop and return n items from the stack.
     First-popped elements inhabit low indices.
@@ -488,3 +502,7 @@ class VariableStack(LatticeElement):
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=mem.Variable.bottom())
     return cls([mem.Variable.join(*p) for p in pairs][::-1])
+
+  @classmethod
+  def join_all(cls, elements: t.Iterable['VariableStack']) -> 'VariableStack':
+    return super().join_all(elements, initial=VariableStack())
