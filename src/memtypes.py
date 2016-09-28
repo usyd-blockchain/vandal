@@ -101,6 +101,16 @@ class Variable(ssle, Location):
       self.__str__()
     )
 
+  def __eq__(self, other):
+    return self.value == other.value
+
+  def __hash__(self):
+    if self.is_top:
+      return hash(self.value) ^ hash(self.name)
+    else:
+      # frozenset because plain old set is unhashable
+      return hash(frozenset(self.value)) ^ hash(self.name)
+
   @property
   def const_value(self):
     """If this variable is constant, return its value."""

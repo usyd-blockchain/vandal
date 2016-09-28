@@ -4,6 +4,76 @@ import cfg
 import evm_cfg
 import tac_cfg
 import lattice
+import memtypes
+
+def stack_analysis(cfg:tac_cfg.TACGraph,
+                   die_on_empty_pop=False, reinit_stacks=True):
+  """
+  Determine all possible stack states at block exits. The stack size should be
+  the maximum possible size, and the variables on the stack should obtain the
+  maximal set of values possible at that stack position at a given point of
+  program execution.
+
+  Args:
+    cfg: the graph to analyse
+    die_on_empty_pop: raise an exception if an empty stack is popped
+    reinit_stacks: reinitialise all blocks' exit stacks to be empty
+
+  If we have already reached complete information about our stack CFG structure
+  and stack states, we can use the latter two arguments to discover places
+  where empty stack exceptions will be thrown, at compile time.
+  """
+
+  # Initialise all exit stacks to be empty.
+  if reinit_stacks:
+    for block in cfg.blocks:
+      block.exit_stack = tac_cfg.VariableStack()
+
+  # Initialise a worklist with blocks that have no precedessors
+  queue = [block for block in cfg.blocks if len(block.preds) == 0]
+  visited = {block: False for block in cfg.blocks}
+
+
+  # Churn until we reach a fixed point.
+  while queue:
+    curr_block = queue.pop(0)
+
+    # Build the entry stack by joining all predecessor exit stacks.
+    pred_stacks = [pred.exit_stack for pred in curr_block.preds]
+    entry_stack = tac_cfg.VariableStack.join_all(pred_stacks)
+
+    # If variables were obtained from deeper than there are extant
+    # stack items, the program is possibly popping from an empty stack.
+    if die_on_empty_pop and (entry_stack) < curr_block.delta_stack.empty_pops:
+      raise RuntimeError("EMPTY STACK BEING POPPED OMG THE PROGRAM IS BOROKEN")
+
+    # Construct the new exit stack from the entry stack and the stack delta
+
+    # Build a mapping from MetaVariables to the Variables they correspond to.
+    metavar_map = {}
+    for var in curr_block.delta_stack:
+      if isinstance(var, memtypes.MetaVariable):
+        # Here we know the stack is full enough, given we already checked it,
+        # but we'll get a MetaVariable if we try grabbing something off the end.
+        metavar_map[var] = entry_stack.peek(var.payload)
+
+    # Construct the exit stack itself.
+    entry_stack.pop_many(curr_block.delta_stack.empty_pops)
+
+    for var in list(curr_block.delta_stack)[::-1]:
+      if isinstance(var, memtypes.MetaVariable):
+        entry_stack.push(metavar_map[var])
+      else:
+        entry_stack.push(var)
+
+    # If there was no change to the exit stack, no need to do anything
+    if entry_stack == curr_block.exit_stack and visited[curr_block]:
+      continue
+
+    curr_block.exit_stack = entry_stack
+    queue += curr_block.succs
+    visited[curr_block] = True
+
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   """Determine the stack size for each basic block within the given CFG

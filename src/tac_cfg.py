@@ -201,8 +201,9 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     op_seq = "\n".join(str(op) for op in self.tac_ops)
     stack_pops = "Stack pops: {}".format(self.delta_stack.empty_pops)
     stack_adds = "Stack additions: {}".format(str(self.delta_stack))
+    exit_stack = "Exit stack: {}".format(str(self.exit_stack))
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
-                      stack_pops, stack_adds])
+                      stack_pops, stack_adds, exit_stack])
 
   def accept(self, visitor:patterns.Visitor):
     """
@@ -446,6 +447,23 @@ class VariableStack(LatticeElement):
   def __str__(self):
     return "[{}]".format(",".join(str(v) for v in self.value))
 
+  def __len__(self):
+    return len(self.value)
+
+  def __eq__(self, other):
+    return len(self) == len(other) and \
+           all(v1 == v2 for v1, v2 in \
+               zip(reversed(self.value), reversed(other.value)))
+
+  def __new_metavar(self, n:int):
+    return mem.MetaVariable(name = "S{}".format(n), payload = n)
+
+  def peek(self, n: int = 0) -> mem.Variable:
+    """Return the n'th element from the top without popping anything."""
+    if n >= len(self):
+      return self.__new_metavar(n - len(self) + self.empty_pops)
+    return self.value[n]
+
   def push(self, var: mem.Variable) -> None:
     """Push a variable to the stack."""
     self.value.append(var)
@@ -458,10 +476,8 @@ class VariableStack(LatticeElement):
     if len(self.value):
       return self.value.pop()
     else:
-      res = mem.MetaVariable(name="S{}".format(self.empty_pops),
-                             payload=self.empty_pops)
       self.empty_pops += 1
-      return res
+      return self.__new_metavar(self.empty_pops - 1)
 
   def push_many(self, vars: t.Iterable[mem.Variable]) -> None:
     """
