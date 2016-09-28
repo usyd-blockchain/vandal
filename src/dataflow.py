@@ -71,9 +71,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     for var in list(curr_block.delta_stack)[::-1]:
       if isinstance(var, memtypes.MetaVariable):
         entry_stack.push(metavar_map[var])
-        print("In {}, pushed metavar {} with val {}".format(hex(curr_block.entry),
-                                                            var,
-                                                            metavar_map[var]))
       else:
         entry_stack.push(var)
 
