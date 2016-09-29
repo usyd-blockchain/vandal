@@ -73,21 +73,14 @@ class BoundedLatticeElement(LatticeElement):
   TOP_SYMBOL = "⊤"
   BOTTOM_SYMBOL = "⊥"
 
-  def __init__(self, value=None, top:bool=False, bottom:bool=False):
+  def __init__(self, value):
     """
     Construct a bounded lattice element with the given value.
 
     Args:
       value: the value this lattice element should take.
-      top: if true, construct the Top element.
-      bottom: if true, construct the Bottom element.
     """
     super().__init__(value)
-
-    if top or (value is None and not (top or bottom)):
-      self.value = self._top_val()
-    elif bottom:
-      self.value = self._bottom_val()
 
   @classmethod
   def meet_all(cls, elements:t.Iterable['BoundedLatticeElement']) \
@@ -126,12 +119,12 @@ class BoundedLatticeElement(LatticeElement):
   @classmethod
   def top(cls) -> 'BoundedLatticeElement':
     """Return the Top lattice element."""
-    return cls(top=True)
+    return cls(cls._top_val())
 
   @classmethod
   def bottom(cls) -> 'BoundedLatticeElement':
     """Return the Bottom lattice element."""
-    return cls(bottom=True)
+    return cls(cls._bottom_val())
 
 
 class IntLatticeElement(BoundedLatticeElement):
@@ -143,9 +136,8 @@ class IntLatticeElement(BoundedLatticeElement):
   compare superior and inferior with every other element, respectively.
   """
 
-  def __init__(self, value:int=None, top:bool=False, bottom:bool=False) \
-  -> None:
-    super().__init__(value, top, bottom)
+  def __init__(self, value:int):
+    super().__init__(value)
 
   def is_int(self) -> bool:
     """True iff this lattice element is neither Top nor Bottom."""
@@ -205,11 +197,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
   elements, the bottom is the empty set, and other elements are subsets of top.
   """
 
-  def __init__(self, value:t.Iterable=None,
-               top:bool=False, bottom:bool=False):
-    if value is not None:
-      value = set(value)
-    super().__init__(value, top, bottom)
+  def __init__(self, value:t.Iterable):
+    super().__init__(set(value))
 
   def __len__(self):
     if self.is_top:

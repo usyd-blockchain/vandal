@@ -51,17 +51,16 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:typing.Iterable=None,
-               name:str= "Var", top=False, bottom=False):
+  def __init__(self, values:typing.Iterable=None, name:str="Var"):
     """
     Args:
-      name: the name that uniquely identifies this variable.
       values: the set of values this variable could take.
+      name: the name that uniquely identifies this variable.
     """
 
     # Make sure the input values are not out of range.
-    mod = None if values is None else [v % self.CARDINALITY for v in values]
-    super().__init__(value=mod, top=top, bottom=bottom)
+    mod = [] if values is None else [v % self.CARDINALITY for v in values]
+    super().__init__(value=mod)
     self.name = name
 
   @property
@@ -111,6 +110,16 @@ class Variable(ssle, Location):
       # frozenset because plain old set is unhashable
       return hash(frozenset(self.value)) ^ hash(self.name)
 
+  @classmethod
+  def top(cls, name="Var"):
+    result = cls(name=name)
+    result.value = cls._top_val()
+    return result
+
+  @classmethod
+  def bottom(cls, name="Var"):
+    return cls(values=cls._bottom_val(), name=name)
+
   @property
   def const_value(self):
     """If this variable is constant, return its value."""
@@ -122,7 +131,7 @@ class Variable(ssle, Location):
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    return type(self)("R", self.value.map(self.twos_comp))
+    return type(self)(values=self.value.map(self.twos_comp), name="Res")
 
   @classmethod
   def twos_comp(cls, v:int) -> int:
@@ -144,7 +153,7 @@ class Variable(ssle, Location):
     in all ordered combinations, the result contained in the returned Variable.
     """
     result = ssle.cartesian_map(getattr(cls, opname), args)
-    return cls(result, name)
+    return cls(values=result, name=name)
 
   @classmethod
   def ADD(cls, l:int, r:int) -> int:
@@ -275,7 +284,7 @@ class MetaVariable(Variable):
     Args:
       payload: some information to carry along with this MetaVariable.
     """
-    super().__init__(name=name, bottom=True)
+    super().__init__(values=self._bottom_val(), name=name)
     self.payload = payload
 
   def __str__(self):

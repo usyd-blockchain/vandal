@@ -368,7 +368,7 @@ class Destackifier:
 
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
-    var = mem.Variable(name="V{}".format(self.stack_vars))
+    var = mem.Variable.top(name="V{}".format(self.stack_vars))
     self.stack_vars += 1
     return var
 
@@ -423,7 +423,8 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [mem.Variable([op.value], "C")],
+      inst = TACAssignOp(var, opcodes.CONST,
+                         [mem.Variable(values=[op.value], name="C")],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
       inst = TACOp(opcodes.LOG, self.stack.pop_many(op.opcode.pop), op.pc)
@@ -484,7 +485,7 @@ class VariableStack(LatticeElement):
     return iter(reversed(self.value))
 
   def __str__(self):
-    return "[{}]".format(",".join(str(v) for v in self.value))
+    return "[{}]".format(", ".join(str(v) for v in self.value))
 
   def __len__(self):
     return len(self.value)
