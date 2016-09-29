@@ -46,7 +46,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.
     if die_on_empty_pop and (entry_stack < curr_block.delta_stack.empty_pops):
-      raise RuntimeError("EMPTY STACK BEING POPPED OMG THE PROGRAM IS BOROKEN")
+      raise RuntimeError("Popped empty stack in {}.".format(curr_block.ident))
 
     # If there was no change to the entry stack, then there will be no
     # change to the exit stack; no need to do anything for this block.
