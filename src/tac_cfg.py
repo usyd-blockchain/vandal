@@ -19,7 +19,7 @@ class TACGraph(cfg.ControlFlowGraph):
   the edges between them.
   """
 
-  def __init__(self, evm_blocks: t.Iterable[evm_cfg.EVMBasicBlock]):
+  def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
     Args:
       evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
@@ -43,7 +43,7 @@ class TACGraph(cfg.ControlFlowGraph):
     self.hook_up_jumps()
 
   @classmethod
-  def from_dasm(cls, dasm: t.Iterable[str]) -> 'TACGraph':
+  def from_dasm(cls, dasm:t.Iterable[str]) -> 'TACGraph':
     return cls(blockparse.EVMBlockParser(dasm).parse())
 
   def recalc_preds(self):
@@ -159,19 +159,19 @@ class TACGraph(cfg.ControlFlowGraph):
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()
 
-  def is_valid_jump_dest(self, pc: int) -> bool:
+  def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter is a proper jumpdest."""
     op = self.get_op_by_pc(pc)
     return (op is not None) and (op.opcode == opcodes.JUMPDEST)
 
-  def get_block_by_pc(self, pc: int):
+  def get_block_by_pc(self, pc:int):
     """Return the block whose span includes the given program counter value."""
     for block in self.blocks:
       if block.entry <= pc <= block.exit:
         return block
     return None
 
-  def get_op_by_pc(self, pc: int):
+  def get_op_by_pc(self, pc:int):
     """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
       for op in block.tac_ops:
@@ -185,10 +185,10 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   equivalent EVM code, along with information about the transformation
   applied to the stack as a consequence of its execcution."""
 
-  def __init__(self, entry_pc: int, exit_pc: int,
-               tac_ops: t.Iterable['TACOp'],
-               evm_ops: t.Iterable[evm_cfg.EVMOp],
-               delta_stack: 'VariableStack'):
+  def __init__(self, entry_pc:int, exit_pc:int,
+               tac_ops:t.Iterable['TACOp'],
+               evm_ops:t.Iterable[evm_cfg.EVMOp],
+               delta_stack:'VariableStack'):
     """
     Args:
       entry_pc: The pc of the first byte in the source EVM block
@@ -242,7 +242,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
                       entry_stack, stack_pops, stack_adds, exit_stack])
 
-  def accept(self, visitor: patterns.Visitor):
+  def accept(self, visitor:patterns.Visitor):
     """
     Accepts a visitor and visits itself and all TACOps in the block.
 
@@ -264,7 +264,7 @@ class TACOp(patterns.Visitable):
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode: opcodes.OpCode, args: t.Iterable[mem.Variable],
+  def __init__(self, opcode:opcodes.OpCode, args:t.Iterable[mem.Variable],
                pc:int, block=None):
     """
     Args:
@@ -299,7 +299,7 @@ class TACOp(patterns.Visitable):
     return all([not arg.is_unconstrained for arg in self.args])
 
   @classmethod
-  def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
+  def convert_jump_to_throw(cls, op:'TACOp') -> 'TACOp':
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
     Otherwise, return the given operation unchanged.
@@ -318,9 +318,9 @@ class TACAssignOp(TACOp):
   this operation's result is implicitly bound.
   """
 
-  def __init__(self, lhs: mem.Variable, opcode: opcodes.OpCode,
-               args: t.Iterable[mem.Variable], pc: int, block=None,
-               print_name: bool=True):
+  def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
+               args:t.Iterable[mem.Variable], pc:int, block=None,
+               print_name:bool=True):
     """
     Args:
       lhs: The variable that will receive the result of this operation.
@@ -372,7 +372,7 @@ class Destackifier:
     self.stack_vars += 1
     return var
 
-  def convert_block(self, evm_block: evm_cfg.EVMBasicBlock) -> TACBasicBlock:
+  def convert_block(self, evm_block:evm_cfg.EVMBasicBlock) -> TACBasicBlock:
     """
     Given a EVMBasicBlock, convert its instructions to Three-Address Code
     and return the resulting TACBasicBlock.
@@ -393,7 +393,7 @@ class Destackifier:
       op.block = new_block
     return new_block
 
-  def __handle_evm_op(self, op: evm_cfg.EVMOp) -> None:
+  def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
     """
     Convert a line to its corresponding instruction, if there is one,
     and manipulate the stack in any needful way.
@@ -408,7 +408,7 @@ class Destackifier:
     else:
       self.__gen_instruction(op)
 
-  def __gen_instruction(self, op: evm_cfg.EVMOp) -> None:
+  def __gen_instruction(self, op:evm_cfg.EVMOp) -> None:
     """
     Given a line, generate its corresponding TAC operation,
     append it to the op sequence, and push any generated
@@ -473,7 +473,7 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
-  def __init__(self, state: t.Iterable[mem.Variable]=None):
+  def __init__(self, state:t.Iterable[mem.Variable]=None):
     super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
@@ -501,7 +501,7 @@ class VariableStack(LatticeElement):
     return new_stack
 
   @staticmethod
-  def __new_metavar(n: int):
+  def __new_metavar(n:int):
     return mem.MetaVariable(name="S{}".format(n), payload=n)
 
   def peek(self, n: int = 0) -> mem.Variable:
@@ -510,7 +510,7 @@ class VariableStack(LatticeElement):
       return self.__new_metavar(n - len(self) + self.empty_pops)
     return self.value[-(n+1)]
 
-  def push(self, var: mem.Variable) -> None:
+  def push(self, var:mem.Variable) -> None:
     """Push a variable to the stack."""
     self.value.append(var)
 
@@ -525,7 +525,7 @@ class VariableStack(LatticeElement):
       self.empty_pops += 1
       return self.__new_metavar(self.empty_pops - 1)
 
-  def push_many(self, vs: t.Iterable[mem.Variable]) -> None:
+  def push_many(self, vs:t.Iterable[mem.Variable]) -> None:
     """
     Push a sequence of elements onto the stack.
     Low index elements are pushed first.
@@ -533,38 +533,38 @@ class VariableStack(LatticeElement):
     for v in vs:
       self.push(v)
 
-  def pop_many(self, n: int) -> t.List[mem.Variable]:
+  def pop_many(self, n:int) -> t.List[mem.Variable]:
     """
     Pop and return n items from the stack.
     First-popped elements inhabit low indices.
     """
     return [self.pop() for _ in range(n)]
 
-  def dup(self, n: int) -> None:
+  def dup(self, n:int) -> None:
     """Place a copy of stack[n-1] on the top of the stack."""
     items = self.pop_many(n)
     duplicated = [items[-1]] + items
     self.push_many(reversed(duplicated))
 
-  def swap(self, n: int) -> None:
+  def swap(self, n:int) -> None:
     """Swap stack[0] with stack[n]."""
     items = self.pop_many(n)
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.push_many(reversed(swapped))
 
   @classmethod
-  def meet(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
+  def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=mem.Variable.bottom())
     return cls(dropwhile(lambda x: x.is_bottom,
                          [mem.Variable.meet(*p) for p in pairs][::-1]))
 
   @classmethod
-  def join(cls, a: 'VariableStack', b: 'VariableStack') -> 'VariableStack':
+  def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=mem.Variable.bottom())
     return cls([mem.Variable.join(*p) for p in pairs][::-1])
 
   @classmethod
-  def join_all(cls, elements: t.Iterable['VariableStack']) -> 'VariableStack':
+  def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':
     return super().join_all(elements, initial=VariableStack())

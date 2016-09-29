@@ -51,8 +51,8 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values: typing.Iterable=None,
-               name: str= "Var", top=False, bottom=False):
+  def __init__(self, values:typing.Iterable=None,
+               name:str= "Var", top=False, bottom=False):
     """
     Args:
       name: the name that uniquely identifies this variable.
@@ -69,7 +69,7 @@ class Variable(ssle, Location):
     return self
 
   @values.setter
-  def values(self, v: ssle):
+  def values(self, v:ssle):
     if not isinstance(v, ssle):
       raise TypeError("Value set of a variable must be a subset lattice element.")
     else:
@@ -125,7 +125,7 @@ class Variable(ssle, Location):
     return type(self)("R", self.value.map(self.twos_comp))
 
   @classmethod
-  def twos_comp(cls, v: int) -> int:
+  def twos_comp(cls, v:int) -> int:
     """
     Return the signed two's complement interpretation of the given integer.
     """
@@ -137,7 +137,7 @@ class Variable(ssle, Location):
   # Op function names should be identical to the opcode names themselves.
 
   @classmethod
-  def arith_op(cls, opname: str, args: typing.Iterable['Variable'], name="Res") \
+  def arith_op(cls, opname:str, args:typing.Iterable['Variable'], name="Res") \
   -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
@@ -147,61 +147,61 @@ class Variable(ssle, Location):
     return cls(result, name)
 
   @classmethod
-  def ADD(cls, l: int, r: int) -> int:
+  def ADD(cls, l:int, r:int) -> int:
     """Return the sum of the inputs."""
     return l + r
 
   @classmethod
-  def MUL(cls, l: int, r: int) -> int:
+  def MUL(cls, l:int, r:int) -> int:
     """Return the product of the inputs."""
     return l * r
 
   @classmethod
-  def SUB(cls, l: int, r: int) -> int:
+  def SUB(cls, l:int, r:int) -> int:
     """Return the difference of the inputs."""
     return l - r
 
   @classmethod
-  def DIV(cls, l: int, r: int) -> int:
+  def DIV(cls, l:int, r:int) -> int:
     """Return the quotient of the inputs."""
     return 0 if (r == 0) else (l // r)
 
   @classmethod
-  def SDIV(cls, l: int, r: int) -> int:
+  def SDIV(cls, l:int, r:int) -> int:
     """Return the signed quotient of the inputs."""
     l_val, r_val = cls.twos_comp(l), cls.twos_comp(r)
     sign = 1 if ((l_val * r_val) >= 0) else -1
     return 0 if (r_val == 0) else (sign * (abs(l_val) // abs(r_val)))
 
   @classmethod
-  def MOD(cls, v: int, m: int) -> int:
+  def MOD(cls, v:int, m:int) -> int:
     """Modulo operator."""
     return 0 if (m == 0) else (v % m)
 
   @classmethod
-  def SMOD(cls, v: int, m: int) -> int:
+  def SMOD(cls, v:int, m:int) -> int:
     """Signed modulo operator. The output takes the sign of v."""
     v_val, m_val = cls.twos_comp(v), cls.twos_comp(m)
     sign = 1 if (v_val >= 0) else -1
     return 0 if (m == 0) else (sign * (abs(v_val) % abs(m_val)))
 
   @classmethod
-  def ADDMOD(cls, l: int, r: int, m: int) -> int:
+  def ADDMOD(cls, l:int, r:int, m:int) -> int:
     """Modular addition: return (l + r) modulo m."""
     return 0 if (m == 0) else ((l + r) % m)
 
   @classmethod
-  def MULMOD(cls, l: int, r: int, m: int) -> int:
+  def MULMOD(cls, l:int, r:int, m:int) -> int:
     """Modular multiplication: return (l * r) modulo m."""
     return 0 if (m == 0) else ((l * r) % m)
 
   @classmethod
-  def EXP(cls, b: int, e: int) -> int:
+  def EXP(cls, b:int, e:int) -> int:
     """Exponentiation: return b to the power of e."""
     return b ** e
 
   @classmethod
-  def SIGNEXTEND(cls, b: int, v: int) -> int:
+  def SIGNEXTEND(cls, b:int, v:int) -> int:
     """
     Return v, but with the high bit of its b'th byte extended all the way
     to the most significant bit of the output.
@@ -213,64 +213,64 @@ class Variable(ssle, Location):
     return (v & mask) if (val == 0) else (v | ~mask)
 
   @classmethod
-  def LT(cls, l: int, r: int) -> int:
+  def LT(cls, l:int, r:int) -> int:
     """Less-than comparison."""
     return 1 if (l < r) else 0
 
   @classmethod
-  def GT(cls, l: int, r: int) -> int:
+  def GT(cls, l:int, r:int) -> int:
     """Greater-than comparison."""
     return 1 if (l > r) else 0
 
   @classmethod
-  def SLT(cls, l: int, r: int) -> int:
+  def SLT(cls, l:int, r:int) -> int:
     """Signed less-than comparison."""
     return 1 if (cls.twos_comp(l) < cls.twos_comp(r)) else 0
 
   @classmethod
-  def SGT(cls, l: int, r: int) -> int:
+  def SGT(cls, l:int, r:int) -> int:
     """Signed greater-than comparison."""
     return 1 if (cls.twos_comp(l) > cls.twos_comp(r)) else 0
 
   @classmethod
-  def EQ(cls, l: int, r: int) -> int:
+  def EQ(cls, l:int, r:int) -> int:
     """Equality comparison."""
     return 1 if (l == r) else 0
 
   @classmethod
-  def ISZERO(cls, v: int) -> int:
+  def ISZERO(cls, v:int) -> int:
     """1 if the input is zero, 0 otherwise."""
     return 1 if (v == 0) else 0
 
   @classmethod
-  def AND(cls, l: int, r: int) -> int:
+  def AND(cls, l:int, r:int) -> int:
     """Bitwise AND."""
     return l & r
 
   @classmethod
-  def OR(cls, l: int, r: int) -> int:
+  def OR(cls, l:int, r:int) -> int:
     """Bitwise OR."""
     return l | r
 
   @classmethod
-  def XOR(cls, l: int, r: int) -> int:
+  def XOR(cls, l:int, r:int) -> int:
     """Bitwise XOR."""
     return l ^ r
 
   @classmethod
-  def NOT(cls, v: int) -> int:
+  def NOT(cls, v:int) -> int:
     """Bitwise NOT."""
     return ~v
 
   @classmethod
-  def BYTE(cls, b: int, v: int) -> int:
+  def BYTE(cls, b:int, v:int) -> int:
     """Return the b'th byte of v."""
     return (v >> ((cls.SIZE - b)*8)) & 0xFF
 
 
 class MetaVariable(Variable):
   """A Variable to stand in for Variables."""
-  def __init__(self, name, payload=None):
+  def __init__(self, name:str, payload=None):
     """
     Args:
       payload: some information to carry along with this MetaVariable.
@@ -285,7 +285,7 @@ class MetaVariable(Variable):
 class MemLoc(Location):
   """A generic storage location."""
 
-  def __init__(self, space_id: str, size: int, address: Variable):
+  def __init__(self, space_id:str, size:int, address:Variable):
     """
     Construct a location from the name of the space,
     and the size of the storage location in bytes.
@@ -326,17 +326,17 @@ class MemLoc(Location):
 
 class MLoc32(MemLoc):
   """A symbolic memory region 32 bytes in length."""
-  def __init__(self, address: Variable):
+  def __init__(self, address:Variable):
     super().__init__("M", 32, address)
 
 
 class MLoc1(MemLoc):
   """ A symbolic one-byte cell from memory."""
-  def __init__(self, address: Variable):
+  def __init__(self, address:Variable):
     super().__init__("M1", 1, address)
 
 
 class SLoc32(MemLoc):
   """A symbolic one word static storage location."""
-  def __init__(self, address: Variable):
+  def __init__(self, address:Variable):
     super().__init__("S", 32, address)
