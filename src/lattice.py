@@ -226,7 +226,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     """
     Return the result of applying a function to each of this element's values.
 
-    Incidentally, this could be seen as special case of application_product().
+    Incidentally, this could be seen as special case of cartesian_map().
     """
     if self.is_top:
       return copy(self)

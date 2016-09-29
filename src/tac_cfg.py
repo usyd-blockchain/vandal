@@ -242,7 +242,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
                       entry_stack, stack_pops, stack_adds, exit_stack])
 
-  def accept(self, visitor:patterns.Visitor):
+  def accept(self, visitor: patterns.Visitor):
     """
     Accepts a visitor and visits itself and all TACOps in the block.
 
@@ -525,28 +525,28 @@ class VariableStack(LatticeElement):
       self.empty_pops += 1
       return self.__new_metavar(self.empty_pops - 1)
 
-  def push_many(self, vars: t.Iterable[mem.Variable]) -> None:
+  def push_many(self, vs: t.Iterable[mem.Variable]) -> None:
     """
     Push a sequence of elements onto the stack.
     Low index elements are pushed first.
     """
-    for v in vars:
+    for v in vs:
       self.push(v)
 
-  def pop_many(self, n:int) -> t.Iterable[mem.Variable]:
+  def pop_many(self, n: int) -> t.List[mem.Variable]:
     """
     Pop and return n items from the stack.
     First-popped elements inhabit low indices.
     """
     return [self.pop() for _ in range(n)]
 
-  def dup(self, n:int) -> None:
+  def dup(self, n: int) -> None:
     """Place a copy of stack[n-1] on the top of the stack."""
     items = self.pop_many(n)
     duplicated = [items[-1]] + items
     self.push_many(reversed(duplicated))
 
-  def swap(self, n:int) -> None:
+  def swap(self, n: int) -> None:
     """Swap stack[0] with stack[n]."""
     items = self.pop_many(n)
     swapped = [items[-1]] + items[1:-1] + [items[0]]

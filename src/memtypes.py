@@ -316,12 +316,10 @@ class MemLoc(Location):
     )
 
   def __eq__(self, other):
-    return (self.space_id == other.space_id) \
-           and (self.address == other.address) \
-           and (self.size == other.size)
+    return ((self.space_id == other.space_id) and
+            (self.address == other.address) and
+            (self.size == other.size))
 
-  # This needs to be a hashable type, in order to be used as a dict key;
-  # Defining __eq__ requires us to redefine __hash__.
   def __hash__(self):
     return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
 

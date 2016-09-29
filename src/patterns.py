@@ -75,7 +75,7 @@ class DynamicVisitor(Visitor):
     if type(self) is DynamicVisitor:
       raise NotImplementedError("DynamicVisitor must be sub-classed")
 
-  def visit(self, target:Visitable, *args, **kwargs):
+  def visit(self, target: Visitable, *args, **kwargs):
     """
     Dispatches to a method called visit_TYPE where TYPE is the dynamic type
     (or the nearest parent type) of the `target`.
