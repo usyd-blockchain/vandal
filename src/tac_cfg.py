@@ -21,12 +21,13 @@ class TACGraph(cfg.ControlFlowGraph):
 
   def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
+    Construct a TAC control flow graph from a given sequence of EVM blocks.
+    Immediately after conversion, constants will be propagated and folded
+    through arithmetic operations, and CFG edges will be connected up, wherever
+    they can be inferred.
+
     Args:
       evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
-
-    Note that no edges will exist in the graph until:
-      * Some constant folding and propagation has been performed.
-      * The jumps have been rechecked.
     """
     super().__init__()
 
@@ -39,14 +40,22 @@ class TACGraph(cfg.ControlFlowGraph):
     self.root = next((b for b in self.blocks if b.entry == 0), None)
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
+    # Propagate constants and add CFG edges.
     self.apply_operations()
     self.hook_up_jumps()
 
   @classmethod
   def from_dasm(cls, dasm:t.Iterable[str]) -> 'TACGraph':
+    """
+    Construct and return a TACGraph from the given EVM disassembly.
+
+    Args:
+      dasm: a sequence of disasm lines, as output from the
+            ethereum `dasm` disassembler.
+    """
     return cls(blockparse.EVMBlockParser(dasm).parse())
 
-  def recalc_preds(self):
+  def recalc_preds(self) -> None:
     """
     Given a cfg where block successor lists are populated,
     also repopulate the predecessor lists, after emptying them.
@@ -57,9 +66,10 @@ class TACGraph(cfg.ControlFlowGraph):
       for successor in block.succs:
         successor.preds.append(block)
 
-  def apply_operations(self, use_sets=False):
+  def apply_operations(self, use_sets=False) -> None:
     """
-    Fold constants with the arithmetic TAC instructions of this CFG.
+    Propagate and fold constants through the arithmetic TAC instructions
+    in this CFG.
 
     If use_sets is True, folding will also be done on Variables that
     possess multiple possible values, performing operations in all possible
@@ -73,7 +83,7 @@ class TACGraph(cfg.ControlFlowGraph):
              (op.constant_args() or (op.constrained_args() and use_sets)):
           op.lhs.values = mem.Variable.arith_op(op.opcode.name, op.args).values
 
-  def hook_up_stack_vars(self):
+  def hook_up_stack_vars(self) -> None:
     """
     Replace all stack MetaVariables will be replaced with the actual
     variables they refer to.
@@ -84,8 +94,7 @@ class TACGraph(cfg.ControlFlowGraph):
           if isinstance(op.args[i], mem.MetaVariable):
             op.args[i] = block.entry_stack.peek(op.args[i].payload)
 
-
-  def hook_up_jumps(self):
+  def hook_up_jumps(self) -> None:
     """
     Connect all edges in the graph that can be inferred given any constant
     values of jump destinations and conditions.
@@ -160,18 +169,18 @@ class TACGraph(cfg.ControlFlowGraph):
     self.recalc_preds()
 
   def is_valid_jump_dest(self, pc:int) -> bool:
-    """True iff the given program counter is a proper jumpdest."""
+    """True iff the given program counter refers to a valid jumpdest."""
     op = self.get_op_by_pc(pc)
     return (op is not None) and (op.opcode == opcodes.JUMPDEST)
 
-  def get_block_by_pc(self, pc:int):
+  def get_block_by_pc(self, pc:int) -> 'TACBasicBlock':
     """Return the block whose span includes the given program counter value."""
     for block in self.blocks:
       if block.entry <= pc <= block.exit:
         return block
     return None
 
-  def get_op_by_pc(self, pc:int):
+  def get_op_by_pc(self, pc:int) -> 'TACOp':
     """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
       for op in block.tac_ops:
@@ -183,7 +192,7 @@ class TACGraph(cfg.ControlFlowGraph):
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
   equivalent EVM code, along with information about the transformation
-  applied to the stack as a consequence of its execcution."""
+  applied to the stack as a consequence of its execution."""
 
   def __init__(self, entry_pc:int, exit_pc:int,
                tac_ops:t.Iterable['TACOp'],
@@ -204,8 +213,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
-      instruction, but an argument of a POP.
-      The range of pc values spanned by all blocks in the CFG should be a
+      instruction, but an argument of a PUSH.
+      The range of pc values spanned by all blocks in a CFG should be a
       continuous range from 0 to the maximum value with no gaps between blocks.
 
       If the input stack state is known, obtain the exit stack state by
@@ -222,7 +231,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     self.delta_stack = delta_stack
     """
     A stack describing the stack state changes caused by running this block.
-    Variables named Sn symbolically denote the variable that was n places
+    MetaVariables named Sn symbolically denote the variable that was n places
     from the top of the stack at entry to this block.
     """
 
@@ -242,7 +251,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
                       entry_stack, stack_pops, stack_adds, exit_stack])
 
-  def accept(self, visitor:patterns.Visitor):
+  def accept(self, visitor:patterns.Visitor) -> None:
     """
     Accepts a visitor and visits itself and all TACOps in the block.
 
@@ -264,12 +273,12 @@ class TACOp(patterns.Visitable):
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:t.Iterable[mem.Variable],
+  def __init__(self, opcode:opcodes.OpCode, args:t.List[mem.Variable],
                pc:int, block=None):
     """
     Args:
       opcode: the operation being performed.
-      args: variables that are operated upon.
+      args: Variables that are operated upon.
       pc: the program counter at the corresponding instruction in the
           original bytecode.
       block: the block this operation belongs to. Defaults to None.
@@ -319,13 +328,13 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
-               args:t.Iterable[mem.Variable], pc:int, block=None,
+               args:t.List[mem.Variable], pc:int, block=None,
                print_name:bool=True):
     """
     Args:
-      lhs: The variable that will receive the result of this operation.
+      lhs: The Variable that will receive the result of this operation.
       opcode: The operation being performed.
-      args: Variables or constants that are operated upon.
+      args: Variables that are operated upon.
       pc: The program counter at this instruction in the original bytecode.
       block: The block this operation belongs to.
       print_name: Some operations (e.g. CONST) don't need to print their
@@ -343,7 +352,7 @@ class TACAssignOp(TACOp):
 
 
 class Destackifier:
-  """Converts EVMBasicBlocks into corresponding TAC operation sequences.
+  """Converts EVMBasicBlocks into corresponding TACBasicBlocks.
 
   Most instructions get mapped over directly, except:
       POP: generates no TAC op, but pops the symbolic stack;
@@ -374,7 +383,7 @@ class Destackifier:
 
   def convert_block(self, evm_block:evm_cfg.EVMBasicBlock) -> TACBasicBlock:
     """
-    Given a EVMBasicBlock, convert its instructions to Three-Address Code
+    Given a EVMBasicBlock, produce an equivalent three-address code sequence
     and return the resulting TACBasicBlock.
     """
     self.__fresh_init()
@@ -395,8 +404,9 @@ class Destackifier:
 
   def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
     """
-    Convert a line to its corresponding instruction, if there is one,
-    and manipulate the stack in any needful way.
+    Produce from an EVM line its corresponding TAC instruction, if there is one,
+    appending it to the current TAC sequence, and manipulate the stack in any
+    needful way.
     """
 
     if op.opcode.is_swap():
@@ -458,7 +468,6 @@ class Destackifier:
     self.ops.append(inst)
 
 
-# TODO: Make this a BoundedLatticeElement
 class VariableStack(LatticeElement):
   """
   A stack that holds TAC variables.
@@ -495,14 +504,19 @@ class VariableStack(LatticeElement):
            all(v1 == v2 for v1, v2 in
                zip(reversed(self.value), reversed(other.value)))
 
-  def copy(self):
+  def copy(self) -> 'VariableStack':
+    """
+    Produce a copy of this stack, without deep copying
+    the variables it contains.
+    """
     new_stack = type(self)()
     new_stack.value = copy(self.value)
     new_stack.empty_pops = self.empty_pops
     return new_stack
 
   @staticmethod
-  def __new_metavar(n:int):
+  def __new_metavar(n:int) -> mem.MetaVariable:
+    """Return a MetaVariable with the given payload and a corresponding name."""
     return mem.MetaVariable(name="S{}".format(n), payload=n)
 
   def peek(self, n: int = 0) -> mem.Variable:
@@ -555,6 +569,11 @@ class VariableStack(LatticeElement):
 
   @classmethod
   def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
+    """
+    Return the meet of the given stacks, taking the element-wise meets of their
+    contained Variables from the top down.
+    """
+
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=mem.Variable.bottom())
     return cls(dropwhile(lambda x: x.is_bottom,
@@ -562,10 +581,19 @@ class VariableStack(LatticeElement):
 
   @classmethod
   def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
+    """
+    Return the join of the given stacks, taking the element-wise joins of their
+    contained Variables from the top down.
+    """
+
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=mem.Variable.bottom())
     return cls([mem.Variable.join(*p) for p in pairs][::-1])
 
   @classmethod
   def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':
+    """
+    Return the common meet of the given sequence; an empty sequence
+    yields an empty stack.
+    """
     return super().join_all(elements, initial=VariableStack())

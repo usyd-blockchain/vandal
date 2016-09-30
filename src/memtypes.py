@@ -12,7 +12,7 @@ class Location(abc.ABC):
 
   @property
   def identifier(self) -> str:
-    """Return the basic string representation of this object."""
+    """Return the string identifying this object."""
     return str(self)
 
   @property
@@ -64,18 +64,23 @@ class Variable(ssle, Location):
     self.name = name
 
   @property
-  def values(self):
+  def values(self) -> ssle:
+    """The value set this Variable contains."""
     return self
 
   @values.setter
-  def values(self, v:ssle):
-    if not isinstance(v, ssle):
-      raise TypeError("Value set of a variable must be a subset lattice element.")
-    else:
-      self.value = v.map(lambda v: v % self.CARDINALITY).value
+  def values(self, vals:typing.Iterable):
+    """
+    Set this Variable's value set, ensuring that they are all in range.
+
+    Args:
+      vals: an iterable of values that this Variable will hold
+    """
+    self.value = ssle(v % self.CARDINALITY for v in vals).value
 
   @property
-  def identifier(self):
+  def identifier(self) -> str:
+    """Return the string identifying this object."""
     return self.name
 
   @property
@@ -107,17 +112,29 @@ class Variable(ssle, Location):
     if self.is_top:
       return hash(self.value) ^ hash(self.name)
     else:
-      # frozenset because plain old set is unhashable
+      # frozenset because plain old sets are unhashable
       return hash(frozenset(self.value)) ^ hash(self.name)
 
   @classmethod
   def top(cls, name="Var"):
+    """
+    Return a Variable with Top value, and optionally set its name.
+
+    Args:
+      name: the name of the new variable
+    """
     result = cls(name=name)
     result.value = cls._top_val()
     return result
 
   @classmethod
   def bottom(cls, name="Var"):
+    """
+    Return a Variable with Bottom value, and optionally set its name.
+
+    Args:
+      name: the name of the new variable
+    """
     return cls(values=cls._bottom_val(), name=name)
 
   @property
@@ -150,7 +167,13 @@ class Variable(ssle, Location):
   -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
-    in all ordered combinations, the result contained in the returned Variable.
+    in all ordered combinations, and return a Variable containing the result.
+
+    Args:
+      opname: the EVM operation to apply.
+      args: a sequence of Variables whose length matches the
+            arity of the specified operation.
+      name: the name of the result Variable.
     """
     result = ssle.cartesian_map(getattr(cls, opname), args)
     return cls(values=result, name=name)
@@ -282,6 +305,7 @@ class MetaVariable(Variable):
   def __init__(self, name:str, payload=None):
     """
     Args:
+      name: the name of the new MetaVariable
       payload: some information to carry along with this MetaVariable.
     """
     super().__init__(values=self._bottom_val(), name=name)

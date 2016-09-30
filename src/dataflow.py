@@ -7,8 +7,8 @@ import lattice
 import memtypes
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
-                   die_on_empty_pop=False, reinit_stacks=True,
-                   hook_up_stack_vars=True, hook_up_jumps=True):
+                   die_on_empty_pop:bool=False, reinit_stacks:bool=True,
+                   hook_up_stack_vars:bool=True, hook_up_jumps:bool=True):
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -16,13 +16,17 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   program execution.
 
   Args:
-    cfg: the graph to analyse
-    die_on_empty_pop: raise an exception if an empty stack is popped
-    reinit_stacks: reinitialise all blocks' exit stacks to be empty
+    cfg: the graph to analyse.
+    die_on_empty_pop: raise an exception if an empty stack is popped.
+    reinit_stacks: reinitialise all blocks' exit stacks to be empty.
+    hook_up_stack_vars: after completing the analysis, propagate entry stack
+                        values into blocks.
+    hook_up_jumps: Connect any new edges that can be inferred after performing
+                   the analysis
 
   If we have already reached complete information about our stack CFG structure
-  and stack states, we can use the latter two arguments to discover places
-  where empty stack exceptions will be thrown, at compile time.
+  and stack states, we can use die_on_empty_pop and reinit_stacks to discover
+  places where empty stack exceptions will be thrown.
   """
 
   # Initialise all entry and exit stacks to be empty.
@@ -80,16 +84,18 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     visited[curr_block] = True
 
   # Recondition the graph if desired, to hook up new relationships
-  # possible to determine after performing stack analysis discovered.
+  # possible to determine after having performed stack analysis.
   if hook_up_stack_vars:
     cfg.hook_up_stack_vars()
+    cfg.apply_operations()
   if hook_up_jumps:
     cfg.hook_up_jumps()
 
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):
-  """Determine the stack size for each basic block within the given CFG
+  """
+  Determine the stack size for each basic block within the given CFG
   at both entry and exit points, if it can be known. If there are multiple
   possible stack sizes a value of BOTTOM is instead assigned.
 
