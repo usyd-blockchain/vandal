@@ -32,8 +32,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   # Initialise all entry and exit stacks to be empty.
   if reinit_stacks:
     for block in cfg.blocks:
-      block.entry_stack = tac_cfg.VariableStack()
-      block.exit_stack = tac_cfg.VariableStack()
+      block.entry_stack = memtypes.VariableStack()
+      block.exit_stack = memtypes.VariableStack()
 
   # Initialise a worklist with blocks that have no precedessors
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
@@ -45,7 +45,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
     # Build the entry stack by joining all predecessor exit stacks.
     pred_stacks = [pred.exit_stack for pred in curr_block.preds]
-    entry_stack = tac_cfg.VariableStack.join_all(pred_stacks)
+    entry_stack = memtypes.VariableStack.join_all(pred_stacks)
 
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.

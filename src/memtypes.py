@@ -1,10 +1,12 @@
 """memtypes.py: Symbolic representations of ways of storing information
 in the ethereum machine."""
 
-import typing
+import typing as t
 import abc
+from itertools import zip_longest, dropwhile
+from copy import copy
 
-from lattice import SubsetLatticeElement as ssle
+from lattice import LatticeElement, SubsetLatticeElement as ssle
 
 
 class Location(abc.ABC):
@@ -51,7 +53,7 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:typing.Iterable=None, name:str="Var"):
+  def __init__(self, values:t.Iterable=None, name:str="Var"):
     """
     Args:
       values: the set of values this variable could take.
@@ -69,7 +71,7 @@ class Variable(ssle, Location):
     return self
 
   @values.setter
-  def values(self, vals:typing.Iterable):
+  def values(self, vals:t.Iterable):
     """
     Set this Variable's value set, ensuring that they are all in range.
 
@@ -163,8 +165,8 @@ class Variable(ssle, Location):
   # Op function names should be identical to the opcode names themselves.
 
   @classmethod
-  def arith_op(cls, opname:str, args:typing.Iterable['Variable'], name="Res") \
-  -> 'Variable':
+  def arith_op(cls, opname:str, args:t.Iterable['Variable'],
+               name="Res") -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
     in all ordered combinations, and return a Variable containing the result.
@@ -373,3 +375,134 @@ class SLoc32(MemLoc):
   """A symbolic one word static storage location."""
   def __init__(self, address:Variable):
     super().__init__("S", 32, address)
+
+
+class VariableStack(LatticeElement):
+  """
+  A stack that holds TAC variables.
+  It is also a lattice, so meet and join are defined, and they operate
+  element-wise from the top of the stack down.
+
+  The stack is taken to be of infinite capacity, with empty slots extending
+  indefinitely downwards. An empty stack slot is interpreted as a Variable
+  with Bottom value, for the purposes of the lattice definition.
+  Thus an empty stack would be this lattice's Bottom, and a stack "filled" with
+  Top Variables would be its Top.
+  We therefore have a bounded lattice, but we don't need the extra complexity
+  associated with the BoundedLatticeElement class.
+  """
+
+  def __init__(self, state:t.Iterable[Variable]=None):
+    super().__init__([] if state is None else list(state))
+
+    self.empty_pops = 0
+    """The number of times the stack was popped while empty."""
+
+  def __iter__(self):
+    """Iteration occurs from head of stack downwards."""
+    return iter(reversed(self.value))
+
+  def __str__(self):
+    return "[{}]".format(", ".join(str(v) for v in self.value))
+
+  def __len__(self):
+    return len(self.value)
+
+  def __eq__(self, other):
+    return len(self) == len(other) and \
+           all(v1 == v2 for v1, v2 in
+               zip(reversed(self.value), reversed(other.value)))
+
+  def copy(self) -> 'VariableStack':
+    """
+    Produce a copy of this stack, without deep copying
+    the variables it contains.
+    """
+    new_stack = type(self)()
+    new_stack.value = copy(self.value)
+    new_stack.empty_pops = self.empty_pops
+    return new_stack
+
+  @staticmethod
+  def __new_metavar(n:int) -> MetaVariable:
+    """Return a MetaVariable with the given payload and a corresponding name."""
+    return MetaVariable(name="S{}".format(n), payload=n)
+
+  def peek(self, n: int = 0) -> Variable:
+    """Return the n'th element from the top without popping anything."""
+    if n >= len(self):
+      return self.__new_metavar(n - len(self) + self.empty_pops)
+    return self.value[-(n+1)]
+
+  def push(self, var:Variable) -> None:
+    """Push a variable to the stack."""
+    self.value.append(var)
+
+  def pop(self) -> Variable:
+    """
+    Pop a variable off our symbolic stack if one exists, otherwise
+    generate a variable from past the bottom.
+    """
+    if len(self.value):
+      return self.value.pop()
+    else:
+      self.empty_pops += 1
+      return self.__new_metavar(self.empty_pops - 1)
+
+  def push_many(self, vs:t.Iterable[Variable]) -> None:
+    """
+    Push a sequence of elements onto the stack.
+    Low index elements are pushed first.
+    """
+    for v in vs:
+      self.push(v)
+
+  def pop_many(self, n:int) -> t.List[Variable]:
+    """
+    Pop and return n items from the stack.
+    First-popped elements inhabit low indices.
+    """
+    return [self.pop() for _ in range(n)]
+
+  def dup(self, n:int) -> None:
+    """Place a copy of stack[n-1] on the top of the stack."""
+    items = self.pop_many(n)
+    duplicated = [items[-1]] + items
+    self.push_many(reversed(duplicated))
+
+  def swap(self, n:int) -> None:
+    """Swap stack[0] with stack[n]."""
+    items = self.pop_many(n)
+    swapped = [items[-1]] + items[1:-1] + [items[0]]
+    self.push_many(reversed(swapped))
+
+  @classmethod
+  def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
+    """
+    Return the meet of the given stacks, taking the element-wise meets of their
+    contained Variables from the top down.
+    """
+
+    pairs = zip_longest(reversed(a.value), reversed(b.value),
+                                  fillvalue=Variable.bottom())
+    return cls(dropwhile(lambda x: x.is_bottom,
+                         [Variable.meet(*p) for p in pairs][::-1]))
+
+  @classmethod
+  def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
+    """
+    Return the join of the given stacks, taking the element-wise joins of their
+    contained Variables from the top down.
+    """
+
+    pairs = zip_longest(reversed(a.value), reversed(b.value),
+                                  fillvalue=Variable.bottom())
+    return cls([Variable.join(*p) for p in pairs][::-1])
+
+  @classmethod
+  def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':
+    """
+    Return the common meet of the given sequence; an empty sequence
+    yields an empty stack.
+    """
+    return super().join_all(elements, initial=VariableStack())

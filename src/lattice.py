@@ -191,8 +191,8 @@ class IntLatticeElement(BoundedLatticeElement):
     return cls.BOTTOM_SYMBOL
 
   @classmethod
-  def meet(cls, a:'IntLatticeElement', b:'IntLatticeElement') \
-  -> 'IntLatticeElement':
+  def meet(cls,
+           a:'IntLatticeElement', b:'IntLatticeElement') -> 'IntLatticeElement':
     """Return the infimum of the given elements."""
 
     if a.is_bottom or b.is_bottom:
@@ -208,8 +208,8 @@ class IntLatticeElement(BoundedLatticeElement):
     return cls.bottom()
 
   @classmethod
-  def join(cls, a:'IntLatticeElement', b:'IntLatticeElement') \
-  -> 'IntLatticeElement':
+  def join(cls,
+           a:'IntLatticeElement', b:'IntLatticeElement') -> 'IntLatticeElement':
     """Return the supremum of the given elements."""
 
     if a.is_top or b.is_top:
@@ -291,8 +291,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
     return set()
 
   @classmethod
-  def meet(cls, a:'SubsetLatticeElement', b:'SubsetLatticeElement') \
-  -> 'SubsetLatticeElement':
+  def meet(cls, a:'SubsetLatticeElement',
+                b:'SubsetLatticeElement') -> 'SubsetLatticeElement':
     """Return the set intersection of the given elements."""
     if a.is_top:
       return copy(b)
@@ -302,8 +302,8 @@ class SubsetLatticeElement(BoundedLatticeElement):
     return cls(a.value & b.value)
 
   @classmethod
-  def join(cls, a:'SubsetLatticeElement', b:'SubsetLatticeElement') \
-  -> 'SubsetLatticeElement':
+  def join(cls, a:'SubsetLatticeElement',
+                b:'SubsetLatticeElement') -> 'SubsetLatticeElement':
     """Return the set union of the given elements."""
     if a.is_top or b.is_top:
       return cls.top()

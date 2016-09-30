@@ -2,8 +2,6 @@
 objects."""
 
 import typing as t
-from itertools import zip_longest, dropwhile
-from copy import copy
 
 import opcodes
 import cfg
@@ -11,7 +9,6 @@ import evm_cfg
 import memtypes as mem
 import blockparse
 import patterns
-from lattice import LatticeElement
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -197,7 +194,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   def __init__(self, entry_pc:int, exit_pc:int,
                tac_ops:t.Iterable['TACOp'],
                evm_ops:t.Iterable[evm_cfg.EVMOp],
-               delta_stack:'VariableStack'):
+               delta_stack:mem.VariableStack):
     """
     Args:
       entry_pc: The pc of the first byte in the source EVM block
@@ -235,10 +232,10 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     from the top of the stack at entry to this block.
     """
 
-    self.entry_stack = VariableStack()
+    self.entry_stack = mem.VariableStack()
     """Holds the complete stack state before execution of the block."""
 
-    self.exit_stack = VariableStack()
+    self.exit_stack = mem.VariableStack()
     """Holds the complete stack state after execution of the block."""
 
   def __str__(self):
@@ -368,7 +365,7 @@ class Destackifier:
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
-    self.stack = VariableStack()
+    self.stack = mem.VariableStack()
 
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
@@ -466,134 +463,3 @@ class Destackifier:
     if var is not None:
       self.stack.push(var)
     self.ops.append(inst)
-
-
-class VariableStack(LatticeElement):
-  """
-  A stack that holds TAC variables.
-  It is also a lattice, so meet and join are defined, and they operate
-  element-wise from the top of the stack down.
-
-  The stack is taken to be of infinite capacity, with empty slots extending
-  indefinitely downwards. An empty stack slot is interpreted as a Variable
-  with Bottom value, for the purposes of the lattice definition.
-  Thus an empty stack would be this lattice's Bottom, and a stack "filled" with
-  Top Variables would be its Top.
-  We therefore have a bounded lattice, but we don't need the extra complexity
-  associated with the BoundedLatticeElement class.
-  """
-
-  def __init__(self, state:t.Iterable[mem.Variable]=None):
-    super().__init__([] if state is None else list(state))
-
-    self.empty_pops = 0
-    """The number of times the stack was popped while empty."""
-
-  def __iter__(self):
-    """Iteration occurs from head of stack downwards."""
-    return iter(reversed(self.value))
-
-  def __str__(self):
-    return "[{}]".format(", ".join(str(v) for v in self.value))
-
-  def __len__(self):
-    return len(self.value)
-
-  def __eq__(self, other):
-    return len(self) == len(other) and \
-           all(v1 == v2 for v1, v2 in
-               zip(reversed(self.value), reversed(other.value)))
-
-  def copy(self) -> 'VariableStack':
-    """
-    Produce a copy of this stack, without deep copying
-    the variables it contains.
-    """
-    new_stack = type(self)()
-    new_stack.value = copy(self.value)
-    new_stack.empty_pops = self.empty_pops
-    return new_stack
-
-  @staticmethod
-  def __new_metavar(n:int) -> mem.MetaVariable:
-    """Return a MetaVariable with the given payload and a corresponding name."""
-    return mem.MetaVariable(name="S{}".format(n), payload=n)
-
-  def peek(self, n: int = 0) -> mem.Variable:
-    """Return the n'th element from the top without popping anything."""
-    if n >= len(self):
-      return self.__new_metavar(n - len(self) + self.empty_pops)
-    return self.value[-(n+1)]
-
-  def push(self, var:mem.Variable) -> None:
-    """Push a variable to the stack."""
-    self.value.append(var)
-
-  def pop(self) -> mem.Variable:
-    """
-    Pop a variable off our symbolic stack if one exists, otherwise
-    generate a variable from past the bottom.
-    """
-    if len(self.value):
-      return self.value.pop()
-    else:
-      self.empty_pops += 1
-      return self.__new_metavar(self.empty_pops - 1)
-
-  def push_many(self, vs:t.Iterable[mem.Variable]) -> None:
-    """
-    Push a sequence of elements onto the stack.
-    Low index elements are pushed first.
-    """
-    for v in vs:
-      self.push(v)
-
-  def pop_many(self, n:int) -> t.List[mem.Variable]:
-    """
-    Pop and return n items from the stack.
-    First-popped elements inhabit low indices.
-    """
-    return [self.pop() for _ in range(n)]
-
-  def dup(self, n:int) -> None:
-    """Place a copy of stack[n-1] on the top of the stack."""
-    items = self.pop_many(n)
-    duplicated = [items[-1]] + items
-    self.push_many(reversed(duplicated))
-
-  def swap(self, n:int) -> None:
-    """Swap stack[0] with stack[n]."""
-    items = self.pop_many(n)
-    swapped = [items[-1]] + items[1:-1] + [items[0]]
-    self.push_many(reversed(swapped))
-
-  @classmethod
-  def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
-    """
-    Return the meet of the given stacks, taking the element-wise meets of their
-    contained Variables from the top down.
-    """
-
-    pairs = zip_longest(reversed(a.value), reversed(b.value),
-                                  fillvalue=mem.Variable.bottom())
-    return cls(dropwhile(lambda x: x.is_bottom,
-                         [mem.Variable.meet(*p) for p in pairs][::-1]))
-
-  @classmethod
-  def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
-    """
-    Return the join of the given stacks, taking the element-wise joins of their
-    contained Variables from the top down.
-    """
-
-    pairs = zip_longest(reversed(a.value), reversed(b.value),
-                                  fillvalue=mem.Variable.bottom())
-    return cls([mem.Variable.join(*p) for p in pairs][::-1])
-
-  @classmethod
-  def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':
-    """
-    Return the common meet of the given sequence; an empty sequence
-    yields an empty stack.
-    """
-    return super().join_all(elements, initial=VariableStack())
