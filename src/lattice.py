@@ -54,7 +54,7 @@ class LatticeElement(abc.ABC):
 
   @classmethod
   def join_all(cls, elements: t.Iterable['LatticeElement'],
-               initial:'LatticeElement=None') -> 'LatticeElement':
+               initial:'LatticeElement'=None) -> 'LatticeElement':
     """
     Return the supremum of the given iterable of elements.
 
