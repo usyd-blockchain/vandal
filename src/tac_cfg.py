@@ -475,3 +475,4 @@ class Destackifier:
     if var is not None:
       self.__push(var)
     self.ops.append(inst)
+
