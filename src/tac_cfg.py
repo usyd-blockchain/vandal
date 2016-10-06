@@ -2,7 +2,6 @@
 objects."""
 
 import typing
-import copy
 
 import opcodes
 import cfg
@@ -145,7 +144,7 @@ class TACGraph(cfg.ControlFlowGraph):
           return op
     return None
 
-  def get_blocks(self, key=lambda b: b.entry, reverse=False):
+  def sorted_blocks(self, key=lambda b: b.entry, reverse=False) -> typing.Generator['TACBasicBlock', None, None]:
     """
     Generator for a sorted shallow copy of TACBasicBlocks contained in this
     graph.
@@ -157,15 +156,11 @@ class TACGraph(cfg.ControlFlowGraph):
                comparison were reversed.
     """
 
-    # Create a shallow copy of blocks for sorting
-    copied = copy.copy(self.blocks)
-
-    # Sort based on given ordering
-    copied.sort(key=key, reverse=reverse)
+    # Create a new list of blocks sorted based on given ordering
+    copied = sorted(self.blocks, key=key, reverse=reverse)
 
     # Step through list of blocks as a generator
-    for block in copied:
-      yield block
+    yield from copied
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
