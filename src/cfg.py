@@ -34,21 +34,7 @@ class ControlFlowGraph(patterns.Visitable):
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 
-  def accept(self, visitor:patterns.Visitor):
-    """
-    Visitor design pattern: accepts a Visitor instance and visits every node
-    in the CFG in an arbitrary order.
-
-    Args:
-      visitor: instance of a Visitor
-    """
-    super().accept(visitor)
-
-    if len(self.blocks) > 0 and visitor.can_visit(type(self.blocks[0])):
-      for b in self.blocks:
-        b.accept(visitor)
-
-  def sorted_blocks(self, key=lambda b: b.entry, reverse=False) -> T.Generator['BasicBlock', None, None]:
+  def sorted_traversal(self, key=lambda b: b.entry, reverse=False) -> T.Generator['BasicBlock', None, None]:
     """
     Generator for a sorted shallow copy of BasicBlocks contained in this graph.
 
@@ -64,6 +50,23 @@ class ControlFlowGraph(patterns.Visitable):
 
     # Step through list of blocks as a generator
     yield from copied
+
+  def accept(self, visitor:patterns.Visitor,
+             generator:T.Generator['BasicBlock', None, None]=None):
+    """
+    Visitor design pattern: accepts a Visitor instance and visits every node
+    in the CFG in an arbitrary order.
+
+    Args:
+      visitor: instance of a Visitor
+    """
+    super().accept(visitor)
+
+    generator = generator or self.blocks
+
+    if len(self.blocks) > 0 and visitor.can_visit(type(self.blocks[0])):
+      for b in generator:
+        b.accept(visitor)
 
 
 class BasicBlock(patterns.Visitable):
