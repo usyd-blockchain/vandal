@@ -144,24 +144,6 @@ class TACGraph(cfg.ControlFlowGraph):
           return op
     return None
 
-  def sorted_blocks(self, key=lambda b: b.entry, reverse=False) -> typing.Generator['TACBasicBlock', None, None]:
-    """
-    Generator for a sorted shallow copy of TACBasicBlocks contained in this
-    graph.
-
-    Args:
-      key: A function of one argument that is used to extract a comparison key
-           from each block.
-      reverse: If set to `True`, then the blocks are sorted as if each
-               comparison were reversed.
-    """
-
-    # Create a new list of blocks sorted based on given ordering
-    copied = sorted(self.blocks, key=key, reverse=reverse)
-
-    # Step through list of blocks as a generator
-    yield from copied
-
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
@@ -475,4 +457,3 @@ class Destackifier:
     if var is not None:
       self.__push(var)
     self.ops.append(inst)
-
