@@ -21,6 +21,7 @@ import os
 import sys
 import datetime
 import sphinx
+import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath('../'))
 sys.path.insert(0, os.path.abspath('../../src/'))
@@ -139,21 +140,16 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 
-html_theme_options = {
-    'description': 'Ethereum VM bytecode decompiler.',
-    'show_powered_by': False,
-    'fixed_sidebar': True,
-    'font_size': '15px'
-}
-
 # Add any paths that contain custom themes here, relative to this directory.
 # html_theme_path = []
+
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.

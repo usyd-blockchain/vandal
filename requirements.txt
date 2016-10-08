@@ -4,6 +4,9 @@
 # Sphinx is used for documentation generation
 Sphinx==1.4.6
 
+# We use the Read The Docs theme for Sphinx
+sphinx_rtd_theme==0.1.9
+
 # networkx and pydotplus are used for creating DOT representations of CFGs
 networkx==1.11
 pydotplus==2.0.2
