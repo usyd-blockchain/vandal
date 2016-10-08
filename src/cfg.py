@@ -34,18 +34,42 @@ class ControlFlowGraph(patterns.Visitable):
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 
-  def accept(self, visitor:patterns.Visitor):
+  def sorted_traversal(self, key=lambda b: b.entry, reverse=False) -> T.Generator['BasicBlock', None, None]:
+    """
+    Generator for a sorted shallow copy of BasicBlocks contained in this graph.
+
+    Args:
+      key: A function of one argument that is used to extract a comparison key
+        from each block. By default, the comparison key is
+        :obj:`BasicBlock.entry`.
+      reverse: If set to `True`, then the blocks are sorted as if each
+        comparison were reversed. Default is `False`.
+
+    Returns:
+      A generator of :obj:`BasicBlock` objects, yielded in order according to
+      `key` and `reverse`.
+    """
+    # Create a new list of sorted blocks and yield from it
+    yield from sorted(self.blocks, key=key, reverse=reverse)
+
+  def accept(self, visitor:patterns.Visitor,
+             generator:T.Generator['BasicBlock', None, None]=None):
     """
     Visitor design pattern: accepts a Visitor instance and visits every node
     in the CFG in an arbitrary order.
 
     Args:
       visitor: instance of a Visitor
+      generator: generator from which :obj:`BasicBlock` objects will be
+        retrieved when recursing. By default the blocks are recursed in
+        an arbitrary order.
     """
     super().accept(visitor)
 
+    generator = generator or self.blocks
+
     if len(self.blocks) > 0 and visitor.can_visit(type(self.blocks[0])):
-      for b in self.blocks:
+      for b in generator:
         b.accept(visitor)
 
 
