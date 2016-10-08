@@ -40,16 +40,17 @@ class ControlFlowGraph(patterns.Visitable):
 
     Args:
       key: A function of one argument that is used to extract a comparison key
-           from each block.
+        from each block. By default, the comparison key is
+        :obj:`BasicBlock.entry`.
       reverse: If set to `True`, then the blocks are sorted as if each
-               comparison were reversed.
+        comparison were reversed. Default is `False`.
+
+    Returns:
+      A generator of :obj:`BasicBlock` objects, yielded in order according to
+      `key` and `reverse`.
     """
-
-    # Create a new list of blocks sorted based on given ordering
-    copied = sorted(self.blocks, key=key, reverse=reverse)
-
-    # Step through list of blocks as a generator
-    yield from copied
+    # Create a new list of sorted blocks and yield from it
+    yield from sorted(self.blocks, key=key, reverse=reverse)
 
   def accept(self, visitor:patterns.Visitor,
              generator:T.Generator['BasicBlock', None, None]=None):
@@ -59,6 +60,9 @@ class ControlFlowGraph(patterns.Visitable):
 
     Args:
       visitor: instance of a Visitor
+      generator: generator from which :obj:`BasicBlock` objects will be
+        retrieved when recursing. By default the blocks are recursed in
+        an arbitrary order.
     """
     super().accept(visitor)
 
