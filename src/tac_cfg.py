@@ -385,9 +385,9 @@ class Destackifier:
     for op in evm_block.evm_ops:
       self.__handle_evm_op(op)
 
-    entry = evm_block.evm_ops[0].pc if len(evm_block.evm_ops) > 0 else -1
+    entry = evm_block.evm_ops[0].pc if len(evm_block.evm_ops) > 0 else None
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
-           if len(evm_block.evm_ops) > 0 else -1
+           if len(evm_block.evm_ops) > 0 else None
 
     new_block = TACBasicBlock(entry, exit, self.ops, self.stack,
                               self.extern_pops, evm_block.evm_ops)

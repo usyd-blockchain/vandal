@@ -40,8 +40,7 @@ class EVMBasicBlock(cfg.BasicBlock):
 
     Args:
       entry: unique index of EVMOp from which the block should be split. The
-             EVMOp at this index will become the first EVMOp of the new
-             BasicBlock.
+        EVMOp at this index will become the first EVMOp of the new BasicBlock.
     """
     # Create the new block.
     new = type(self)(entry, self.exit, self.evm_ops[entry - self.entry:])
