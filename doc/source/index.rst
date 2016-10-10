@@ -13,6 +13,7 @@ Modules
    evm_cfg
    exporter
    lattice
+   logger
    memtypes
    opcodes
    patterns

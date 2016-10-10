@@ -117,6 +117,8 @@ class BasicBlock(patterns.Visitable):
 
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
+    if self.exit is None or self.entry is None:
+      return 0
     return self.exit - self.entry
 
   def __str__(self):
