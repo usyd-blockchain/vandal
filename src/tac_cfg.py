@@ -1,7 +1,7 @@
 """tac_cfg.py: Definitions of Three-Address Code operations and related
 objects."""
 
-import typing
+import typing as t
 
 import opcodes
 import cfg
@@ -16,14 +16,15 @@ class TACGraph(cfg.ControlFlowGraph):
   the edges between them.
   """
 
-  def __init__(self, evm_blocks:typing.Iterable[evm_cfg.EVMBasicBlock]):
+  def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
+    Construct a TAC control flow graph from a given sequence of EVM blocks.
+    Immediately after conversion, constants will be propagated and folded
+    through arithmetic operations, and CFG edges will be connected up, wherever
+    they can be inferred.
+
     Args:
       evm_blocks: an iterable of EVMBasicBlocks to convert into TAC form.
-
-    Note that no edges will exist in the graph until:
-      * Some constant folding and propagation has been performed.
-      * The jumps have been rechecked.
     """
     super().__init__()
 
@@ -36,11 +37,22 @@ class TACGraph(cfg.ControlFlowGraph):
     self.root = next((b for b in self.blocks if b.entry == 0), None)
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
+    # Propagate constants and add CFG edges.
+    self.apply_operations()
+    self.hook_up_jumps()
+
   @classmethod
-  def from_dasm(cls, dasm:typing.Iterable[str]) -> 'TACGraph':
+  def from_dasm(cls, dasm:t.Iterable[str]) -> 'TACGraph':
+    """
+    Construct and return a TACGraph from the given EVM disassembly.
+
+    Args:
+      dasm: a sequence of disasm lines, as output from the
+            ethereum `dasm` disassembler.
+    """
     return cls(blockparse.EVMBlockParser(dasm).parse())
 
-  def recalc_preds(self):
+  def recalc_preds(self) -> None:
     """
     Given a cfg where block successor lists are populated,
     also repopulate the predecessor lists, after emptying them.
@@ -51,7 +63,35 @@ class TACGraph(cfg.ControlFlowGraph):
       for successor in block.succs:
         successor.preds.append(block)
 
-  def recheck_jumps(self):
+  def apply_operations(self, use_sets=False) -> None:
+    """
+    Propagate and fold constants through the arithmetic TAC instructions
+    in this CFG.
+
+    If use_sets is True, folding will also be done on Variables that
+    possess multiple possible values, performing operations in all possible
+    combinations of values.
+    """
+    for block in self.blocks:
+      for op in block.tac_ops:
+        if op.opcode == opcodes.CONST:
+          op.lhs.values = op.args[0].values
+        elif op.opcode.is_arithmetic() and \
+             (op.constant_args() or (op.constrained_args() and use_sets)):
+          op.lhs.values = mem.Variable.arith_op(op.opcode.name, op.args).values
+
+  def hook_up_stack_vars(self) -> None:
+    """
+    Replace all stack MetaVariables will be replaced with the actual
+    variables they refer to.
+    """
+    for block in self.blocks:
+      for op in block.tac_ops:
+        for i in range(len(op.args)):
+          if isinstance(op.args[i], mem.MetaVariable):
+            op.args[i] = block.entry_stack.peek(op.args[i].payload)
+
+  def hook_up_jumps(self) -> None:
     """
     Connect all edges in the graph that can be inferred given any constant
     values of jump destinations and conditions.
@@ -74,7 +114,7 @@ class TACGraph(cfg.ControlFlowGraph):
         # If the condition is constant, there is only one jump destination.
         if cond.is_const:
           # If the condition can never be true, remove the jump.
-          if cond.value == 0:
+          if cond.const_value == 0:
             block.tac_ops.pop()
             fallthrough = self.get_block_by_pc(final_op.pc + 1)
             unresolved = False
@@ -83,8 +123,8 @@ class TACGraph(cfg.ControlFlowGraph):
           elif dest.is_const:
             final_op.opcode = opcodes.JUMP
             final_op.args.pop()
-            if self.is_valid_jump_dest(dest.value):
-              jumpdest = self.get_op_by_pc(dest.value).block
+            if self.is_valid_jump_dest(dest.const_value):
+              jumpdest = self.get_op_by_pc(dest.const_value).block
             else:
               invalid_jump = True
             unresolved = False
@@ -94,8 +134,8 @@ class TACGraph(cfg.ControlFlowGraph):
           # So only handle a variable condition
           unresolved = False
           fallthrough = self.get_block_by_pc(final_op.pc + 1)
-          if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_pc(dest.value).block
+          if self.is_valid_jump_dest(dest.const_value):
+            jumpdest = self.get_op_by_pc(dest.const_value).block
           else:
             invalid_jump = True
 
@@ -103,12 +143,13 @@ class TACGraph(cfg.ControlFlowGraph):
         dest = final_op.args[0]
         if dest.is_const:
           unresolved = False
-          if self.is_valid_jump_dest(dest.value):
-            jumpdest = self.get_op_by_pc(dest.value).block
+          if self.is_valid_jump_dest(dest.const_value):
+            jumpdest = self.get_op_by_pc(dest.const_value).block
           else:
             invalid_jump = True
 
       else:
+        # Note that this case handles THROW and THROWI
         unresolved = False
 
         # No terminating jump or a halt; fall through to next block.
@@ -125,18 +166,18 @@ class TACGraph(cfg.ControlFlowGraph):
     self.recalc_preds()
 
   def is_valid_jump_dest(self, pc:int) -> bool:
-    """True iff the given program counter is a proper jumpdest."""
+    """True iff the given program counter refers to a valid jumpdest."""
     op = self.get_op_by_pc(pc)
     return (op is not None) and (op.opcode == opcodes.JUMPDEST)
 
-  def get_block_by_pc(self, pc:int):
+  def get_block_by_pc(self, pc:int) -> 'TACBasicBlock':
     """Return the block whose span includes the given program counter value."""
     for block in self.blocks:
       if block.entry <= pc <= block.exit:
         return block
     return None
 
-  def get_op_by_pc(self, pc:int):
+  def get_op_by_pc(self, pc:int) -> 'TACOp':
     """Return the operation with the given program counter, if it exists."""
     for block in self.blocks:
       for op in block.tac_ops:
@@ -148,57 +189,66 @@ class TACGraph(cfg.ControlFlowGraph):
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
   equivalent EVM code, along with information about the transformation
-  applied to the stack as a consequence of its execcution."""
+  applied to the stack as a consequence of its execution."""
 
-  def __init__(self, entry:int, exit:int, tac_ops:typing.Iterable['TACOp'],
-               stack_adds:typing.Iterable[mem.Variable], stack_pops:int,
-               evm_ops:typing.Iterable[evm_cfg.EVMOp]):
+  def __init__(self, entry_pc:int, exit_pc:int,
+               tac_ops:t.Iterable['TACOp'],
+               evm_ops:t.Iterable[evm_cfg.EVMOp],
+               delta_stack:mem.VariableStack):
     """
     Args:
-      entry: The pc of the first byte in the source EVM block
-      exit: The pc of the last byte in the source EVM block
-      ops: A sequence of TACOps whose execution is equivalent to the source EVM
-      stack_adds: A sequence of new items inhabiting the top of stack after
-                  this block is executed. The new head is last in sequence.
-      stack_pops: the number of items removed from the stack over the course of
-                  block execution.
+      entry_pc: The pc of the first byte in the source EVM block
+      exit_pc: The pc of the last byte in the source EVM block
+      tac_ops: A sequence of TACOps whose execution is equivalent to the source
+               EVM code.
       evm_ops: the source EVM code.
+      delta_stack: A stack describing the change in the stack state as a result
+                   of running this block.
+                   This stack contains the new items inhabiting the top of
+                   stack after execution, along with the number of items
+                   removed from the stack.
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
-      instruction, but an argument of a POP.
-      The range of pc values spanned by all blocks in the CFG should be a
+      instruction, but an argument of a PUSH.
+      The range of pc values spanned by all blocks in a CFG should be a
       continuous range from 0 to the maximum value with no gaps between blocks.
 
-      The stack_adds and stack_pops members together describe the change
-      in the stack state as a result of running this block. That is, delete the
-      top stack_pops items from the entry stack, then add the stack_additions
-      items, to obtain the new stack.
+      If the input stack state is known, obtain the exit stack state by
+      popping off delta_stack.empty_pops items and add the delta_stack items
+      to the top.
     """
 
-    super().__init__(entry, exit, evm_ops)
+    super().__init__(entry_pc, exit_pc, evm_ops)
 
     self.tac_ops = tac_ops
     """A sequence of TACOps whose execution is equivalent to the source EVM
        code"""
 
-    self.stack_adds = stack_adds
-    """A sequence of new items inhabiting the top of stack after this block is
-       executed. The new head is last in sequence."""
+    self.delta_stack = delta_stack
+    """
+    A stack describing the stack state changes caused by running this block.
+    MetaVariables named Sn symbolically denote the variable that was n places
+    from the top of the stack at entry to this block.
+    """
 
-    self.stack_pops = stack_pops
-    """Number of items removed from the stack during block execution."""
+    self.entry_stack = mem.VariableStack()
+    """Holds the complete stack state before execution of the block."""
+
+    self.exit_stack = mem.VariableStack()
+    """Holds the complete stack state after execution of the block."""
 
   def __str__(self):
     super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.tac_ops)
-    stack_pops = "Stack pops: {}".format(self.stack_pops)
-    stack_str = ", ".join([str(v) for v in self.stack_adds])
-    stack_adds = "Stack additions: [{}]".format(stack_str)
-    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP, \
-                      stack_pops, stack_adds])
+    entry_stack = "Entry stack: {}".format(str(self.entry_stack))
+    stack_pops = "Stack pops: {}".format(self.delta_stack.empty_pops)
+    stack_adds = "Stack additions: {}".format(str(self.delta_stack))
+    exit_stack = "Exit stack: {}".format(str(self.exit_stack))
+    return "\n".join([super_str, self._STR_SEP, op_seq, self._STR_SEP,
+                      entry_stack, stack_pops, stack_adds, exit_stack])
 
-  def accept(self, visitor:patterns.Visitor):
+  def accept(self, visitor:patterns.Visitor) -> None:
     """
     Accepts a visitor and visits itself and all TACOps in the block.
 
@@ -212,7 +262,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
         visitor.visit(tac_op)
 
 
-class TACOp:
+class TACOp(patterns.Visitable):
   """
   A Three-Address Code operation.
   Each operation consists of an opcode object defining its function,
@@ -220,12 +270,12 @@ class TACOp:
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:typing.Iterable[mem.Variable], \
+  def __init__(self, opcode:opcodes.OpCode, args:t.List[mem.Variable],
                pc:int, block=None):
     """
     Args:
       opcode: the operation being performed.
-      args: variables or constants that are operated upon.
+      args: Variables that are operated upon.
       pc: the program counter at the corresponding instruction in the
           original bytecode.
       block: the block this operation belongs to. Defaults to None.
@@ -237,7 +287,7 @@ class TACOp:
 
   def __str__(self):
     return "{}: {} {}".format(hex(self.pc), self.opcode,
-                " ".join([str(arg) for arg in self.args]))
+                              " ".join([str(arg) for arg in self.args]))
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -246,12 +296,16 @@ class TACOp:
       self.__str__()
     )
 
-  def const_args(self) -> bool:
+  def constant_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
     return all([arg.is_const for arg in self.args])
 
+  def constrained_args(self) -> bool:
+    """True iff none of this operations arguments is value-unconstrained."""
+    return all([not arg.is_unconstrained for arg in self.args])
+
   @classmethod
-  def convert_jump_to_throw(cls, op: 'TACOp') -> 'TACOp':
+  def convert_jump_to_throw(cls, op:'TACOp') -> 'TACOp':
     """
     Given a jump, convert it to a throw, preserving the condition var if JUMPI.
     Otherwise, return the given operation unchanged.
@@ -271,13 +325,13 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
-               args:typing.Iterable[mem.Variable], pc:int, block=None,
-               print_name=True):
+               args:t.List[mem.Variable], pc:int, block=None,
+               print_name:bool=True):
     """
     Args:
-      lhs: The variable that will receive the result of this operation.
+      lhs: The Variable that will receive the result of this operation.
       opcode: The operation being performed.
-      args: Variables or constants that are operated upon.
+      args: Variables that are operated upon.
       pc: The program counter at this instruction in the original bytecode.
       block: The block this operation belongs to.
       print_name: Some operations (e.g. CONST) don't need to print their
@@ -290,11 +344,12 @@ class TACAssignOp(TACOp):
   def __str__(self):
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
-    return "{}: {} = {}".format(hex(self.pc), self.lhs, " ".join(arglist))
+    return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier,
+                                " ".join(arglist))
 
 
 class Destackifier:
-  """Converts EVMBasicBlocks into corresponding TAC operation sequences.
+  """Converts EVMBasicBlocks into corresponding TACBasicBlocks.
 
   Most instructions get mapped over directly, except:
       POP: generates no TAC op, but pops the symbolic stack;
@@ -310,74 +365,22 @@ class Destackifier:
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
-    self.stack = []
+    self.stack = mem.VariableStack()
 
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
     # the number of items pushed to the stack.
     self.stack_vars = 0
 
-    # The depth we've eaten into the external stack. Incremented whenever
-    # we pop and the main stack is empty.
-    self.extern_pops = 0
-
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
-    var = mem.Variable("V{}".format(self.stack_vars))
+    var = mem.Variable.top(name="V{}".format(self.stack_vars))
     self.stack_vars += 1
     return var
 
-  def __pop_extern(self) -> mem.Variable:
-    """Generate and return the next variable from the external stack."""
-    var = mem.Variable("S{}".format(self.extern_pops))
-    self.extern_pops += 1
-    return var
-
-  def __pop(self) -> mem.Variable:
-    """
-    Pop an item off our symbolic stack if one exists, otherwise
-    generate an external stack variable.
-    """
-    if len(self.stack):
-      return self.stack.pop()
-    else:
-      return self.__pop_extern()
-
-  def __pop_many(self, n:int) -> typing.Iterable[mem.Variable]:
-    """
-    Pop and return n items from the stack.
-    First-popped elements inhabit low indices.
-    """
-    return [self.__pop() for _ in range(n)]
-
-  def __push(self, element:mem.Variable) -> None:
-    """Push an element to the stack."""
-    self.stack.append(element)
-
-  def __push_many(self, elements:typing.Iterable[mem.Variable]) -> None:
-    """
-    Push a sequence of elements in the stack.
-    Low index elements are pushed first.
-    """
-
-    for element in elements:
-      self.__push(element)
-
-  def __dup(self, n:int) -> None:
-    """Place a copy of stack[n-1] on the top of the stack."""
-    items = self.__pop_many(n)
-    duplicated = [items[-1]] + items
-    self.__push_many(reversed(duplicated))
-
-  def __swap(self, n:int) -> None:
-    """Swap stack[0] with stack[n]."""
-    items = self.__pop_many(n)
-    swapped = [items[-1]] + items[1:-1] + [items[0]]
-    self.__push_many(reversed(swapped))
-
   def convert_block(self, evm_block:evm_cfg.EVMBasicBlock) -> TACBasicBlock:
     """
-    Given a EVMBasicBlock, convert its instructions to Three-Address Code
+    Given a EVMBasicBlock, produce an equivalent three-address code sequence
     and return the resulting TACBasicBlock.
     """
     self.__fresh_init()
@@ -389,24 +392,26 @@ class Destackifier:
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
            if len(evm_block.evm_ops) > 0 else -1
 
-    new_block = TACBasicBlock(entry, exit, self.ops, self.stack,
-                              self.extern_pops, evm_block.evm_ops)
+    new_block = TACBasicBlock(entry, exit, self.ops, evm_block.evm_ops,
+                              self.stack)
+
     for op in self.ops:
       op.block = new_block
     return new_block
 
   def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
     """
-    Convert a line to its corresponding instruction, if there is one,
-    and manipulate the stack in any needful way.
+    Produce from an EVM line its corresponding TAC instruction, if there is one,
+    appending it to the current TAC sequence, and manipulate the stack in any
+    needful way.
     """
 
     if op.opcode.is_swap():
-      self.__swap(op.opcode.pop)
+      self.stack.swap(op.opcode.pop)
     elif op.opcode.is_dup():
-      self.__dup(op.opcode.pop)
+      self.stack.dup(op.opcode.pop)
     elif op.opcode == opcodes.POP:
-      self.__pop()
+      self.stack.pop()
     else:
       self.__gen_instruction(op)
 
@@ -425,36 +430,36 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST, [mem.Constant(op.value)],
+      inst = TACAssignOp(var, opcodes.CONST,
+                         [mem.Variable(values=[op.value], name="C")],
                          op.pc, print_name=False)
     elif op.opcode.is_log():
-      inst = TACOp(opcodes.LOG, self.__pop_many(op.opcode.pop), op.pc)
+      inst = TACOp(opcodes.LOG, self.stack.pop_many(op.opcode.pop), op.pc)
     elif op.opcode == opcodes.MLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.MLoc(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.MLoc32(self.stack.pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
-      args = self.__pop_many(2)
-      inst = TACAssignOp(mem.MLoc(args[0]), op.opcode, args[1:],
+      args = self.stack.pop_many(2)
+      inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE8:
-      args = self.__pop_many(2)
-      inst = TACAssignOp(mem.MLocByte(args[0]), op.opcode, args[1:],
+      args = self.stack.pop_many(2)
+      inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.SLoc(self.__pop())],
+      inst = TACAssignOp(var, op.opcode, [mem.SLoc32(self.stack.pop())],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
-      args = self.__pop_many(2)
-      inst = TACAssignOp(mem.SLoc(args[0]), op.opcode, args[1:],
+      args = self.stack.pop_many(2)
+      inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif var is not None:
       inst = TACAssignOp(var, op.opcode,
-                         self.__pop_many(op.opcode.pop), op.pc)
+                         self.stack.pop_many(op.opcode.pop), op.pc)
     else:
-      inst = TACOp(op.opcode, self.__pop_many(op.opcode.pop), op.pc)
+      inst = TACOp(op.opcode, self.stack.pop_many(op.opcode.pop), op.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:
-      self.__push(var)
+      self.stack.push(var)
     self.ops.append(inst)
-

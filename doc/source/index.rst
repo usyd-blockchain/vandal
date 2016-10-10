@@ -15,7 +15,6 @@ Modules
    lattice
    memtypes
    opcodes
-   optimise
    patterns
    tac_cfg
 

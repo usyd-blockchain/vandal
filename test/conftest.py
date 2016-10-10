@@ -19,5 +19,5 @@ def cfg(request):
     disasm = f.read()
   cfg = TACGraph.from_dasm(fileinput.input())
   optimise.fold_constants(cfg)
-  cfg.recheck_jumps()
+  cfg.hook_up_jumps()
   yield cfg
