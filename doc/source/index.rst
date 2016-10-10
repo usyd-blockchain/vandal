@@ -16,7 +16,6 @@ Modules
    logger
    memtypes
    opcodes
-   optimise
    patterns
    tac_cfg
 
