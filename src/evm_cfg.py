@@ -119,3 +119,53 @@ class EVMOp:
       hex(id(self)),
       self.__str__()
     )
+
+
+def blocks_from_ops(ops:typing.Iterable[EVMOp]):
+  """
+  Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
+
+  Args:
+    ops: sequence of EVMOps to be put into blocks.
+
+  Returns:
+    List of BasicBlocks from the input ops, in arbitrary order.
+  """
+  blocks = []
+
+  # details for block currently being processed
+  entry, exit = (0, len(ops) - 1) if len(ops) > 0 \
+                else (None, None)
+  current = evm_cfg.EVMBasicBlock(entry, exit)
+
+  # Linear scan of all EVMOps to create initial EVMBasicBlocks
+  for i, op in enumerate(ops):
+    op.block = current
+    current.evm_ops.append(op)
+
+    # Flow-altering opcodes indicate end-of-block
+    if op.opcode.alters_flow():
+      new = current.split(i+1)
+      blocks.append(current)
+
+      # Mark all JUMPs as unresolved
+      if op.opcode in (opcodes.JUMP, opcodes.JUMPI):
+        current.has_unresolved_jump = True
+
+      # Process the next sequential block in our next iteration
+      current = new
+
+    # JUMPDESTs indicate the start of a block.
+    # A JUMPDEST should be split on only if it's not already the first
+    # operation in a block. In this way we avoid producing empty blocks if
+    # JUMPDESTs follow flow-altering operations.
+    elif op.opcode == opcodes.JUMPDEST and len(current.evm_ops) > 1:
+      new = current.split(i)
+      blocks.append(current)
+      current = new
+
+    # Always add last block if its last instruction does not alter flow
+    elif i == len(ops) - 1:
+      blocks.append(current)
+
+  return blocks
