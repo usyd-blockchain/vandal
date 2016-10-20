@@ -34,6 +34,13 @@ parser.add_argument("-p",
                     help="colourize the disassembly and separate block "
                          "boundaries with a newline")
 
+parser.add_argument("-s",
+                    "--strict",
+                    action="store_true",
+                    default=False,
+                    help="halt and produce no output when malformed "
+                         "input is given")
+
 parser.add_argument("-o",
                     "--outfile",
                     type=argparse.FileType("w"),
@@ -53,15 +60,6 @@ args = parser.parse_args()
 
 if args.prettify:
   from termcolor import colored
-
-try:
-  bytecode = ''.join(l.strip() for l in args.infile if len(l.strip()) > 0)
-  blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-
-# Catch a Control-C and exit with UNIX failure status 1
-except KeyboardInterrupt:
-  logger.log("\nInterrupted by user")
-  sys.exit(1)
 
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
@@ -90,13 +88,29 @@ def format_value(value):
     value = colored(value, VAL_COL)
   return " => " + value
 
-# Print disassembly
-for b in blocks:
-  for op in b.evm_ops:
-    print(format_pc(op.pc),
-          format_opcode(op.opcode),
-          format_value(op.value),
-          file=args.outfile)
+try:
+  bytecode = ''.join(l.strip() for l in args.infile if len(l.strip()) > 0)
+  blocks = blockparse.EVMBytecodeParser(bytecode).parse(strict=args.strict)
 
-  if args.prettify:
-    print("", file=args.outfile)
+  # Print disassembly
+  for b in blocks:
+    for op in b.evm_ops:
+      print(format_pc(op.pc),
+            format_opcode(op.opcode),
+            format_value(op.value),
+            file=args.outfile)
+
+    if args.prettify:
+      print("", file=args.outfile)
+
+except LookupError as e:
+  if args.strict:
+    logger.warning(str(e))
+    sys.exit(1)
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+  logger.warning("\nInterrupted by user")
+  sys.exit(1)
+
+sys.exit(logger.exitcode)
