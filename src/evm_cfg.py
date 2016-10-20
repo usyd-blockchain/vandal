@@ -136,7 +136,7 @@ def blocks_from_ops(ops:typing.Iterable[EVMOp]):
   # details for block currently being processed
   entry, exit = (0, len(ops) - 1) if len(ops) > 0 \
                 else (None, None)
-  current = evm_cfg.EVMBasicBlock(entry, exit)
+  current = EVMBasicBlock(entry, exit)
 
   # Linear scan of all EVMOps to create initial EVMBasicBlocks
   for i, op in enumerate(ops):
