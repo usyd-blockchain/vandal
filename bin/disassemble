@@ -3,8 +3,9 @@
 # Standard lib imports
 from os.path import abspath, dirname, join
 import sys
-import fileinput
 import argparse
+import fileinput
+import traceback
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
@@ -48,6 +49,11 @@ parser.add_argument("-o",
                     help="file to which decompiler output should be written "
                          "(stdout by default).")
 
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    help="produce more verbose debug output.")
+
 parser.add_argument("infile",
                     nargs="?",
                     type=argparse.FileType("r"),
@@ -57,6 +63,10 @@ parser.add_argument("infile",
 
 # Do the argparsing
 args = parser.parse_args()
+
+# Set global LOG_LEVEL to HIGH if --verbose flag given
+if args.verbose:
+  logger.LOG_LEVEL = logger.Verbosity.HIGH
 
 if args.prettify:
   from termcolor import colored
@@ -103,13 +113,22 @@ try:
     if args.prettify:
       print("", file=args.outfile)
 
+# ValueError happens with invalid hexadecimal
+except ValueError as e:
+  logger.log(traceback.format_exc(), logger.Verbosity.LOW)
+  logger.warning("ERROR: " + str(e))
+  sys.exit(1)
+
+# LookupError happens with invalid opcodes
 except LookupError as e:
+  logger.log_high(traceback.format_exc())
   if args.strict:
     logger.warning(str(e))
     sys.exit(1)
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
+  logger.log_high(traceback.format_exc())
   logger.warning("\nInterrupted by user")
   sys.exit(1)
 
