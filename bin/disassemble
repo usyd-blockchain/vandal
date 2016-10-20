@@ -2,6 +2,7 @@
 
 # Standard lib imports
 from os.path import abspath, dirname, join
+import io
 import sys
 import argparse
 import fileinput
@@ -24,6 +25,7 @@ OP_HALT_COL  = "red"
 OP_FLOW_COL  = "magenta"
 OP_JDEST_COL = "green"
 VAL_COL      = "yellow"
+COMMENT_COL  = "white"
 
 # Configure argparse
 parser = argparse.ArgumentParser(description="An EVM bytecode disassembler")
@@ -55,7 +57,7 @@ parser.add_argument("-v",
                     help="produce more verbose debug output.")
 
 parser.add_argument("infile",
-                    nargs="?",
+                    nargs="*",
                     type=argparse.FileType("r"),
                     default=sys.stdin,
                     help="file from which decompiler input should be read "
@@ -99,18 +101,38 @@ def format_value(value):
   return " => " + value
 
 try:
-  bytecode = ''.join(l.strip() for l in args.infile if len(l.strip()) > 0)
-  blocks = blockparse.EVMBytecodeParser(bytecode).parse(strict=args.strict)
+  for i, infile in enumerate(args.infile):
+    if hasattr(infile, 'name'):
+      logger.log("Processing {}".format(infile.name))
 
-  # Print disassembly
-  for b in blocks:
-    for op in b.evm_ops:
-      print(format_pc(op.pc),
-            format_opcode(op.opcode),
-            format_value(op.value),
-            file=args.outfile)
+    # for multiple infiles, comment above each output with the
+    # path of the infile
+    if hasattr(args.infile, '__len__') and len(args.infile) > 1:
+      fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
+      if args.prettify:
+        fname_comment = colored(fname_comment, COMMENT_COL,
+            attrs=['dark'])
+      print(fname_comment, file=args.outfile)
 
-    if args.prettify:
+    # join the bytecode all into one string
+    bytecode = ''.join(l.strip() for l in infile if len(l.strip()) > 0)
+
+    # parse bytecode and create basic blocks
+    blocks = blockparse.EVMBytecodeParser(bytecode).parse(strict=args.strict)
+
+    # Print disassembly from each block
+    for b in blocks:
+      for op in b.evm_ops:
+        print(format_pc(op.pc),
+              format_opcode(op.opcode),
+              format_value(op.value),
+              file=args.outfile)
+
+      if args.prettify:
+        print("", file=args.outfile)
+
+    # for multiple infiles, separate output of each file with a newline
+    if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
       print("", file=args.outfile)
 
 # ValueError happens with invalid hexadecimal
