@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+
+# Standard lib imports
+from os.path import abspath, dirname, join
+import sys
+import fileinput
+import argparse
+
+# Prepend ../src to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "../src")
+sys.path.insert(0, src_path)
+
+# Local project imports
+import logger
+import blockparse
+
+# Configure argparse
+parser = argparse.ArgumentParser(description="An EVM bytecode disassembler")
+
+parser.add_argument("infile",
+                    nargs="?",
+                    type=argparse.FileType("r"),
+                    default=sys.stdin,
+                    help="file from which decompiler input should be read "
+                         "(stdin by default).")
+
+parser.add_argument("outfile",
+                    nargs="?",
+                    type=argparse.FileType("w"),
+                    default=sys.stdout,
+                    help="file to which decompiler output should be written "
+                         "(stdout by default).")
+
+# Do the argparsing
+args = parser.parse_args()
+
+try:
+  bytecode = ''.join(l.strip() for l in args.infile if len(l.strip()) > 0)
+  blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+  logger.log("\nInterrupted by user")
+  sys.exit(1)
+
+# Print disassembly
+for b in blocks:
+  for op in b.evm_ops:
+    if op.value is not None:
+      print("0x{:02x} {:<6} => 0x{:02x}".format(op.pc, op.opcode.name, op.value),
+          file=args.outfile)
+    else:
+      print("0x{:02x} {:<6}".format(op.pc, op.opcode.name),
+          file=args.outfile)
+
+  print("", file=args.outfile)
