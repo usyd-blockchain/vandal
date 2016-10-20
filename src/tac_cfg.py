@@ -356,6 +356,9 @@ class Destackifier:
       PUSH: generates a CONST TAC assignment operation;
       DUP, SWAP: these simply permute the symbolic stack, generate no ops;
       LOG0 ... LOG4: all translated to a generic LOG instruction
+
+  Additionally, there is a NOP TAC instruction that does nothing, to represent
+  a block containing EVM instructions with no corresponding TAC code.
   """
 
   def __fresh_init(self) -> None:
@@ -391,6 +394,10 @@ class Destackifier:
     entry = evm_block.evm_ops[0].pc if len(evm_block.evm_ops) > 0 else None
     exit = evm_block.evm_ops[-1].pc + evm_block.evm_ops[-1].opcode.push_len() \
            if len(evm_block.evm_ops) > 0 else None
+
+    # If the block is empty, append a NOP before continuing.
+    if len(self.ops) == 0:
+      self.ops.append(TACOp(opcodes.NOP, [], entry))
 
     new_block = TACBasicBlock(entry, exit, self.ops, evm_block.evm_ops,
                               self.stack)
