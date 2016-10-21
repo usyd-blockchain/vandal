@@ -58,6 +58,11 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     if entry_stack == curr_block.entry_stack and visited[curr_block]:
       continue
 
+    # If executing this block would overflow the stack, skip it.
+    delta = len(curr_block.delta_stack) - curr_block.delta_stack.empty_pops
+    if (len(entry_stack) + delta) > memtypes.VariableStack.MAX_SIZE:
+      continue
+
     # Update the block's entry stack if it changed.
     curr_block.entry_stack = entry_stack.copy()
 

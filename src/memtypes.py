@@ -412,6 +412,8 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
+  MAX_SIZE = 1024
+
   def __init__(self, state:t.Iterable[Variable]=None):
     super().__init__([] if state is None else list(state))
 
@@ -456,7 +458,8 @@ class VariableStack(LatticeElement):
 
   def push(self, var:Variable) -> None:
     """Push a variable to the stack."""
-    self.value.append(var)
+    if len(self.value) < self.MAX_SIZE:
+        self.value.append(var)
 
   def pop(self) -> Variable:
     """
