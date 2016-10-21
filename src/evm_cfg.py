@@ -1,6 +1,6 @@
 """evm_cfg.py: Classes for processing disasm output and building a CFG"""
 
-import typing
+import typing as t
 
 import cfg
 import opcodes
@@ -12,7 +12,7 @@ class EVMBasicBlock(cfg.BasicBlock):
   """
 
   def __init__(self, entry:int=None, exit:int=None,
-               evm_ops:typing.Iterable['EVMOp']=None):
+               evm_ops:t.Iterable['EVMOp']=None):
     """
     Creates a new basic block containing operations between the
     specified entry and exit instruction counters (inclusive).
@@ -121,7 +121,7 @@ class EVMOp:
     )
 
 
-def blocks_from_ops(ops:typing.Iterable[EVMOp]):
+def blocks_from_ops(ops:t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
   """
   Process a sequence of EVMOps and create a sequence of EVMBasicBlocks.
 
