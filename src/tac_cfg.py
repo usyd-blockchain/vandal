@@ -62,6 +62,8 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       for successor in block.succs:
         successor.preds.append(block)
+    for block in self.blocks:
+      block.preds.sort(key=lambda b: b.entry)
 
   def apply_operations(self, use_sets=False) -> None:
     """
@@ -173,6 +175,7 @@ class TACGraph(cfg.ControlFlowGraph):
         block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {*jumpdests, fallthrough} if d is not None]
+      block.succs.sort(key=lambda b: b.entry)
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()
