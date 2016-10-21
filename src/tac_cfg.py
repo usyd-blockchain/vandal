@@ -101,55 +101,64 @@ class TACGraph(cfg.ControlFlowGraph):
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      jumpdest = None
+      jumpdests = []
       fallthrough = None
       final_op = block.tac_ops[-1]
       invalid_jump = False
       unresolved = True
 
+
+      # Append any valid jump destinations to the jumpdest list, returning
+      # None if the possible destination set is unconstrained.
+      handle_valid_dests = lambda d: \
+                                 [jumpdests.append(self.get_op_by_pc(v).block)
+                                  for v in d if self.is_valid_jump_dest(v)] \
+                                 if not d.is_unconstrained else None
+
       if final_op.opcode == opcodes.JUMPI:
         dest = final_op.args[0]
         cond = final_op.args[1]
 
-        # If the condition is constant, there is only one jump destination.
-        if cond.is_const:
-          # If the condition can never be true, remove the jump.
-          if cond.const_value == 0:
-            block.tac_ops.pop()
-            fallthrough = self.get_block_by_pc(final_op.pc + 1)
-            unresolved = False
-          # If the condition is always true, the JUMPI behaves like a JUMP.
-          # Check that the dest is constant and/or valid
-          elif dest.is_const:
-            final_op.opcode = opcodes.JUMP
-            final_op.args.pop()
-            if self.is_valid_jump_dest(dest.const_value):
-              jumpdest = self.get_op_by_pc(dest.const_value).block
-            else:
-              invalid_jump = True
-            unresolved = False
-          # Otherwise, the jump has not been resolved.
-        elif dest.is_const:
-          # We've already covered the case that both cond and dest are const
-          # So only handle a variable condition
-          unresolved = False
+        # If the condition cannot be true, remove the jump.
+        if cond.is_false:
+          block.tac_ops.pop()
           fallthrough = self.get_block_by_pc(final_op.pc + 1)
-          if self.is_valid_jump_dest(dest.const_value):
-            jumpdest = self.get_op_by_pc(dest.const_value).block
-          else:
+          unresolved = False
+
+        # If the condition must be true, the JUMPI behaves like a JUMP.
+        elif cond.is_true:
+          final_op.opcode = opcodes.JUMP
+          final_op.args.pop()
+
+          if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
             invalid_jump = True
+
+          unresolved = False
+
+        # Otherwise, the condition can't be resolved, but check the destination>
+        else:
+          fallthrough = self.get_block_by_pc(final_op.pc + 1)
+
+          # We've already covered the case that both cond and dest are known,
+          # so only handle a variable destination
+          if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
+            invalid_jump = True
+
+          if not dest.is_unconstrained:
+            unresolved = False
 
       elif final_op.opcode == opcodes.JUMP:
         dest = final_op.args[0]
-        if dest.is_const:
-          unresolved = False
-          if self.is_valid_jump_dest(dest.const_value):
-            jumpdest = self.get_op_by_pc(dest.const_value).block
-          else:
-            invalid_jump = True
 
+        if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
+          invalid_jump = True
+
+        if not dest.is_unconstrained:
+          unresolved = False
+
+      # The final argument is not a JUMP or a JUMPI
+      # Note that this case handles THROW and THROWI
       else:
-        # Note that this case handles THROW and THROWI
         unresolved = False
 
         # No terminating jump or a halt; fall through to next block.
@@ -157,10 +166,13 @@ class TACGraph(cfg.ControlFlowGraph):
           fallthrough = self.get_block_by_pc(block.exit + 1)
 
       # Block's jump went to an invalid location, replace the jump with a throw
+      # Note that a JUMPI could still potentially throw, but not be
+      # transformed into a THROWI unless *ALL* its destinations
+      # are invalid.
       if invalid_jump:
         block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
-      block.succs = [d for d in {jumpdest, fallthrough} if d is not None]
+      block.succs = [d for d in {*jumpdests, fallthrough} if d is not None]
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()

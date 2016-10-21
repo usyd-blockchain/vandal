@@ -87,10 +87,29 @@ class Variable(ssle, Location):
 
   @property
   def is_const(self) -> bool:
+    """True iff this variable has exactly one possible value."""
+    return self.is_finite and len(self) == 1
+
+  @property
+  def is_finite(self) -> bool:
     """
-    True iff this variable has exactly one possible value.
+    True iff this variable has a finite and nonzero number of possible values.
     """
-    return len(self) == 1
+    return not (self.is_unconstrained or self.is_bottom)
+
+  @property
+  def is_true(self) -> bool:
+    """True iff all values contained in this variable are nonzero."""
+    if self.is_unconstrained or self.is_bottom:
+      return False
+    return all(c != 0 for c in self)
+
+  @property
+  def is_false(self) -> bool:
+    """True iff all values contained in this variable are zero."""
+    if self.is_unconstrained or self.is_bottom:
+      return False
+    return all(c == 0 for c in self)
 
   def __str__(self):
     if self.is_unconstrained:
@@ -311,6 +330,7 @@ class MetaVariable(Variable):
       payload: some information to carry along with this MetaVariable.
     """
     super().__init__(values=self._bottom_val(), name=name)
+    self.value = self._top_val()
     self.payload = payload
 
   def __str__(self):
