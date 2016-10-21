@@ -13,3 +13,6 @@ pydotplus==2.0.2
 
 # Unit testing uses pytest
 pytest==3.0.2
+
+# termcolor for ANSI colours in terminal output
+termcolor==1.1.0

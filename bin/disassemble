@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+
+# Standard lib imports
+from os.path import abspath, dirname, join
+import io
+import sys
+import argparse
+import fileinput
+import traceback
+
+# Prepend ../src to $PATH so the project modules can be imported below
+src_path = join(dirname(abspath(__file__)), "../src")
+sys.path.insert(0, src_path)
+
+# Local project imports
+import logger
+import opcodes
+import blockparse
+
+# Colour scheme for prettified output
+# See: https://pypi.python.org/pypi/termcolor
+PC_COL       = "white"
+OP_COL       = "cyan"
+OP_HALT_COL  = "red"
+OP_FLOW_COL  = "magenta"
+OP_JDEST_COL = "green"
+VAL_COL      = "yellow"
+COMMENT_COL  = "white"
+
+# Configure argparse
+parser = argparse.ArgumentParser(description="An EVM bytecode disassembler")
+
+parser.add_argument("-p",
+                    "--prettify",
+                    action="store_true",
+                    default=False,
+                    help="colourize the disassembly and separate block "
+                         "boundaries with a newline")
+
+parser.add_argument("-s",
+                    "--strict",
+                    action="store_true",
+                    default=False,
+                    help="halt and produce no output when malformed "
+                         "input is given")
+
+parser.add_argument("-o",
+                    "--outfile",
+                    type=argparse.FileType("w"),
+                    default=sys.stdout,
+                    help="file to which decompiler output should be written "
+                         "(stdout by default).")
+
+parser.add_argument("-v",
+                    "--verbose",
+                    action="store_true",
+                    help="produce more verbose debug output.")
+
+parser.add_argument("infile",
+                    nargs="*",
+                    type=argparse.FileType("r"),
+                    default=sys.stdin,
+                    help="file from which decompiler input should be read "
+                         "(stdin by default).")
+
+# Do the argparsing
+args = parser.parse_args()
+
+# Set global LOG_LEVEL to HIGH if --verbose flag given
+if args.verbose:
+  logger.LOG_LEVEL = logger.Verbosity.HIGH
+
+if args.prettify:
+  from termcolor import colored
+
+def format_pc(pc):
+  pc = "0x{:02x}".format(pc)
+  if args.prettify:
+    pc = colored(pc, PC_COL)
+  return pc
+
+def format_opcode(opcode):
+  op = "{:<6}".format(opcode.name)
+  if args.prettify:
+    if opcode.halts():
+      op = colored(op, OP_HALT_COL)
+    elif opcode.alters_flow():
+      op = colored(op, OP_FLOW_COL)
+    elif opcode == opcodes.JUMPDEST:
+      op = colored(op, OP_JDEST_COL)
+    else:
+      op = colored(op, OP_COL)
+  return op
+
+def format_value(value):
+  if value is None:
+    return str()
+  value = "0x{:02x}".format(value)
+  if args.prettify:
+    value = colored(value, VAL_COL)
+  return " => " + value
+
+try:
+  for i, infile in enumerate(args.infile):
+    if hasattr(infile, 'name'):
+      logger.log("Processing {}".format(infile.name))
+
+    # for multiple infiles, comment above each output with the
+    # path of the infile
+    if hasattr(args.infile, '__len__') and len(args.infile) > 1:
+      fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
+      if args.prettify:
+        fname_comment = colored(fname_comment, COMMENT_COL,
+            attrs=['dark'])
+      print(fname_comment, file=args.outfile)
+
+    # join the bytecode all into one string
+    bytecode = ''.join(l.strip() for l in infile if len(l.strip()) > 0)
+
+    # parse bytecode and create basic blocks
+    blocks = blockparse.EVMBytecodeParser(bytecode).parse(strict=args.strict)
+
+    # Print disassembly from each block
+    for b in blocks:
+      for op in b.evm_ops:
+        print(format_pc(op.pc),
+              format_opcode(op.opcode),
+              format_value(op.value),
+              file=args.outfile)
+
+      if args.prettify:
+        print("", file=args.outfile)
+
+    # for multiple infiles, separate output of each file with a newline
+    if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
+      print("", file=args.outfile)
+
+# ValueError happens with invalid hexadecimal
+except ValueError as e:
+  logger.log(traceback.format_exc(), logger.Verbosity.LOW)
+  logger.warning("ERROR: " + str(e))
+  sys.exit(1)
+
+# LookupError happens with invalid opcodes
+except LookupError as e:
+  logger.log_high(traceback.format_exc())
+  if args.strict:
+    logger.warning(str(e))
+    sys.exit(1)
+
+# Catch a Control-C and exit with UNIX failure status 1
+except KeyboardInterrupt:
+  logger.log_high(traceback.format_exc())
+  logger.warning("\nInterrupted by user")
+  sys.exit(1)
+
+sys.exit(logger.exitcode)
