@@ -50,7 +50,19 @@ class TACGraph(cfg.ControlFlowGraph):
       dasm: a sequence of disasm lines, as output from the
             ethereum `dasm` disassembler.
     """
-    return cls(blockparse.EVMBlockParser(dasm).parse())
+    return cls(blockparse.EVMDasmParser(dasm).parse())
+
+  @classmethod
+  def from_bytecode(cls, bytecode:t.Iterable) -> 'TACGraph':
+    """
+    Construct and return a TACGraph from the given EVM bytecode.
+
+    Args:
+      bytecode: a sequence of EVM bytecode, either in a hexidecimal
+        string format or a byte array.
+    """
+    bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
+    return cls(blockparse.EVMBytecodeParser(bytecode).parse())
 
   def recalc_preds(self) -> None:
     """
