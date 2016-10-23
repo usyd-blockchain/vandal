@@ -101,7 +101,7 @@ class Variable(ssle, Location):
   def is_true(self) -> bool:
     """
     True iff all values contained in this variable are nonzero.
-    N.B. that is_true is the inverse of is_false, as Variables are not bivalent.
+    N.B. is_true is not the inverse of is_false, as Variables are not bivalent.
     """
     if self.is_unconstrained or self.is_bottom:
       return False
@@ -111,7 +111,7 @@ class Variable(ssle, Location):
   def is_false(self) -> bool:
     """
     True iff all values contained in this variable are zero.
-    N.B. that is_false is the inverse of is_true, as Variables are not bivalent.
+    N.B. is_false is not the inverse of is_true, as Variables are not bivalent.
     """
     if self.is_unconstrained or self.is_bottom:
       return False
