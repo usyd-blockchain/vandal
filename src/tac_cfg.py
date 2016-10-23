@@ -269,6 +269,12 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     self.exit_stack = mem.VariableStack()
     """Holds the complete stack state after execution of the block."""
 
+    self.symbolic_overflow = False
+    """
+    Indicates whether a symbolic stack overflow has occurred in dataflow
+    analysis of this block.
+    """
+
   def __str__(self):
     super_str = super().__str__()
     op_seq = "\n".join(str(op) for op in self.tac_ops)
