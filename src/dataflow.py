@@ -6,6 +6,7 @@ import tac_cfg
 import lattice
 import memtypes
 
+
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True):
@@ -32,6 +33,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   # Initialise all entry and exit stacks to be empty.
   if reinit_stacks:
     for block in cfg.blocks:
+      block.symbolic_overflow = False
       block.entry_stack = memtypes.VariableStack()
       block.exit_stack = memtypes.VariableStack()
 
@@ -61,6 +63,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     # If executing this block would overflow the stack, skip it.
     delta = len(curr_block.delta_stack) - curr_block.delta_stack.empty_pops
     if (len(entry_stack) + delta) > memtypes.VariableStack.MAX_SIZE:
+      curr_block.symbolic_overflow = True
       continue
 
     # Update the block's entry stack if it changed.
@@ -95,7 +98,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     cfg.apply_operations()
   if hook_up_jumps:
     cfg.hook_up_jumps()
-
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):

@@ -74,8 +74,6 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       for successor in block.succs:
         successor.preds.append(block)
-    for block in self.blocks:
-      block.preds.sort(key=lambda b: b.entry)
 
   def apply_operations(self, use_sets=False) -> None:
     """
@@ -121,13 +119,20 @@ class TACGraph(cfg.ControlFlowGraph):
       invalid_jump = False
       unresolved = True
 
+      def handle_valid_dests(d):
+        """
+        Append any valid jump destinations to the jumpdest list,
+        returning False iff the possible destination set is unconstrained.
+        A jump must be considered invalid if it has no valid destinations.
+        """
+        if d.is_unconstrained:
+          return False
 
-      # Append any valid jump destinations to the jumpdest list, returning
-      # None if the possible destination set is unconstrained.
-      handle_valid_dests = lambda d: \
-                                 [jumpdests.append(self.get_op_by_pc(v).block)
-                                  for v in d if self.is_valid_jump_dest(v)] \
-                                 if not d.is_unconstrained else None
+        for v in d:
+          if self.is_valid_jump_dest(v):
+            jumpdests.append(self.get_op_by_pc(v).block)
+
+        return True
 
       if final_op.opcode == opcodes.JUMPI:
         dest = final_op.args[0]
@@ -144,7 +149,7 @@ class TACGraph(cfg.ControlFlowGraph):
           final_op.opcode = opcodes.JUMP
           final_op.args.pop()
 
-          if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
+          if handle_valid_dests(dest) and len(jumpdests) == 0:
             invalid_jump = True
 
           unresolved = False
@@ -155,7 +160,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
           # We've already covered the case that both cond and dest are known,
           # so only handle a variable destination
-          if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
+          if handle_valid_dests(dest) and len(jumpdests) == 0:
             invalid_jump = True
 
           if not dest.is_unconstrained:
@@ -164,7 +169,7 @@ class TACGraph(cfg.ControlFlowGraph):
       elif final_op.opcode == opcodes.JUMP:
         dest = final_op.args[0]
 
-        if (handle_valid_dests(dest) is not None) and len(jumpdests) == 0:
+        if handle_valid_dests(dest) and len(jumpdests) == 0:
           invalid_jump = True
 
         if not dest.is_unconstrained:
@@ -187,7 +192,6 @@ class TACGraph(cfg.ControlFlowGraph):
         block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
       block.succs = [d for d in {*jumpdests, fallthrough} if d is not None]
-      block.succs.sort(key=lambda b: b.entry)
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()

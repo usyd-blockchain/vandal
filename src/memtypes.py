@@ -99,14 +99,20 @@ class Variable(ssle, Location):
 
   @property
   def is_true(self) -> bool:
-    """True iff all values contained in this variable are nonzero."""
+    """
+    True iff all values contained in this variable are nonzero.
+    N.B. that is_true is the inverse of is_false, as Variables are not bivalent.
+    """
     if self.is_unconstrained or self.is_bottom:
       return False
     return all(c != 0 for c in self)
 
   @property
   def is_false(self) -> bool:
-    """True iff all values contained in this variable are zero."""
+    """
+    True iff all values contained in this variable are zero.
+    N.B. that is_false is the inverse of is_true, as Variables are not bivalent.
+    """
     if self.is_unconstrained or self.is_bottom:
       return False
     return all(c == 0 for c in self)
@@ -330,8 +336,15 @@ class MetaVariable(Variable):
       payload: some information to carry along with this MetaVariable.
     """
     super().__init__(values=self._bottom_val(), name=name)
+
     self.value = self._top_val()
+    """
+    The value of this MetaVariable.
+    MetaVariables are taken to have unconstrained value sets.
+    """
+
     self.payload = payload
+
 
   def __str__(self):
     return self.identifier
@@ -413,6 +426,10 @@ class VariableStack(LatticeElement):
   """
 
   MAX_SIZE = 1024
+  """
+  The maximum size of a variable stack before it overflows.
+  Pushing to a full stack has no effect.
+  """
 
   def __init__(self, state:t.Iterable[Variable]=None):
     super().__init__([] if state is None else list(state))
