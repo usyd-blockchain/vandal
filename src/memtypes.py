@@ -87,10 +87,35 @@ class Variable(ssle, Location):
 
   @property
   def is_const(self) -> bool:
+    """True iff this variable has exactly one possible value."""
+    return self.is_finite and len(self) == 1
+
+  @property
+  def is_finite(self) -> bool:
     """
-    True iff this variable has exactly one possible value.
+    True iff this variable has a finite and nonzero number of possible values.
     """
-    return len(self) == 1
+    return not (self.is_unconstrained or self.is_bottom)
+
+  @property
+  def is_true(self) -> bool:
+    """
+    True iff all values contained in this variable are nonzero.
+    N.B. is_true is not the inverse of is_false, as Variables are not bivalent.
+    """
+    if self.is_unconstrained or self.is_bottom:
+      return False
+    return all(c != 0 for c in self)
+
+  @property
+  def is_false(self) -> bool:
+    """
+    True iff all values contained in this variable are zero.
+    N.B. is_false is not the inverse of is_true, as Variables are not bivalent.
+    """
+    if self.is_unconstrained or self.is_bottom:
+      return False
+    return all(c == 0 for c in self)
 
   def __str__(self):
     if self.is_unconstrained:
@@ -311,7 +336,15 @@ class MetaVariable(Variable):
       payload: some information to carry along with this MetaVariable.
     """
     super().__init__(values=self._bottom_val(), name=name)
+
+    self.value = self._top_val()
+    """
+    The value of this MetaVariable.
+    MetaVariables are taken to have unconstrained value sets.
+    """
+
     self.payload = payload
+
 
   def __str__(self):
     return self.identifier
@@ -392,6 +425,12 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
+  MAX_SIZE = 1024
+  """
+  The maximum size of a variable stack before it overflows.
+  Pushing to a full stack has no effect.
+  """
+
   def __init__(self, state:t.Iterable[Variable]=None):
     super().__init__([] if state is None else list(state))
 
@@ -436,7 +475,8 @@ class VariableStack(LatticeElement):
 
   def push(self, var:Variable) -> None:
     """Push a variable to the stack."""
-    self.value.append(var)
+    if len(self.value) < self.MAX_SIZE:
+        self.value.append(var)
 
   def pop(self) -> Variable:
     """
