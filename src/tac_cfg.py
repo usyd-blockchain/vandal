@@ -101,7 +101,10 @@ class TACGraph(cfg.ControlFlowGraph):
       for op in block.tac_ops:
         for i in range(len(op.args)):
           if isinstance(op.args[i], mem.MetaVariable):
-            op.args[i] = block.entry_stack.peek(op.args[i].payload)
+            # If the required argument is past the end, don't replace the metavariable
+            # as we would thereby lose information.
+            if op.args[i].payload < len(block.entry_stack):
+              op.args[i] = block.entry_stack.peek(op.args[i].payload)
 
   def hook_up_jumps(self) -> None:
     """

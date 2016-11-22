@@ -72,6 +72,11 @@ class ControlFlowGraph(patterns.Visitable):
       for b in generator:
         b.accept(visitor)
 
+  @property
+  def has_unresolved_jump(self):
+    """True iff any block in this cfg contains an unresolved jump."""
+    return any(b.has_unresolved_jump for b in self.blocks)
+
 
 class BasicBlock(patterns.Visitable):
   """
