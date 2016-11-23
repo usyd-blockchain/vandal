@@ -48,6 +48,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     # Build the entry stack by joining all predecessor exit stacks.
     pred_stacks = [pred.exit_stack for pred in curr_block.preds]
     entry_stack = memtypes.VariableStack.join_all(pred_stacks)
+    entry_stack.metafy()
 
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.

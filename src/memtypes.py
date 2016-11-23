@@ -462,6 +462,15 @@ class VariableStack(LatticeElement):
     new_stack.empty_pops = self.empty_pops
     return new_stack
 
+  def metafy(self) -> None:
+    """
+    Turn all unconstrained variables into metavariables whose labels
+    are their current stack position.
+    """
+    for i in range(len(self)):
+      if self.value[-(i+1)].is_unconstrained:
+        self.value[-(i+1)] = self.__new_metavar(i)
+
   @staticmethod
   def __new_metavar(n:int) -> MetaVariable:
     """Return a MetaVariable with the given payload and a corresponding name."""
