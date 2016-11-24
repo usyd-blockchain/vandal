@@ -53,17 +53,20 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:t.Iterable=None, name:str="Var"):
+  def __init__(self, values:t.Iterable=None, name:str="Var",
+               def_sites:ssle=ssle.bottom()):
     """
     Args:
       values: the set of values this variable could take.
       name: the name that uniquely identifies this variable.
+      def_sites: a set of blocks where this variable was possibly last defined.
     """
 
     # Make sure the input values are not out of range.
     mod = [] if values is None else [v % self.CARDINALITY for v in values]
     super().__init__(value=mod)
     self.name = name
+    self.def_sites = def_sites
 
   @property
   def values(self) -> ssle:
@@ -137,32 +140,58 @@ class Variable(ssle, Location):
 
   def __hash__(self):
     if self.is_top:
-      return hash(self.value) ^ hash(self.name)
+      return hash(self.TOP_SYMBOL) ^ hash(self.name)
     else:
       # frozenset because plain old sets are unhashable
       return hash(frozenset(self.value)) ^ hash(self.name)
 
   @classmethod
-  def top(cls, name="Var"):
+  def meet(cls, a:'Variable', b:'Variable') -> 'Variable':
+    """
+    Return a Variable whose values and def sites are the
+    intersections of the inputs value and def site sets.
+    """
+    vals = ssle.meet(a, b)
+    sites = ssle.meet(a.def_sites, b.def_sites)
+    if vals.is_top:
+      return cls.top(def_sites=sites)
+    return cls(values=vals, def_sites=sites)
+
+  @classmethod
+  def join(cls, a:'Variable', b:'Variable') -> 'Variable':
+    """
+    Return a Variable whose values and def sites are the
+    unions of the inputs value and def site sets.
+    """
+    vals = ssle.join(a, b)
+    sites = ssle.join(a.def_sites, b.def_sites)
+    if vals.is_top:
+      return cls.top(def_sites=sites)
+    return cls(values=vals, def_sites=sites)
+
+  @classmethod
+  def top(cls, name="Var", def_sites:ssle=ssle.bottom()):
     """
     Return a Variable with Top value, and optionally set its name.
 
     Args:
-      name: the name of the new variable
+      name: the name of the new variable.
+      def_sites: a set of blocks where this variable was possibly last defined.
     """
-    result = cls(name=name)
+    result = cls(name=name, def_sites=def_sites)
     result.value = cls._top_val()
     return result
 
   @classmethod
-  def bottom(cls, name="Var"):
+  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()):
     """
     Return a Variable with Bottom value, and optionally set its name.
 
     Args:
-      name: the name of the new variable
+      name: the name of the new variable.
+      def_sites: a set of blocks where this variable was possibly last defined.
     """
-    return cls(values=cls._bottom_val(), name=name)
+    return cls(values=cls._bottom_val(), name=name, def_sites=def_sites)
 
   @property
   def const_value(self):
@@ -329,13 +358,13 @@ class Variable(ssle, Location):
 
 class MetaVariable(Variable):
   """A Variable to stand in for Variables."""
-  def __init__(self, name:str, payload=None):
+  def __init__(self, name:str, payload=None, def_sites:ssle=ssle.bottom()):
     """
     Args:
       name: the name of the new MetaVariable
       payload: some information to carry along with this MetaVariable.
     """
-    super().__init__(values=self._bottom_val(), name=name)
+    super().__init__(values=self._bottom_val(), name=name, def_sites=def_sites)
 
     self.value = self._top_val()
     """
@@ -468,13 +497,14 @@ class VariableStack(LatticeElement):
     are their current stack position.
     """
     for i in range(len(self)):
-      if self.value[-(i+1)].is_unconstrained:
-        self.value[-(i+1)] = self.__new_metavar(i)
+      var = self.value[-(i+1)]
+      if var.is_unconstrained:
+        self.value[-(i+1)] = self.__new_metavar(i, def_sites=var.def_sites)
 
   @staticmethod
-  def __new_metavar(n:int) -> MetaVariable:
+  def __new_metavar(n:int, def_sites:ssle=ssle.bottom()) -> MetaVariable:
     """Return a MetaVariable with the given payload and a corresponding name."""
-    return MetaVariable(name="S{}".format(n), payload=n)
+    return MetaVariable(name="S{}".format(n), payload=n, def_sites=def_sites)
 
   def peek(self, n: int = 0) -> Variable:
     """Return the n'th element from the top without popping anything."""

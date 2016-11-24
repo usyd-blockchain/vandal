@@ -284,7 +284,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
   @classmethod
   def _top_val(cls):
-    return cls.TOP_SYMBOL
+    return set(cls.TOP_SYMBOL)
 
   @classmethod
   def _bottom_val(cls):

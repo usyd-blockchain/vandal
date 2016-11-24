@@ -9,6 +9,7 @@ import evm_cfg
 import memtypes as mem
 import blockparse
 import patterns
+from lattice import SubsetLatticeElement as ssle
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -401,7 +402,7 @@ class Destackifier:
   a block containing EVM instructions with no corresponding TAC code.
   """
 
-  def __fresh_init(self) -> None:
+  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
     """Reinitialise all structures in preparation for converting a block."""
 
     # A sequence of three-address operations
@@ -415,9 +416,14 @@ class Destackifier:
     # the number of items pushed to the stack.
     self.stack_vars = 0
 
+    # Entry address of the current block being converted
+    self.block_entry = evm_block.evm_ops[0].pc \
+                       if len(evm_block.evm_ops) > 0 else None
+
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
-    var = mem.Variable.top(name="V{}".format(self.stack_vars))
+    var = mem.Variable.top(name="V{}".format(self.stack_vars),
+                           def_sites=ssle([self.block_entry]))
     self.stack_vars += 1
     return var
 
@@ -426,7 +432,7 @@ class Destackifier:
     Given a EVMBasicBlock, produce an equivalent three-address code sequence
     and return the resulting TACBasicBlock.
     """
-    self.__fresh_init()
+    self.__fresh_init(evm_block)
 
     for op in evm_block.evm_ops:
       self.__handle_evm_op(op)
