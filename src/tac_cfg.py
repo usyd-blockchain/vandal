@@ -118,8 +118,10 @@ class TACGraph(cfg.ControlFlowGraph):
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      jumpdests = []
-      fallthrough = None
+      jumpdests = {}
+      # A mapping from a jump dest to all the blocks addressed at that dest
+
+      fallthrough = []
       final_op = block.tac_ops[-1]
       invalid_jump = False
       unresolved = True
@@ -135,7 +137,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
         for v in d:
           if self.is_valid_jump_dest(v):
-            jumpdests.append(self.get_op_by_pc(v).block)
+            jumpdests[v] = [op.block for op in self.get_ops_by_pc(v)]
 
         return True
 
@@ -146,7 +148,7 @@ class TACGraph(cfg.ControlFlowGraph):
         # If the condition cannot be true, remove the jump.
         if cond.is_false:
           block.tac_ops.pop()
-          fallthrough = self.get_block_by_pc(final_op.pc + 1)
+          fallthrough = self.get_blocks_by_pc(final_op.pc + 1)
           unresolved = False
 
         # If the condition must be true, the JUMPI behaves like a JUMP.
@@ -161,7 +163,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # Otherwise, the condition can't be resolved, but check the destination>
         else:
-          fallthrough = self.get_block_by_pc(final_op.pc + 1)
+          fallthrough = self.get_blocks_by_pc(final_op.pc + 1)
 
           # We've already covered the case that both cond and dest are known,
           # so only handle a variable destination
@@ -187,7 +189,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # No terminating jump or a halt; fall through to next block.
         if not final_op.opcode.halts():
-          fallthrough = self.get_block_by_pc(block.exit + 1)
+          fallthrough = self.get_blocks_by_pc(block.exit + 1)
 
       # Block's jump went to an invalid location, replace the jump with a throw
       # Note that a JUMPI could still potentially throw, but not be
@@ -196,30 +198,45 @@ class TACGraph(cfg.ControlFlowGraph):
       if invalid_jump:
         block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
       block.has_unresolved_jump = unresolved
-      block.succs = [d for d in {*jumpdests, fallthrough} if d is not None]
+
+      for address, block_list in list(jumpdests.items()):
+        to_add = [d for d in block_list if d in block.succs]
+        if len(to_add) != 0:
+          jumpdests[address] = to_add
+
+      to_add = [d for d in fallthrough if d in block.succs]
+      if len(to_add) != 0:
+        fallthrough = to_add
+
+      block.succs = list({d for dl in list(jumpdests.values()) + [fallthrough]
+                          for d in dl})
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()
 
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter refers to a valid jumpdest."""
-    op = self.get_op_by_pc(pc)
-    return (op is not None) and (op.opcode == opcodes.JUMPDEST)
+    ops = self.get_ops_by_pc(pc)
+    return (len(ops) != 0) and any(op.opcode == opcodes.JUMPDEST for op in ops)
 
-  def get_block_by_pc(self, pc:int) -> 'TACBasicBlock':
-    """Return the block whose span includes the given program counter value."""
+  def get_blocks_by_pc(self, pc:int) -> t.List['TACBasicBlock']:
+    """Return the blocks whose spans include the given program counter value."""
+    blocks = []
     for block in self.blocks:
       if block.entry <= pc <= block.exit:
-        return block
-    return None
+        blocks.append(block)
+    return blocks
 
-  def get_op_by_pc(self, pc:int) -> 'TACOp':
-    """Return the operation with the given program counter, if it exists."""
-    for block in self.blocks:
+  def get_ops_by_pc(self, pc:int) -> 'TACOp':
+    """Return the operations with the given program counter, if any exist."""
+    ops = []
+
+    for block in self.get_blocks_by_pc(pc):
       for op in block.tac_ops:
         if op.pc == pc:
-          return op
-    return None
+          ops.append(op)
+
+    return ops
 
   def clone_ambiguous_jump_blocks(self) -> None:
     """
@@ -412,6 +429,11 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     new_block.exit_stack = self.exit_stack.copy()
     new_block.preds = copy.copy(self.preds)
     new_block.succs = copy.copy(self.succs)
+
+    for op in new_block.tac_ops:
+      op.block = new_block
+    for op in new_block.evm_ops:
+      op.block = new_block
 
     return new_block
 
