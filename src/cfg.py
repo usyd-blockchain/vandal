@@ -120,6 +120,9 @@ class BasicBlock(patterns.Visitable):
     self.has_unresolved_jump = False
     """True if the node contains a jump whose destination is a variable."""
 
+    self.ident_suffix = ""
+    """Extra information to be appended to this block's identifier."""
+
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
     if self.exit is None or self.entry is None:
@@ -144,4 +147,4 @@ class BasicBlock(patterns.Visitable):
     """
     if self.entry is None:
       raise ValueError("Can't compute ident() for block with unknown entry")
-    return hex(self.entry)
+    return hex(self.entry) + self.ident_suffix

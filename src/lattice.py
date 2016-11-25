@@ -309,3 +309,16 @@ class SubsetLatticeElement(BoundedLatticeElement):
       return cls.top()
 
     return cls(a.value | b.value)
+
+  @property
+  def is_const(self) -> bool:
+    """True iff this variable has exactly one possible value."""
+    return self.is_finite and len(self) == 1
+
+  @property
+  def is_finite(self) -> bool:
+    """
+    True iff this variable has a finite and nonzero number of possible values.
+    """
+    return not (self.is_top or self.is_bottom)
+

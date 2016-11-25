@@ -89,24 +89,12 @@ class Variable(ssle, Location):
     return self.name
 
   @property
-  def is_const(self) -> bool:
-    """True iff this variable has exactly one possible value."""
-    return self.is_finite and len(self) == 1
-
-  @property
-  def is_finite(self) -> bool:
-    """
-    True iff this variable has a finite and nonzero number of possible values.
-    """
-    return not (self.is_unconstrained or self.is_bottom)
-
-  @property
   def is_true(self) -> bool:
     """
     True iff all values contained in this variable are nonzero.
     N.B. is_true is not the inverse of is_false, as Variables are not bivalent.
     """
-    if self.is_unconstrained or self.is_bottom:
+    if not self.is_finite:
       return False
     return all(c != 0 for c in self)
 
@@ -116,7 +104,7 @@ class Variable(ssle, Location):
     True iff all values contained in this variable are zero.
     N.B. is_false is not the inverse of is_true, as Variables are not bivalent.
     """
-    if self.is_unconstrained or self.is_bottom:
+    if not self.is_finite:
       return False
     return all(c == 0 for c in self)
 
@@ -509,7 +497,8 @@ class VariableStack(LatticeElement):
   def peek(self, n: int = 0) -> Variable:
     """Return the n'th element from the top without popping anything."""
     if n >= len(self):
-      return self.__new_metavar(n - len(self) + self.empty_pops)
+      return self.__new_metavar(n - len(self) + self.empty_pops,
+                                def_sites=ssle.top())
     return self.value[-(n+1)]
 
   def push(self, var:Variable) -> None:
@@ -526,7 +515,8 @@ class VariableStack(LatticeElement):
       return self.value.pop()
     else:
       self.empty_pops += 1
-      return self.__new_metavar(self.empty_pops - 1)
+      return self.__new_metavar(self.empty_pops - 1,
+                                def_sites=ssle.top())
 
   def push_many(self, vs:t.Iterable[Variable]) -> None:
     """

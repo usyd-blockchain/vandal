@@ -2,6 +2,7 @@
 objects."""
 
 import typing as t
+import copy
 
 import opcodes
 import cfg
@@ -220,6 +221,101 @@ class TACGraph(cfg.ControlFlowGraph):
           return op
     return None
 
+  def clone_ambiguous_jump_blocks(self) -> None:
+    """
+    If block terminates in a jump with an ambiguous (but constrained)
+    jump destination, then find its most recent ancestral confluence point
+    and split the chain of blocks between into parallel chains, one for each
+    predecessor of the block at the confluence point.
+    """
+
+    modified = True
+
+    while modified:
+      modified = False
+
+      for block in self.blocks:
+        if len(block.tac_ops) == 0:
+          continue
+
+        final_op = block.tac_ops[-1]
+
+        if final_op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
+          continue
+
+        # We will only split if there were actually multiple jump destinations
+        # defined in multiple different blocks.
+        dests = final_op.args[0]
+        if dests.is_const or dests.def_sites.is_const \
+            or (dests.is_top and dests.def_sites.is_top):
+          continue
+
+        # We satisfy the conditions for attempting a split.
+        chain = [block]
+        curr_block = block
+        pathological_cycle = False
+
+        while len(curr_block.preds) == 1:
+          curr_block = curr_block.preds[0]
+
+          if curr_block not in chain:
+            chain.append(curr_block)
+          else:
+            # We are in a cycle, break out
+            pathological_cycle = True
+            break
+
+        chain_preds = curr_block.preds
+        chain_succs = chain[0].succs
+
+        if pathological_cycle or len(chain_preds) == 0:
+          continue
+
+        # If there's a cycle within the chain, die
+        # TODO See what happens if we copy these cycles
+        if any(pred in chain for pred in chain_preds):
+          continue
+
+        # We have identified a splittable chain, now split it
+
+        # copy the chains
+        chain_copies = [[b.copy() for b in chain]
+                  for _ in range(len(chain_preds))]
+
+        # hook up each pred to a chain individually.
+        for i, p in enumerate(chain_preds):
+          p.succs.remove(curr_block)
+          p.succs.append(chain_copies[i][-1])
+          chain_copies[i][-1].preds = [p]
+
+          for b in chain_copies[i]:
+            b.ident_suffix = "_" + p.ident()
+
+        # hook up the successors to all chain endpoints
+        for s in chain_succs:
+          s.preds.remove(chain[0])
+          for chain_copy in chain_copies:
+            s.preds.append(chain_copy[0])
+
+        # Connect the chains up within themselves
+        for chain_copy in chain_copies:
+          for i in range(len(chain_copy) - 1):
+            parent = chain_copy[i+1]
+            child = chain_copy[i]
+            parent.succs.remove(chain[i])
+            parent.succs.append(child)
+            child.preds = [parent]
+
+        # Remove the old chain and add the new ones.
+        for c in chain_copies:
+          for b in c:
+            self.blocks.append(b)
+        for b in chain:
+          self.blocks.remove(b)
+
+
+
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
@@ -301,6 +397,23 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     if visitor.can_visit(TACOp) or visitor.can_visit(TACAssignOp):
       for tac_op in self.tac_ops:
         visitor.visit(tac_op)
+
+  def copy(self) -> 'TACBasicBlock':
+    """Return a copy of this block."""
+
+    new_block = TACBasicBlock(self.entry, self.exit,
+                              copy.copy(self.tac_ops),
+                              copy.copy(self.evm_ops),
+                              self.delta_stack.copy())
+
+    new_block.has_unresolved_jump = self.has_unresolved_jump
+    new_block.symbolic_overflow = self.symbolic_overflow
+    new_block.entry_stack = self.entry_stack.copy()
+    new_block.exit_stack = self.exit_stack.copy()
+    new_block.preds = copy.copy(self.preds)
+    new_block.succs = copy.copy(self.succs)
+
+    return new_block
 
 
 class TACOp(patterns.Visitable):
