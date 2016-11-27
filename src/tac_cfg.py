@@ -90,10 +90,11 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       for op in block.tac_ops:
         if op.opcode == opcodes.CONST:
-          op.lhs.values = op.args[0].values
+          op.lhs.values = op.args[0].value.values
         elif op.opcode.is_arithmetic() and \
              (op.constant_args() or (op.constrained_args() and use_sets)):
-          op.lhs.values = mem.Variable.arith_op(op.opcode.name, op.args).values
+          rhs = [var.value for var in op.args]
+          op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
 
   def hook_up_stack_vars(self) -> None:
     """
@@ -103,11 +104,13 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       for op in block.tac_ops:
         for i in range(len(op.args)):
-          if isinstance(op.args[i], mem.MetaVariable):
-            # If the required argument is past the end, don't replace the metavariable
-            # as we would thereby lose information.
-            if op.args[i].payload < len(block.entry_stack):
-              op.args[i] = block.entry_stack.peek(op.args[i].payload)
+          if isinstance(op.args[i], TACArg):
+            stack_var = op.args[i].stack_var
+            if stack_var is not None:
+              # If the required argument is past the end, don't replace the metavariable
+              # as we would thereby lose information.
+              if stack_var.payload < len(block.entry_stack):
+                op.args[i].var = block.entry_stack.peek(stack_var.payload)
 
   def hook_up_jumps(self) -> None:
     """
@@ -143,8 +146,8 @@ class TACGraph(cfg.ControlFlowGraph):
         return True
 
       if final_op.opcode == opcodes.JUMPI:
-        dest = final_op.args[0]
-        cond = final_op.args[1]
+        dest = final_op.args[0].value
+        cond = final_op.args[1].value
 
         # If the condition cannot be true, remove the jump.
         if cond.is_false:
@@ -175,7 +178,7 @@ class TACGraph(cfg.ControlFlowGraph):
             unresolved = False
 
       elif final_op.opcode == opcodes.JUMP:
-        dest = final_op.args[0]
+        dest = final_op.args[0].value
 
         if handle_valid_dests(dest) and len(jumpdests) == 0:
           invalid_jump = True
@@ -263,7 +266,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # We will only split if there were actually multiple jump destinations
         # defined in multiple different blocks.
-        dests = final_op.args[0]
+        dests = final_op.args[0].value
         if dests.is_const or dests.def_sites.is_const \
             or (dests.is_top and dests.def_sites.is_top):
           continue
@@ -444,7 +447,7 @@ class TACOp(patterns.Visitable):
   of the EVM instruction it was derived from.
   """
 
-  def __init__(self, opcode:opcodes.OpCode, args:t.List[mem.Variable],
+  def __init__(self, opcode:opcodes.OpCode, args:t.List['TACArg'],
                pc:int, block=None):
     """
     Args:
@@ -472,11 +475,11 @@ class TACOp(patterns.Visitable):
 
   def constant_args(self) -> bool:
     """True iff each of this operations arguments is a constant value."""
-    return all([arg.is_const for arg in self.args])
+    return all([arg.value.is_const for arg in self.args])
 
   def constrained_args(self) -> bool:
     """True iff none of this operations arguments is value-unconstrained."""
-    return all([not arg.is_unconstrained for arg in self.args])
+    return all([not arg.value.is_unconstrained for arg in self.args])
 
   @classmethod
   def convert_jump_to_throw(cls, op:'TACOp') -> 'TACOp':
@@ -493,7 +496,7 @@ class TACOp(patterns.Visitable):
 
   def __deepcopy__(self, memodict={}):
     new_op = type(self)(self.opcode,
-                        [copy.deepcopy(arg, memodict) for arg in self.args],
+                        copy.deepcopy(self.args, memodict),
                         self.pc,
                         self.block)
     return new_op
@@ -506,7 +509,7 @@ class TACAssignOp(TACOp):
   """
 
   def __init__(self, lhs:mem.Variable, opcode:opcodes.OpCode,
-               args:t.List[mem.Variable], pc:int, block=None,
+               args:t.List['TACArg'], pc:int, block=None,
                print_name:bool=True):
     """
     Args:
@@ -531,11 +534,50 @@ class TACAssignOp(TACOp):
   def __deepcopy__(self, memodict={}):
     new_op = type(self)(copy.deepcopy(self.lhs, memodict),
                         self.opcode,
-                        [copy.deepcopy(arg, memodict) for arg in self.args],
+                        copy.deepcopy(self.args, memodict),
                         self.pc,
                         self.block,
                         self.print_name)
     return new_op
+
+
+class TACArg:
+  """
+  Contains information held in an argument to a TACOp.
+  In particular, a TACArg may hold both the current value of an argument,
+  if it exists; along with the entry stack position it came from, if it did.
+  This allows updated/refined stack data to be propagated into the body
+  of a TACBasicBlock.
+  """
+
+  def __init__(self, var:mem.Variable=None, stack_var:mem.MetaVariable=None):
+    self.var = var
+    """The actual variable this arg contains."""
+    self.stack_var = stack_var
+    """The stack position this variable came from."""
+
+  def __str__(self):
+    return str(self.value)
+
+  @property
+  def value(self):
+    """
+    Return this arg's value if it has one, otherwise return its stack variable.
+    """
+
+    if self.var is None:
+      if self.stack_var is None:
+        raise ValueError("TAC Argument has no value.")
+      else:
+        return self.stack_var
+    else:
+      return self.var
+
+  @classmethod
+  def from_var(cls, var:mem.Variable):
+    if isinstance(var, mem.MetaVariable):
+      return cls(stack_var=var)
+    return cls(var=var)
 
 
 class Destackifier:
@@ -632,34 +674,35 @@ class Destackifier:
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
-      inst = TACAssignOp(var, opcodes.CONST,
-                         [mem.Variable(values=[op.value], name="C")],
-                         op.pc, print_name=False)
+      args = [TACArg(var=mem.Variable(values=[op.value], name="C"))]
+      inst = TACAssignOp(var, opcodes.CONST, args, op.pc, print_name=False)
     elif op.opcode.is_log():
-      inst = TACOp(opcodes.LOG, self.stack.pop_many(op.opcode.pop), op.pc)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
+      inst = TACOp(opcodes.LOG, args, op.pc)
     elif op.opcode == opcodes.MLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.MLoc32(self.stack.pop())],
-                         op.pc, print_name=False)
+      args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
+      inst = TACAssignOp(var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
-      args = self.stack.pop_many(2)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
       inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE8:
-      args = self.stack.pop_many(2)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
       inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
-      inst = TACAssignOp(var, op.opcode, [mem.SLoc32(self.stack.pop())],
-                         op.pc, print_name=False)
+      args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
+      inst = TACAssignOp(var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
-      args = self.stack.pop_many(2)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
       inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif var is not None:
-      inst = TACAssignOp(var, op.opcode,
-                         self.stack.pop_many(op.opcode.pop), op.pc)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
+      inst = TACAssignOp(var, op.opcode, args, op.pc)
     else:
-      inst = TACOp(op.opcode, self.stack.pop_many(op.opcode.pop), op.pc)
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
+      inst = TACOp(op.opcode, args, op.pc)
 
     # This var must only be pushed after the operation is performed.
     if var is not None:
