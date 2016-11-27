@@ -11,6 +11,7 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
+import exporter
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -296,7 +297,7 @@ class TACGraph(cfg.ControlFlowGraph):
         # We have identified a splittable chain, now split it
 
         # copy the chains
-        chain_copies = [[b.copy() for b in chain]
+        chain_copies = [[copy.deepcopy(b) for b in chain]
                   for _ in range(len(chain_preds))]
 
         # hook up each pred to a chain individually.
@@ -329,9 +330,6 @@ class TACGraph(cfg.ControlFlowGraph):
             self.blocks.append(b)
         for b in chain:
           self.blocks.remove(b)
-
-
-
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
@@ -415,18 +413,18 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
       for tac_op in self.tac_ops:
         visitor.visit(tac_op)
 
-  def copy(self) -> 'TACBasicBlock':
+  def __deepcopy__(self, memodict={}):
     """Return a copy of this block."""
 
     new_block = TACBasicBlock(self.entry, self.exit,
-                              copy.copy(self.tac_ops),
-                              copy.copy(self.evm_ops),
-                              self.delta_stack.copy())
+                              copy.deepcopy(self.tac_ops, memodict),
+                              [copy.copy(op) for op in self.evm_ops],
+                              copy.deepcopy(self.delta_stack, memodict))
 
     new_block.has_unresolved_jump = self.has_unresolved_jump
     new_block.symbolic_overflow = self.symbolic_overflow
-    new_block.entry_stack = self.entry_stack.copy()
-    new_block.exit_stack = self.exit_stack.copy()
+    new_block.entry_stack = copy.deepcopy(self.entry_stack, memodict)
+    new_block.exit_stack = copy.deepcopy(self.exit_stack, memodict)
     new_block.preds = copy.copy(self.preds)
     new_block.succs = copy.copy(self.succs)
 
@@ -493,6 +491,13 @@ class TACOp(patterns.Visitable):
     elif op.opcode == opcodes.JUMPI:
       return cls(opcodes.THROWI, [op.args[1]], op.pc, op.block)
 
+  def __deepcopy__(self, memodict={}):
+    new_op = type(self)(self.opcode,
+                        [copy.deepcopy(arg, memodict) for arg in self.args],
+                        self.pc,
+                        self.block)
+    return new_op
+
 
 class TACAssignOp(TACOp):
   """
@@ -522,6 +527,15 @@ class TACAssignOp(TACOp):
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier,
                                 " ".join(arglist))
+
+  def __deepcopy__(self, memodict={}):
+    new_op = type(self)(copy.deepcopy(self.lhs, memodict),
+                        self.opcode,
+                        [copy.deepcopy(arg, memodict) for arg in self.args],
+                        self.pc,
+                        self.block,
+                        self.print_name)
+    return new_op
 
 
 class Destackifier:

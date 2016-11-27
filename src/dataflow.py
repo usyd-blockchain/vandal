@@ -5,7 +5,7 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-
+import exporter
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
