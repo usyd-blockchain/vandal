@@ -251,11 +251,18 @@ class TACGraph(cfg.ControlFlowGraph):
     """
 
     modified = True
+    new = set()
 
     while modified:
       modified = False
 
       for block in self.blocks:
+
+        # Don't split on blocks we only just generated; some will
+        # certainly satisfy the fission condition.
+        if block in new:
+          continue
+
         if len(block.tac_ops) == 0:
           continue
 
@@ -305,12 +312,12 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
-          p.succs.remove(curr_block)
+          p.succs.remove(chain[-1])
           p.succs.append(chain_copies[i][-1])
           chain_copies[i][-1].preds = [p]
 
           for b in chain_copies[i]:
-            b.ident_suffix = "_" + p.ident()
+            b.ident_suffix += "_" + p.ident()
 
         # hook up the successors to all chain endpoints
         for s in chain_succs:
@@ -331,8 +338,36 @@ class TACGraph(cfg.ControlFlowGraph):
         for c in chain_copies:
           for b in c:
             self.blocks.append(b)
+            new.add(b)
+
         for b in chain:
           self.blocks.remove(b)
+
+        modified = True
+
+  def remove_block(self, block:'TACBasicBlock'):
+    """
+    Remove the given block from the graph, disconnecting all incident edges.
+    """
+    for p in block.preds:
+      if block in p.succs:
+        p.succs.remove(block)
+    for s in block.succs:
+      if block in s.preds:
+        s.preds.remove(block)
+    self.blocks.remove(block)
+
+  def make_cyclic(self):
+    while True:
+      to_remove = [b for b in self.blocks
+                   if (len(b.preds) == 0 or len(b.succs) == 0)]
+
+      if len(to_remove) == 0:
+        break
+
+      for b in to_remove:
+        self.remove_block(b)
+
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
@@ -430,6 +465,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     new_block.exit_stack = copy.deepcopy(self.exit_stack, memodict)
     new_block.preds = copy.copy(self.preds)
     new_block.succs = copy.copy(self.succs)
+    new_block.ident_suffix = self.ident_suffix
 
     for op in new_block.tac_ops:
       op.block = new_block

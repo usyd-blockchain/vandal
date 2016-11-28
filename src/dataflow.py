@@ -5,7 +5,6 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-import exporter
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
@@ -93,7 +92,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         entry_stack.push(var)
 
     curr_block.exit_stack = entry_stack
-    queue += curr_block.succs
+
+    queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
 
   # Recondition the graph if desired, to hook up new relationships
