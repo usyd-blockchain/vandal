@@ -24,9 +24,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                         values into blocks.
     hook_up_jumps: Connect any new edges that can be inferred after performing
                    the analysis
-    clone_blocks: If there is an ambiguous jump destination in given block,
-                  split that block and its ancestors up to a confluence point
-                  into parallel paths, one for each jump dest.
 
   If we have already reached complete information about our stack CFG structure
   and stack states, we can use die_on_empty_pop and reinit_stacks to discover
@@ -103,8 +100,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     cfg.apply_operations()
   if hook_up_jumps:
     cfg.hook_up_jumps()
-  if clone_blocks:
-    cfg.clone_ambiguous_jump_blocks()
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):
