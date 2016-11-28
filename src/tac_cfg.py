@@ -56,7 +56,7 @@ class TACGraph(cfg.ControlFlowGraph):
     return cls(blockparse.EVMDasmParser(dasm).parse())
 
   @classmethod
-  def from_bytecode(cls, bytecode:t.Iterable) -> 'TACGraph':
+  def from_bytecode(cls, bytecode:t.Iterable, strict:bool=False) -> 'TACGraph':
     """
     Construct and return a TACGraph from the given EVM bytecode.
 
@@ -65,7 +65,7 @@ class TACGraph(cfg.ControlFlowGraph):
         string format or a byte array.
     """
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
-    return cls(blockparse.EVMBytecodeParser(bytecode).parse())
+    return cls(blockparse.EVMBytecodeParser(bytecode).parse(strict))
 
   def recalc_preds(self) -> None:
     """
