@@ -132,7 +132,8 @@ class BasicBlock(patterns.Visitable):
   def __str__(self):
     entry, exit = map(lambda n: hex(n) if n is not None else 'Unknown',
                       (self.entry, self.exit))
-    head = "Block {}\n[{}:{}]".format(self.ident(), entry, exit)
+    b_id = self.ident() if self.entry is not None else "Unidentified"
+    head = "Block {}\n[{}:{}]".format(b_id, entry, exit)
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
     succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
     unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""
