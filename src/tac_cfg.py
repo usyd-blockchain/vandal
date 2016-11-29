@@ -11,7 +11,6 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
-import exporter
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -312,27 +311,16 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
-          p.succs.remove(chain[-1])
           p.succs.append(chain_copies[i][-1])
-          chain_copies[i][-1].preds = [p]
-
           for b in chain_copies[i]:
             b.ident_suffix += "_" + p.ident()
-
-        # hook up the successors to all chain endpoints
-        for s in chain_succs:
-          s.preds.remove(chain[0])
-          for chain_copy in chain_copies:
-            s.preds.append(chain_copy[0])
 
         # Connect the chains up within themselves
         for chain_copy in chain_copies:
           for i in range(len(chain_copy) - 1):
             parent = chain_copy[i+1]
             child = chain_copy[i]
-            parent.succs.remove(chain[i])
             parent.succs.append(child)
-            child.preds = [parent]
 
         # Remove the old chain and add the new ones.
         for c in chain_copies:
@@ -341,7 +329,9 @@ class TACGraph(cfg.ControlFlowGraph):
             new.add(b)
 
         for b in chain:
-          self.blocks.remove(b)
+          self.remove_block(b)
+
+        self.recalc_preds()
 
         modified = True
 
@@ -349,25 +339,18 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     Remove the given block from the graph, disconnecting all incident edges.
     """
+    if block == self.root:
+      self.root = None
+
     for p in block.preds:
       if block in p.succs:
         p.succs.remove(block)
     for s in block.succs:
       if block in s.preds:
         s.preds.remove(block)
+    block.preds = []
+    block.succs = []
     self.blocks.remove(block)
-
-  def make_cyclic(self):
-    while True:
-      to_remove = [b for b in self.blocks
-                   if (len(b.preds) == 0 or len(b.succs) == 0)]
-
-      if len(to_remove) == 0:
-        break
-
-      for b in to_remove:
-        self.remove_block(b)
-
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
