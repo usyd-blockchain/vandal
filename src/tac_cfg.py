@@ -99,7 +99,7 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       block.hook_up_stack_vars()
 
-  def hook_up_jumps(self) -> None:
+  def hook_up_jumps(self) -> bool:
     """
     Connect all edges in the graph that can be inferred given any constant
     values of jump destinations and conditions.
@@ -107,12 +107,20 @@ class TACGraph(cfg.ControlFlowGraph):
 
     This is assumed to be performed after constant propagation and/or folding,
     since edges are deduced from constant-valued jumps.
+
+    Returns:
+        True iff any edges in the graph were modified.
     """
+
+    modified = False
+
     for block in self.blocks:
-      block.hook_up_jumps(recalc_preds=False)
+      modified |= block.hook_up_jumps(recalc_preds=False)
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()
+
+    return modified
 
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter refers to a valid jumpdest."""
@@ -374,11 +382,14 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
             if stack_var.payload < len(self.entry_stack):
               op.args[i].var = self.entry_stack.peek(stack_var.payload)
 
-  def hook_up_jumps(self, recalc_preds=True) -> None:
+  def hook_up_jumps(self, recalc_preds=True) -> bool:
    """
    Connect this block up to any successors that can be inferred
    from this block's jump condition and destination.
    An invalid jump will be replaced with a THROW instruction.
+
+   Returns:
+       True iff this block's successor list was modified.
    """
    jumpdests = {}
    # A mapping from a jump dest to all the blocks addressed at that dest
@@ -481,6 +492,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
        b.preds.append(self)
      for b in remove_from_preds:
        b.preds.remove(self)
+
+   return set(old_succs) != set(self.succs)
 
   def apply_operations(self, use_sets=False) -> None:
     """

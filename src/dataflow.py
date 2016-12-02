@@ -10,7 +10,7 @@ import exporter
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
-                   mutate_blockwise:bool=True):
+                   mutate_blockwise:bool=True, clamp_large_stacks:bool=True):
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -27,6 +27,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                    the analysis
     mutate_blockwise: hook up stack vars and/or hook up jumps after each block
                       rather than after the whole analysis is complete.
+    clamp_large_stacks: if stacks start growing without bound, reduce the stack
+                        size in order to hasten convergence.
 
   If we have already reached complete information about our stack CFG structure
   and stack states, we can use die_on_empty_pop and reinit_stacks to discover
@@ -44,6 +46,13 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
   visited = {block: False for block in cfg.blocks}
 
+  # If n visited blocks change their stack states without
+  # the structure of the graph being changed, then we assume there is a
+  # positive cycle that will overflow the stacks. Clamp max stack size to
+  # current maximum in response.
+  unmod_stack_changed_count = 0
+  graph_size = len(cfg.blocks)
+
   # Churn until we reach a fixed point.
   while queue:
     curr_block = queue.pop(0)
@@ -52,6 +61,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     pred_stacks = [pred.exit_stack for pred in curr_block.preds]
     entry_stack = memtypes.VariableStack.join_all(pred_stacks)
     entry_stack.metafy()
+    entry_stack.set_max_size(curr_block.entry_stack.max_size)
 
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.
@@ -66,7 +76,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
     # If executing this block would overflow the stack, skip it.
     delta = len(curr_block.delta_stack) - curr_block.delta_stack.empty_pops
-    if (len(entry_stack) + delta) > memtypes.VariableStack.MAX_SIZE:
+    if (len(entry_stack) + delta) > curr_block.exit_stack.max_size:
       curr_block.symbolic_overflow = True
       continue
 
@@ -98,7 +108,22 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         curr_block.hook_up_stack_vars()
         curr_block.apply_operations()
       if hook_up_jumps:
-        curr_block.hook_up_jumps(recalc_preds=True)
+        modified = curr_block.hook_up_jumps(recalc_preds=True)
+        if modified and clamp_large_stacks:
+          unmod_stack_changed_count = 0
+          for succ in curr_block.succs:
+            visited[succ] = False
+
+    if clamp_large_stacks:
+      if visited[curr_block]:
+        unmod_stack_changed_count += 1
+
+      if unmod_stack_changed_count > graph_size:
+        # clamp all stacks at their current sizes
+        for b in cfg.blocks:
+          new_size = max(len(b.entry_stack), len(b.exit_stack))
+          b.entry_stack.set_max_size(new_size)
+          b.exit_stack.set_max_size(new_size)
 
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True

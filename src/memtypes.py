@@ -442,17 +442,21 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
-  MAX_SIZE = 1024
-  """
-  The maximum size of a variable stack before it overflows.
-  Pushing to a full stack has no effect.
-  """
+  DEFAULT_MAX = 1024
 
-  def __init__(self, state:t.Iterable[Variable]=None):
+  def __init__(self, state:t.Iterable[Variable]=None,
+               max_size=DEFAULT_MAX):
     super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
+
+    self.max_size = max_size
+    """
+    The maximum size of this variable stack before it overflows.
+    Pushing to a full stack has no effect.
+    """
+
 
   def __iter__(self):
     """Iteration occurs from head of stack downwards."""
@@ -477,6 +481,7 @@ class VariableStack(LatticeElement):
     new_stack = type(self)()
     new_stack.value = copy(self.value)
     new_stack.empty_pops = self.empty_pops
+    new_stack.max_size = self.max_size
     return new_stack
 
   def metafy(self) -> None:
@@ -503,7 +508,7 @@ class VariableStack(LatticeElement):
 
   def push(self, var:Variable) -> None:
     """Push a variable to the stack."""
-    if len(self.value) < self.MAX_SIZE:
+    if len(self.value) < self.max_size:
         self.value.append(var)
 
   def pop(self) -> Variable:
@@ -547,7 +552,7 @@ class VariableStack(LatticeElement):
 
   def set_max_size(self, n:int) -> None:
     """Set this stack's maximum capacity."""
-    self.MAX_SIZE = n
+    self.max_size = n
     self.value = self.value[-n:]
 
   @classmethod
@@ -559,8 +564,10 @@ class VariableStack(LatticeElement):
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=Variable.bottom())
+    max_size = a.max_size if a.max_size < b.max_size else b.max_size
     return cls(dropwhile(lambda x: x.is_bottom,
-                         [Variable.meet(*p) for p in pairs][::-1]))
+                         [Variable.meet(*p) for p in pairs][::-1]),
+               max_size)
 
   @classmethod
   def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
@@ -571,7 +578,8 @@ class VariableStack(LatticeElement):
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=Variable.bottom())
-    return cls([Variable.join(*p) for p in pairs][::-1])
+    max_size = a.max_size if a.max_size > b.max_size else b.max_size
+    return cls([Variable.join(*p) for p in pairs][::-1], max_size)
 
   @classmethod
   def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':
