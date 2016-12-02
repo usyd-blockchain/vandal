@@ -545,6 +545,11 @@ class VariableStack(LatticeElement):
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.push_many(reversed(swapped))
 
+  def set_max_size(self, n:int) -> None:
+    """Set this stack's maximum capacity."""
+    self.MAX_SIZE = n
+    self.value = self.value[-n:]
+
   @classmethod
   def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
     """

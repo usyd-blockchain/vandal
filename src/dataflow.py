@@ -5,11 +5,12 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
+import exporter
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
-                   clone_blocks:bool=True):
+                   mutate_blockwise:bool=True):
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -24,6 +25,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                         values into blocks.
     hook_up_jumps: Connect any new edges that can be inferred after performing
                    the analysis
+    mutate_blockwise: hook up stack vars and/or hook up jumps after each block
+                      rather than after the whole analysis is complete.
 
   If we have already reached complete information about our stack CFG structure
   and stack states, we can use die_on_empty_pop and reinit_stacks to discover
@@ -89,6 +92,13 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         entry_stack.push(var)
 
     curr_block.exit_stack = entry_stack
+
+    if mutate_blockwise:
+      if hook_up_stack_vars:
+        curr_block.hook_up_stack_vars()
+        curr_block.apply_operations()
+      if hook_up_jumps:
+        curr_block.hook_up_jumps(recalc_preds=True)
 
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True

@@ -35,6 +35,8 @@ class TACGraph(cfg.ControlFlowGraph):
 
     self.blocks = [destack.convert_block(b) for b in evm_blocks]
     """The sequence of TACBasicBlocks contained in this graph."""
+    for b in self.blocks:
+      b.cfg = self
 
     self.root = next((b for b in self.blocks if b.entry == 0), None)
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
@@ -87,13 +89,7 @@ class TACGraph(cfg.ControlFlowGraph):
     combinations of values.
     """
     for block in self.blocks:
-      for op in block.tac_ops:
-        if op.opcode == opcodes.CONST:
-          op.lhs.values = op.args[0].value.values
-        elif op.opcode.is_arithmetic() and \
-             (op.constant_args() or (op.constrained_args() and use_sets)):
-          rhs = [var.value for var in op.args]
-          op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
+      block.apply_operations(use_sets)
 
   def hook_up_stack_vars(self) -> None:
     """
@@ -101,15 +97,7 @@ class TACGraph(cfg.ControlFlowGraph):
     variables they refer to.
     """
     for block in self.blocks:
-      for op in block.tac_ops:
-        for i in range(len(op.args)):
-          if isinstance(op.args[i], TACArg):
-            stack_var = op.args[i].stack_var
-            if stack_var is not None:
-              # If the required argument is past the end, don't replace the metavariable
-              # as we would thereby lose information.
-              if stack_var.payload < len(block.entry_stack):
-                op.args[i].var = block.entry_stack.peek(stack_var.payload)
+      block.hook_up_stack_vars()
 
   def hook_up_jumps(self) -> None:
     """
@@ -121,98 +109,7 @@ class TACGraph(cfg.ControlFlowGraph):
     since edges are deduced from constant-valued jumps.
     """
     for block in self.blocks:
-      jumpdests = {}
-      # A mapping from a jump dest to all the blocks addressed at that dest
-
-      fallthrough = []
-      final_op = block.tac_ops[-1]
-      invalid_jump = False
-      unresolved = True
-
-      def handle_valid_dests(d):
-        """
-        Append any valid jump destinations to the jumpdest list,
-        returning False iff the possible destination set is unconstrained.
-        A jump must be considered invalid if it has no valid destinations.
-        """
-        if d.is_unconstrained:
-          return False
-
-        for v in d:
-          if self.is_valid_jump_dest(v):
-            jumpdests[v] = [op.block for op in self.get_ops_by_pc(v)]
-
-        return True
-
-      if final_op.opcode == opcodes.JUMPI:
-        dest = final_op.args[0].value
-        cond = final_op.args[1].value
-
-        # If the condition cannot be true, remove the jump.
-        if cond.is_false:
-          block.tac_ops.pop()
-          fallthrough = self.get_blocks_by_pc(final_op.pc + 1)
-          unresolved = False
-
-        # If the condition must be true, the JUMPI behaves like a JUMP.
-        elif cond.is_true:
-          final_op.opcode = opcodes.JUMP
-          final_op.args.pop()
-
-          if handle_valid_dests(dest) and len(jumpdests) == 0:
-            invalid_jump = True
-
-          unresolved = False
-
-        # Otherwise, the condition can't be resolved, but check the destination>
-        else:
-          fallthrough = self.get_blocks_by_pc(final_op.pc + 1)
-
-          # We've already covered the case that both cond and dest are known,
-          # so only handle a variable destination
-          if handle_valid_dests(dest) and len(jumpdests) == 0:
-            invalid_jump = True
-
-          if not dest.is_unconstrained:
-            unresolved = False
-
-      elif final_op.opcode == opcodes.JUMP:
-        dest = final_op.args[0].value
-
-        if handle_valid_dests(dest) and len(jumpdests) == 0:
-          invalid_jump = True
-
-        if not dest.is_unconstrained:
-          unresolved = False
-
-      # The final argument is not a JUMP or a JUMPI
-      # Note that this case handles THROW and THROWI
-      else:
-        unresolved = False
-
-        # No terminating jump or a halt; fall through to next block.
-        if not final_op.opcode.halts():
-          fallthrough = self.get_blocks_by_pc(block.exit + 1)
-
-      # Block's jump went to an invalid location, replace the jump with a throw
-      # Note that a JUMPI could still potentially throw, but not be
-      # transformed into a THROWI unless *ALL* its destinations
-      # are invalid.
-      if invalid_jump:
-        block.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
-      block.has_unresolved_jump = unresolved
-
-      for address, block_list in list(jumpdests.items()):
-        to_add = [d for d in block_list if d in block.succs]
-        if len(to_add) != 0:
-          jumpdests[address] = to_add
-
-      to_add = [d for d in fallthrough if d in block.succs]
-      if len(to_add) != 0:
-        fallthrough = to_add
-
-      block.succs = list({d for dl in list(jumpdests.values()) + [fallthrough]
-                          for d in dl})
+      block.hook_up_jumps(recalc_preds=False)
 
     # Having recalculated all the succs, hook up preds
     self.recalc_preds()
@@ -293,7 +190,6 @@ class TACGraph(cfg.ControlFlowGraph):
             break
 
         chain_preds = curr_block.preds
-        chain_succs = chain[0].succs
 
         if pathological_cycle or len(chain_preds) == 0:
           continue
@@ -361,7 +257,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   def __init__(self, entry_pc:int, exit_pc:int,
                tac_ops:t.Iterable['TACOp'],
                evm_ops:t.Iterable[evm_cfg.EVMOp],
-               delta_stack:mem.VariableStack):
+               delta_stack:mem.VariableStack,
+               cfg=None):
     """
     Args:
       entry_pc: The pc of the first byte in the source EVM block
@@ -374,6 +271,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
                    This stack contains the new items inhabiting the top of
                    stack after execution, along with the number of items
                    removed from the stack.
+      cfg: The TACGraph to which this block belongs.
 
       Entry and exit variables should span the entire range of values enclosed
       in this block, taking care to note that the exit address may not be an
@@ -410,6 +308,9 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     Indicates whether a symbolic stack overflow has occurred in dataflow
     analysis of this block.
     """
+
+    self.cfg = cfg
+    """The TACGraph to which this block belongs."""
 
   def __str__(self):
     super_str = super().__str__()
@@ -449,6 +350,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     new_block.preds = copy.copy(self.preds)
     new_block.succs = copy.copy(self.succs)
     new_block.ident_suffix = self.ident_suffix
+    new_block.cfg = self.cfg
 
     for op in new_block.tac_ops:
       op.block = new_block
@@ -456,6 +358,146 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
       op.block = new_block
 
     return new_block
+
+  def hook_up_stack_vars(self) -> None:
+    """
+    Replace all stack MetaVariables will be replaced with the actual
+    variables they refer to.
+    """
+    for op in self.tac_ops:
+      for i in range(len(op.args)):
+        if isinstance(op.args[i], TACArg):
+          stack_var = op.args[i].stack_var
+          if stack_var is not None:
+            # If the required argument is past the end, don't replace the metavariable
+            # as we would thereby lose information.
+            if stack_var.payload < len(self.entry_stack):
+              op.args[i].var = self.entry_stack.peek(stack_var.payload)
+
+  def hook_up_jumps(self, recalc_preds=True) -> None:
+   """
+   Connect this block up to any successors that can be inferred
+   from this block's jump condition and destination.
+   An invalid jump will be replaced with a THROW instruction.
+   """
+   jumpdests = {}
+   # A mapping from a jump dest to all the blocks addressed at that dest
+
+   fallthrough = []
+   final_op = self.tac_ops[-1]
+   invalid_jump = False
+   unresolved = True
+
+   def handle_valid_dests(d):
+     """
+     Append any valid jump destinations to the jumpdest list,
+     returning False iff the possible destination set is unconstrained.
+     A jump must be considered invalid if it has no valid destinations.
+     """
+     if d.is_unconstrained:
+       return False
+
+     for v in d:
+       if self.cfg.is_valid_jump_dest(v):
+         jumpdests[v] = [op.block for op in self.cfg.get_ops_by_pc(v)]
+
+     return True
+
+   if final_op.opcode == opcodes.JUMPI:
+     dest = final_op.args[0].value
+     cond = final_op.args[1].value
+
+     # If the condition cannot be true, remove the jump.
+     if cond.is_false:
+       self.tac_ops.pop()
+       fallthrough = self.cfg.get_blocks_by_pc(final_op.pc + 1)
+       unresolved = False
+
+     # If the condition must be true, the JUMPI behaves like a JUMP.
+     elif cond.is_true:
+       final_op.opcode = opcodes.JUMP
+       final_op.args.pop()
+
+       if handle_valid_dests(dest) and len(jumpdests) == 0:
+         invalid_jump = True
+
+       unresolved = False
+
+     # Otherwise, the condition can't be resolved, but check the destination>
+     else:
+       fallthrough = self.cfg.get_blocks_by_pc(final_op.pc + 1)
+
+       # We've already covered the case that both cond and dest are known,
+       # so only handle a variable destination
+       if handle_valid_dests(dest) and len(jumpdests) == 0:
+         invalid_jump = True
+
+       if not dest.is_unconstrained:
+         unresolved = False
+
+   elif final_op.opcode == opcodes.JUMP:
+     dest = final_op.args[0].value
+
+     if handle_valid_dests(dest) and len(jumpdests) == 0:
+       invalid_jump = True
+
+     if not dest.is_unconstrained:
+       unresolved = False
+
+   # The final argument is not a JUMP or a JUMPI
+   # Note that this case handles THROW and THROWI
+   else:
+     unresolved = False
+
+     # No terminating jump or a halt; fall through to next block.
+     if not final_op.opcode.halts():
+       fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
+
+   # Block's jump went to an invalid location, replace the jump with a throw
+   # Note that a JUMPI could still potentially throw, but not be
+   # transformed into a THROWI unless *ALL* its destinations
+   # are invalid.
+   if invalid_jump:
+     self.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
+   self.has_unresolved_jump = unresolved
+
+   for address, block_list in list(jumpdests.items()):
+     to_add = [d for d in block_list if d in self.succs]
+     if len(to_add) != 0:
+       jumpdests[address] = to_add
+
+   to_add = [d for d in fallthrough if d in self.succs]
+   if len(to_add) != 0:
+     fallthrough = to_add
+
+   old_succs = self.succs
+   self.succs = list({d for dl in list(jumpdests.values()) + [fallthrough]
+                      for d in dl})
+
+   if recalc_preds:
+     add_to_preds = [s for s in self.succs if s not in old_succs]
+     remove_from_preds = [s for s in old_succs if s not in self.succs]
+     for b in add_to_preds:
+       b.preds.append(self)
+     for b in remove_from_preds:
+       b.preds.remove(self)
+
+  def apply_operations(self, use_sets=False) -> None:
+    """
+    Propagate and fold constants through the arithmetic TAC instructions
+    in this block.
+
+    If use_sets is True, folding will also be done on Variables that
+    possess multiple possible values, performing operations in all possible
+    combinations of values.
+    """
+    for op in self.tac_ops:
+      if op.opcode == opcodes.CONST:
+        op.lhs.values = op.args[0].value.values
+      elif op.opcode.is_arithmetic() and \
+           (op.constant_args() or (op.constrained_args() and use_sets)):
+        rhs = [var.value for var in op.args]
+        op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
 
 
 class TACOp(patterns.Visitable):
