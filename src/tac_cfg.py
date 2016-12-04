@@ -12,6 +12,8 @@ import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
 
+import exporter
+
 class TACGraph(cfg.ControlFlowGraph):
   """
   A control flow graph holding Three-Address Code blocks and

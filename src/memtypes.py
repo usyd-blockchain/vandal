@@ -114,7 +114,7 @@ class Variable(ssle, Location):
     if self.is_const:
       return hex(self.const_value)
     val_str = ", ".join([hex(val) for val in self.value])
-    return "{}: {{{}}}".format(self.identifier, val_str)
+    return "{{{}}}".format(val_str)
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
