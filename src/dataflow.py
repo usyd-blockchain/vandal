@@ -108,7 +108,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         curr_block.hook_up_stack_vars()
         curr_block.apply_operations()
       if hook_up_jumps:
-        modified = curr_block.hook_up_jumps(recalc_preds=True)
+        modified = curr_block.hook_up_jumps()
         if modified and clamp_large_stacks:
           unmod_stack_changed_count = 0
           for succ in curr_block.succs:

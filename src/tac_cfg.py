@@ -115,10 +115,7 @@ class TACGraph(cfg.ControlFlowGraph):
     modified = False
 
     for block in self.blocks:
-      modified |= block.hook_up_jumps(recalc_preds=False)
-
-    # Having recalculated all the succs, hook up preds
-    self.recalc_preds()
+      modified |= block.hook_up_jumps()
 
     return modified
 
@@ -215,27 +212,25 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
-          p.succs.append(chain_copies[i][-1])
+          self.add_edge(p, chain_copies[i][-1])
+          self.remove_edge(p, chain[-1])
           for b in chain_copies[i]:
             b.ident_suffix += "_" + p.ident()
 
         # Connect the chains up within themselves
         for chain_copy in chain_copies:
           for i in range(len(chain_copy) - 1):
-            parent = chain_copy[i+1]
-            child = chain_copy[i]
-            parent.succs.append(child)
+            self.add_edge(chain_copy[i+1], chain_copy[i])
+            self.remove_edge(chain_copy[i+1], chain[i])
 
         # Remove the old chain and add the new ones.
         for c in chain_copies:
           for b in c:
-            self.blocks.append(b)
+            self.add_block(b)
             new.add(b)
 
         for b in chain:
           self.remove_block(b)
-
-        self.recalc_preds()
 
         modified = True
 
@@ -247,14 +242,33 @@ class TACGraph(cfg.ControlFlowGraph):
       self.root = None
 
     for p in block.preds:
-      if block in p.succs:
-        p.succs.remove(block)
+      self.remove_edge(p, block)
     for s in block.succs:
-      if block in s.preds:
-        s.preds.remove(block)
-    block.preds = []
-    block.succs = []
+      self.remove_edge(block, s)
+
     self.blocks.remove(block)
+
+  def add_block(self, block:'TACBasicBlock'):
+    """
+    Add the given block to the graph, assuming it does not already exist.
+    """
+    if block not in self.blocks:
+      self.blocks.append(block)
+
+  def remove_edge(self, head:'TACBasicBlock', tail:'TACBasicBlock'):
+    """Remove the CFG edge that goes from head to tail."""
+    if tail in head.succs:
+      head.succs.remove(tail)
+    if head in tail.preds:
+      tail.preds.remove(head)
+
+  def add_edge(self, head:'TACBasicBlock', tail:'TACBasicBlock'):
+    """Add a CFG edge that goes from head to tail."""
+    if tail not in head.succs:
+      head.succs.append(tail)
+    if head not in tail.preds:
+      tail.preds.append(head)
+
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
@@ -382,7 +396,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
             if stack_var.payload < len(self.entry_stack):
               op.args[i].var = self.entry_stack.peek(stack_var.payload)
 
-  def hook_up_jumps(self, recalc_preds=True) -> bool:
+  def hook_up_jumps(self) -> bool:
    """
    Connect this block up to any successors that can be inferred
    from this block's jump condition and destination.
@@ -481,17 +495,16 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    if len(to_add) != 0:
      fallthrough = to_add
 
-   old_succs = self.succs
-   self.succs = list({d for dl in list(jumpdests.values()) + [fallthrough]
-                      for d in dl})
+   old_succs = list(self.succs)
+   succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
 
-   if recalc_preds:
-     add_to_preds = [s for s in self.succs if s not in old_succs]
-     remove_from_preds = [s for s in old_succs if s not in self.succs]
-     for b in add_to_preds:
-       b.preds.append(self)
-     for b in remove_from_preds:
-       b.preds.remove(self)
+   for s in self.succs:
+     if s not in succs:
+       self.cfg.remove_edge(self, s)
+
+   for s in succs:
+     if s not in self.succs:
+       self.cfg.add_edge(self, s)
 
    return set(old_succs) != set(self.succs)
 
