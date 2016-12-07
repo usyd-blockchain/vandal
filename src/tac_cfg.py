@@ -211,6 +211,7 @@ class TACGraph(cfg.ControlFlowGraph):
             break
 
         chain_preds = list(curr_block.preds)
+        chain_succs = list(chain[0].succs)
 
         if cycle or len(chain_preds) == 0:
           continue
@@ -246,6 +247,9 @@ class TACGraph(cfg.ControlFlowGraph):
             self.remove_edge(chain[i+1], chain_copy[i])
 
         # Connect up chain successors properly
+        for s in chain_succs:
+          self.remove_edge(chain[0], s)
+
         for chain_copy in chain_copies:
           for b in chain_copy:
             for s in b.succs:
