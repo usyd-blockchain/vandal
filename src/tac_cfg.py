@@ -245,6 +245,12 @@ class TACGraph(cfg.ControlFlowGraph):
             self.remove_edge(chain_copy[i+1], chain[i])
             self.remove_edge(chain[i+1], chain_copy[i])
 
+        # Connect up chain successors properly
+        for chain_copy in chain_copies:
+          for b in chain_copy:
+            for s in b.succs:
+              self.add_edge(b, s)
+
         # Remove the old chain and add the new ones.
         for c in chain_copies:
           for b in c:
@@ -526,13 +532,13 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
      fallthrough = to_add
 
    old_succs = list(self.succs)
-   succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
+   new_succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
 
-   for s in self.succs:
-     if s not in succs:
+   for s in old_succs:
+     if s not in new_succs:
        self.cfg.remove_edge(self, s)
 
-   for s in succs:
+   for s in new_succs:
      if s not in self.succs:
        self.cfg.add_edge(self, s)
 
