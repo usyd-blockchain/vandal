@@ -5,12 +5,15 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
+from memtypes import VariableStack as VStack
+from memtypes import MetaVariable as MetaVar
 import exporter
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
-                   mutate_blockwise:bool=True, clamp_large_stacks:bool=True):
+                   mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
+                   widen_large_variables:bool=True):
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -39,8 +42,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   if reinit_stacks:
     for block in cfg.blocks:
       block.symbolic_overflow = False
-      block.entry_stack = memtypes.VariableStack()
-      block.exit_stack = memtypes.VariableStack()
+      block.entry_stack = VStack()
+      block.exit_stack = VStack()
 
   # Initialise a worklist with blocks that have no precedessors
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
@@ -53,13 +56,18 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
 
+  cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
+  widen_threshold = 20
+  iterations = 0
+
   # Churn until we reach a fixed point.
   while queue:
+    iterations += 1
     curr_block = queue.pop(0)
 
     # Build the entry stack by joining all predecessor exit stacks.
     pred_stacks = [pred.exit_stack for pred in curr_block.preds]
-    entry_stack = memtypes.VariableStack.join_all(pred_stacks)
+    entry_stack = VStack.join_all(pred_stacks)
     entry_stack.metafy()
     entry_stack.set_max_size(curr_block.entry_stack.max_size)
 
@@ -88,7 +96,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     # Build a mapping from MetaVariables to the Variables they correspond to.
     metavar_map = {}
     for var in curr_block.delta_stack:
-      if isinstance(var, memtypes.MetaVariable):
+      if isinstance(var, MetaVar):
         # Here we know the stack is full enough, given we already checked it,
         # but we'll get a MetaVariable if we try grabbing something off the end.
         metavar_map[var] = entry_stack.peek(var.payload)
@@ -96,7 +104,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     # Construct the exit stack itself.
     entry_stack.pop_many(curr_block.delta_stack.empty_pops)
     for var in list(curr_block.delta_stack)[::-1]:
-      if isinstance(var, memtypes.MetaVariable):
+      if isinstance(var, MetaVar):
         entry_stack.push(metavar_map[var])
       else:
         entry_stack.push(var)
@@ -109,10 +117,28 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         curr_block.apply_operations()
       if hook_up_jumps:
         modified = curr_block.hook_up_jumps()
-        if modified and clamp_large_stacks:
-          unmod_stack_changed_count = 0
-          for succ in curr_block.succs:
-            visited[succ] = False
+        if modified:
+          if widen_large_variables:
+            cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
+          if clamp_large_stacks:
+            unmod_stack_changed_count = 0
+            for succ in curr_block.succs:
+              visited[succ] = False
+
+    if widen_large_variables:
+      cume_stack = cumulative_entry_stacks[curr_block.ident()]
+      cumulative_entry_stacks[curr_block.ident()] = VStack.join(cume_stack,
+                                                        curr_block.entry_stack)
+
+      for i in range(len(cume_stack)):
+        v = cume_stack.value[i]
+
+        if len(v) > widen_threshold:
+          print("Widening {} in block {}"
+                .format(curr_block.entry_stack.value[i], curr_block.ident()))
+          print("  Accumulated values: {}".format(cume_stack.value[i]))
+          cume_stack.value[i] = memtypes.Variable.top()
+          curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
     if clamp_large_stacks:
       if visited[curr_block]:

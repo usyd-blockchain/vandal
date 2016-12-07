@@ -154,7 +154,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
 
     modified = True
-    new = set()
+    skip = set()
 
     while modified:
       modified = False
@@ -163,7 +163,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # Don't split on blocks we only just generated; some will
         # certainly satisfy the fission condition.
-        if block in new:
+        if block in skip:
           continue
 
         if len(block.tac_ops) == 0:
@@ -184,7 +184,7 @@ class TACGraph(cfg.ControlFlowGraph):
         # We satisfy the conditions for attempting a split.
         chain = [block]
         curr_block = block
-        pathological_cycle = False
+        cycle = False
 
         while len(curr_block.preds) == 1:
           curr_block = curr_block.preds[0]
@@ -193,12 +193,12 @@ class TACGraph(cfg.ControlFlowGraph):
             chain.append(curr_block)
           else:
             # We are in a cycle, break out
-            pathological_cycle = True
+            cycle = True
             break
 
-        chain_preds = curr_block.preds
+        chain_preds = list(curr_block.preds)
 
-        if pathological_cycle or len(chain_preds) == 0:
+        if cycle or len(chain_preds) == 0:
           continue
 
         # If there's a cycle within the chain, die
@@ -212,6 +212,11 @@ class TACGraph(cfg.ControlFlowGraph):
         chain_copies = [[copy.deepcopy(b) for b in chain]
                   for _ in range(len(chain_preds))]
 
+        # remove links between preds and chain heads.
+        for chain_copy in chain_copies:
+          for p in chain_preds:
+            self.remove_edge(p, chain_copy[-1])
+
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
           self.add_edge(p, chain_copies[i][-1])
@@ -224,14 +229,16 @@ class TACGraph(cfg.ControlFlowGraph):
           for i in range(len(chain_copy) - 1):
             self.add_edge(chain_copy[i+1], chain_copy[i])
             self.remove_edge(chain_copy[i+1], chain[i])
+            self.remove_edge(chain[i+1], chain_copy[i])
 
         # Remove the old chain and add the new ones.
         for c in chain_copies:
           for b in c:
+            skip.add(b)
             self.add_block(b)
-            new.add(b)
 
         for b in chain:
+          skip.add(b)
           self.remove_block(b)
 
         modified = True
