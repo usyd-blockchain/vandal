@@ -12,6 +12,7 @@ import exporter
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
+                   mutate_jumps:bool=False, generate_throws:bool=False,
                    mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
                    widen_large_variables:bool=True):
   """
@@ -28,6 +29,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                         values into blocks.
     hook_up_jumps: Connect any new edges that can be inferred after performing
                    the analysis
+    mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
+    generate_throws: JUMP and JUMPI instructions with invalid destinations
+                     become THROW and THROWIs
     mutate_blockwise: hook up stack vars and/or hook up jumps after each block
                       rather than after the whole analysis is complete.
     clamp_large_stacks: if stacks start growing without bound, reduce the stack
@@ -116,7 +120,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         curr_block.hook_up_stack_vars()
         curr_block.apply_operations()
       if hook_up_jumps:
-        modified = curr_block.hook_up_jumps()
+        modified = curr_block.hook_up_jumps(mutate_jumps=mutate_jumps,
+                                            generate_throws=generate_throws)
         if modified:
           if widen_large_variables:
             cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
@@ -160,7 +165,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     cfg.hook_up_stack_vars()
     cfg.apply_operations()
   if hook_up_jumps:
-    cfg.hook_up_jumps()
+    cfg.hook_up_jumps(mutate_jumps=mutate_jumps,
+                      generate_throws=generate_throws)
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):

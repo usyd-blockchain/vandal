@@ -101,7 +101,9 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       block.hook_up_stack_vars()
 
-  def hook_up_jumps(self) -> bool:
+  def hook_up_jumps(self,
+                    mutate_jumps:bool=False,
+                    generate_throws:bool=False) -> bool:
     """
     Connect all edges in the graph that can be inferred given any constant
     values of jump destinations and conditions.
@@ -110,6 +112,17 @@ class TACGraph(cfg.ControlFlowGraph):
     This is assumed to be performed after constant propagation and/or folding,
     since edges are deduced from constant-valued jumps.
 
+    Note that mutate_jumps and generate_throws should likely be true only in
+    the final iteration of a dataflow analysis, at which point as much
+    jump destination information as possible has been propagated around.
+    If these are used too early, they may prevent valid edges from being added
+    later on.
+
+    Args:
+       mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
+       generate_throws: JUMP and JUMPI instructions with invalid destinations
+                        become THROW and THROWIs
+
     Returns:
         True iff any edges in the graph were modified.
     """
@@ -117,7 +130,8 @@ class TACGraph(cfg.ControlFlowGraph):
     modified = False
 
     for block in self.blocks:
-      modified |= block.hook_up_jumps()
+      modified |= block.hook_up_jumps(mutate_jumps=mutate_jumps,
+                                      generate_throws=generate_throws)
 
     return modified
 
@@ -405,11 +419,18 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
             if stack_var.payload < len(self.entry_stack):
               op.args[i].var = self.entry_stack.peek(stack_var.payload)
 
-  def hook_up_jumps(self) -> bool:
+  def hook_up_jumps(self,
+                    mutate_jumps:bool=False,
+                    generate_throws:bool=False) -> bool:
    """
    Connect this block up to any successors that can be inferred
    from this block's jump condition and destination.
    An invalid jump will be replaced with a THROW instruction.
+
+   Args:
+       mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
+       generate_throws: JUMP and JUMPI instructions with invalid destinations
+                        become THROW and THROWIs
 
    Returns:
        True iff this block's successor list was modified.
@@ -442,13 +463,13 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
      cond = final_op.args[1].value
 
      # If the condition cannot be true, remove the jump.
-     if cond.is_false:
+     if mutate_jumps and cond.is_false:
        self.tac_ops.pop()
        fallthrough = self.cfg.get_blocks_by_pc(final_op.pc + 1)
        unresolved = False
 
      # If the condition must be true, the JUMPI behaves like a JUMP.
-     elif cond.is_true:
+     elif mutate_jumps and cond.is_true:
        final_op.opcode = opcodes.JUMP
        final_op.args.pop()
 
@@ -491,7 +512,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    # Note that a JUMPI could still potentially throw, but not be
    # transformed into a THROWI unless *ALL* its destinations
    # are invalid.
-   if invalid_jump:
+   if generate_throws and invalid_jump:
      self.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
    self.has_unresolved_jump = unresolved
 
