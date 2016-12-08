@@ -302,6 +302,94 @@ class TACGraph(cfg.ControlFlowGraph):
     if head not in tail.preds:
       tail.preds.append(head)
 
+  def merge_duplicate_blocks(self,
+                             ignore_preds:bool=False,
+                             ignore_succs:bool=False) -> None:
+    """
+    Blocks with the same addresses are merged if they have the same
+    in and out edges.
+
+    Input blocks will have their stacks joined, while pred and succ lists
+    are the result of the the union of the input lists.
+
+    It is assumed that the code of the duplicate blocks will be the same,
+    which is to say that they can only differ by their entry/exit stacks,
+    and their incident CFG edges.
+
+    Args:
+        ignore_preds: blocks will be merged even if their predecessors differ.
+        ignore_succs: blocks will be merged even if their successors differ.
+    """
+
+    # Build a list of lists of blocks to be merged.
+    def blocks_equal(a, b):
+      if a.entry != b.entry:
+        return False
+      if not ignore_preds and set(a.preds) != set(b.preds):
+        return False
+      if not ignore_succs and set(a.succs) != set(b.preds):
+        return False
+      return True
+
+    modified = True
+
+    while modified:
+      modified = False
+
+      groups = []
+      merged_blocks = []
+
+      for block in self.blocks:
+        grouped = False
+        for group in groups:
+          if blocks_equal(block, group[0]):
+            grouped = True
+            group.append(block)
+            break
+        if not grouped:
+          groups.append([block])
+
+      groups = [g for g in groups if len(g) > 1]
+
+      if len(groups) > 0:
+        modified = True
+
+      # Actually merge stuff.
+      for i, group in enumerate(groups):
+        entry_stack = mem.VariableStack.join_all([b.entry_stack for b in group])
+        exit_stack = mem.VariableStack.join_all([b.exit_stack for b in group])
+        preds = set()
+        succs = set()
+        for b in group:
+          preds |= set(b.preds)
+          succs |= set(b.succs)
+
+        new_block = copy.deepcopy(group[0])
+        new_block.entry_stack = entry_stack
+        new_block.exit_stack = exit_stack
+        new_block.preds = list(preds)
+        new_block.succs = list(succs)
+        new_block.ident_suffix = "_" + str(i)
+
+        merged_blocks.append(new_block)
+
+        self.add_block(new_block)
+        for pred in preds:
+          self.add_edge(pred, new_block)
+          for b in group:
+            self.remove_edge(pred, b)
+        for succ in succs:
+          self.add_edge(new_block, succ)
+          for b in group:
+            self.remove_edge(b, succ)
+        for b in group:
+          self.remove_block(b)
+
+        if len(self.get_blocks_by_pc(new_block.entry)) == 1:
+          new_block.ident_suffix = ""
+
+  def remove_unreachable_code(self, origin_address=0):
+    pass
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
