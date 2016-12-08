@@ -388,7 +388,7 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
-  def remove_unreachable_code(self, origin_address:int=0) -> None:
+  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) -> None:
     """
     Remove all blocks not reachable from the program entry point.
 
@@ -396,11 +396,15 @@ class TACGraph(cfg.ControlFlowGraph):
     be reachable.
 
     Args:
-        origin_address: default value: 0, specify the entry address.
+        origin_addresses: default value: [0], specify the entry addresses.
     """
 
-    # Transitive closure from entry point
-    queue = self.get_blocks_by_pc(origin_address)
+    # Transitive closure from entry points
+    queue = []
+    for address in origin_addresses:
+      for block in self.get_blocks_by_pc(address):
+        if block not in queue:
+          queue.append(block)
     reached = []
 
     while queue:
