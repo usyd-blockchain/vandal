@@ -274,9 +274,9 @@ class TACGraph(cfg.ControlFlowGraph):
     if block == self.root:
       self.root = None
 
-    for p in block.preds:
+    for p in list(block.preds):
       self.remove_edge(p, block)
-    for s in block.succs:
+    for s in list(block.succs):
       self.remove_edge(block, s)
 
     self.blocks.remove(block)
@@ -327,7 +327,7 @@ class TACGraph(cfg.ControlFlowGraph):
         return False
       if not ignore_preds and set(a.preds) != set(b.preds):
         return False
-      if not ignore_succs and set(a.succs) != set(b.preds):
+      if not ignore_succs and set(a.succs) != set(b.succs):
         return False
       return True
 
@@ -388,8 +388,31 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
-  def remove_unreachable_code(self, origin_address=0):
-    pass
+  def remove_unreachable_code(self, origin_address:int=0) -> None:
+    """
+    Remove all blocks not reachable from the program entry point.
+
+    NB: if not all jumps have been resolved, unreached blocks may actually
+    be reachable.
+
+    Args:
+        origin_address: default value: 0, specify the entry address.
+    """
+
+    # Transitive closure from entry point
+    queue = self.get_blocks_by_pc(origin_address)
+    reached = []
+
+    while queue:
+      block = queue.pop()
+      reached.append(block)
+      for succ in block.succs:
+        if succ not in queue and succ not in reached:
+          queue.append(succ)
+
+    for block in list(self.blocks):
+      if block not in reached:
+        self.remove_block(block)
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
