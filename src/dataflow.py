@@ -120,9 +120,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         curr_block.hook_up_stack_vars()
         curr_block.apply_operations()
       if hook_up_jumps:
+        #old_succs = list(curr_block.succs)
         modified = curr_block.hook_up_jumps(mutate_jumps=mutate_jumps,
                                             generate_throws=generate_throws)
         if modified:
+          # Some successors of a modified block may need to be rechecked.
+          # But this can lead to infinite loops if edges may be removed as well
+          # as added.
+          #queue += [s for s in old_succs if s not in queue]
           if widen_large_variables:
             cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
           if clamp_large_stacks:

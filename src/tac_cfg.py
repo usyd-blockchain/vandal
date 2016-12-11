@@ -388,7 +388,7 @@ class TACGraph(cfg.ControlFlowGraph):
           new_block.ident_suffix = ""
 
   def transitive_closure(self, origin_addresses:t.Iterable[int]) \
-  -> t.Iterable[TACBasicBlock]:
+  -> t.Iterable['TACBasicBlock']:
     """
     Return a list of blocks reachable from the input addresses.
 
