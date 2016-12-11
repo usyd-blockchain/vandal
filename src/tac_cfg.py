@@ -12,7 +12,6 @@ import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
 
-import exporter
 
 class TACGraph(cfg.ControlFlowGraph):
   """
@@ -388,18 +387,16 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
-  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) -> None:
+  def transitive_closure(self, origin_addresses:t.Iterable[int]) \
+  -> t.Iterable[TACBasicBlock]:
     """
-    Remove all blocks not reachable from the program entry point.
-
-    NB: if not all jumps have been resolved, unreached blocks may actually
-    be reachable.
+    Return a list of blocks reachable from the input addresses.
 
     Args:
-        origin_addresses: default value: [0], specify the entry addresses.
+        origin_addresses: the input addresses blocks from which are reachable
+                          to be returned.
     """
 
-    # Transitive closure from entry points
     queue = []
     for address in origin_addresses:
       for block in self.get_blocks_by_pc(address):
@@ -413,6 +410,25 @@ class TACGraph(cfg.ControlFlowGraph):
       for succ in block.succs:
         if succ not in queue and succ not in reached:
           queue.append(succ)
+
+    return reached
+
+
+  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) \
+  -> None:
+    """
+    Remove all blocks not reachable from the program entry point.
+
+    NB: if not all jumps have been resolved, unreached blocks may actually
+    be reachable.
+
+    Args:
+        origin_addresses: default value: [0], entry addresses, blocks from which
+                          are unreachable to be deleted.
+    """
+
+    # Transitive closure from entry points
+    reached = self.transitive_closure(origin_addresses)
 
     for block in list(self.blocks):
       if block not in reached:
