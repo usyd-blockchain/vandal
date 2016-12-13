@@ -393,9 +393,12 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
-        new_block.hook_up_stack_vars()
-        new_block.apply_operations()
-        new_block.hook_up_jumps()
+      for block in self.blocks:
+        block.build_entry_stack()
+        block.build_exit_stack()
+        block.hook_up_stack_vars()
+        block.apply_operations()
+        block.hook_up_jumps()
 
   def transitive_closure(self, origin_addresses:t.Iterable[int]) \
   -> t.Iterable['TACBasicBlock']:
