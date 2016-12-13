@@ -69,51 +69,16 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     iterations += 1
     curr_block = queue.pop(0)
 
-    # Build the entry stack by joining all predecessor exit stacks.
-    pred_stacks = [pred.exit_stack for pred in curr_block.preds]
-    entry_stack = VStack.join_all(pred_stacks)
-    entry_stack.metafy()
-    entry_stack.set_max_size(curr_block.entry_stack.max_size)
-
-    # If variables were obtained from deeper than there are extant
-    # stack items, the program is possibly popping from an empty stack.
-    if die_on_empty_pop and (entry_stack < curr_block.delta_stack.empty_pops):
-      raise RuntimeError("Popped empty stack in {}.".format(curr_block.ident()))
-
     # If there was no change to the entry stack, then there will be no
     # change to the exit stack; no need to do anything for this block.
     # But visit everything at least once.
-    if entry_stack == curr_block.entry_stack and visited[curr_block]:
+    if not curr_block.build_entry_stack() and visited[curr_block]:
       continue
 
-    # If executing this block would overflow the stack, skip it.
-    delta = len(curr_block.delta_stack) - curr_block.delta_stack.empty_pops
-    if (len(entry_stack) + delta) > curr_block.exit_stack.max_size:
-      curr_block.symbolic_overflow = True
+    # If a symbolic overflow occurred, the exit stack did not change,
+    # and we can similarly skip the rest of the processing.
+    if curr_block.build_exit_stack(die_on_empty_pop=die_on_empty_pop):
       continue
-
-    # Update the block's entry stack if it changed.
-    curr_block.entry_stack = entry_stack.copy()
-
-    # Construct the new exit stack from the entry stack and the stack delta
-
-    # Build a mapping from MetaVariables to the Variables they correspond to.
-    metavar_map = {}
-    for var in curr_block.delta_stack:
-      if isinstance(var, MetaVar):
-        # Here we know the stack is full enough, given we already checked it,
-        # but we'll get a MetaVariable if we try grabbing something off the end.
-        metavar_map[var] = entry_stack.peek(var.payload)
-
-    # Construct the exit stack itself.
-    entry_stack.pop_many(curr_block.delta_stack.empty_pops)
-    for var in list(curr_block.delta_stack)[::-1]:
-      if isinstance(var, MetaVar):
-        entry_stack.push(metavar_map[var])
-      else:
-        entry_stack.push(var)
-
-    curr_block.exit_stack = entry_stack
 
     if mutate_blockwise:
       if hook_up_stack_vars:

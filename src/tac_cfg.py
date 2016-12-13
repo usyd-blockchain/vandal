@@ -555,6 +555,74 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     return new_block
 
+  def build_entry_stack(self) -> bool:
+    """
+    Construct this block's entry stack by joining all predecessor stacks.
+
+    Returns:
+        True iff the new stack is different from the old one.
+    """
+    old_stack = self.entry_stack
+    pred_stacks = [pred.exit_stack for pred in self.preds]
+    self.entry_stack = mem.VariableStack.join_all(pred_stacks)
+    self.entry_stack.set_max_size(old_stack.max_size)
+    self.entry_stack.metafy()
+
+    return old_stack != self.entry_stack
+
+  def build_exit_stack(self, die_on_empty_pop:bool=False,
+                             skip_on_overflow:bool=True) -> bool:
+    """
+    Apply the transformation in this block's delta stack to construct its
+    exit stack from its entry stack.
+
+    Args:
+      die_on_empty_pop: raise an exception if an empty stack is popped.
+      skip_on_overflow: do not apply the changes to the exit stack
+                        if a symbolic overflow occurred.
+
+    Returns:
+        True iff a symbolic overflow occurred.
+    """
+    overflow = False
+
+    # If variables were obtained from deeper than there are extant
+    # stack items, the program is possibly popping from an empty stack.
+    if die_on_empty_pop \
+       and (len(self.entry_stack) < self.delta_stack.empty_pops):
+      raise RuntimeError("Popped empty stack in {}.".format(self.ident()))
+
+    # If executing this block would overflow the stack, maybe skip it.
+    delta = len(self.delta_stack) - self.delta_stack.empty_pops
+    if (len(self.entry_stack) + delta) > self.exit_stack.max_size:
+      self.symbolic_overflow = True
+      if skip_on_overflow:
+        return True
+      overflow = True
+
+    # Construct the new exit stack from the entry and delta stacks.
+    exit_stack = self.entry_stack.copy()
+
+    # Build a mapping from MetaVariables to the Variables they correspond to.
+    metavar_map = {}
+    for var in self.delta_stack:
+      if isinstance(var, mem.MetaVariable):
+        # Here we know the stack is full enough, given we've already checked it,
+        # but we'll get a MetaVariable if we try grabbing something off the end.
+        metavar_map[var] = exit_stack.peek(var.payload)
+
+    # Construct the exit stack itself.
+    exit_stack.pop_many(self.delta_stack.empty_pops)
+    for var in list(self.delta_stack)[::-1]:
+      if isinstance(var, mem.MetaVariable):
+        exit_stack.push(metavar_map[var])
+      else:
+        exit_stack.push(var)
+
+    self.exit_stack = exit_stack
+
+    return overflow
+
   def hook_up_stack_vars(self) -> None:
     """
     Replace all stack MetaVariables will be replaced with the actual
