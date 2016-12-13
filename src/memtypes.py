@@ -443,6 +443,7 @@ class VariableStack(LatticeElement):
   """
 
   DEFAULT_MAX = 1024
+  MIN_SIZE = 20
 
   def __init__(self, state:t.Iterable[Variable]=None,
                max_size=DEFAULT_MAX):
@@ -550,8 +551,9 @@ class VariableStack(LatticeElement):
 
   def set_max_size(self, n:int) -> None:
     """Set this stack's maximum capacity."""
-    self.max_size = n
-    self.value = self.value[-n:]
+    new_size = max(self.MIN_SIZE, n)
+    self.max_size = new_size
+    self.value = self.value[-new_size:]
 
   @classmethod
   def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
