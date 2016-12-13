@@ -356,7 +356,11 @@ class TACGraph(cfg.ControlFlowGraph):
       # Actually merge stuff.
       for i, group in enumerate(groups):
         entry_stack = mem.VariableStack.join_all([b.entry_stack for b in group])
+        entry_stack.metafy()
         exit_stack = mem.VariableStack.join_all([b.exit_stack for b in group])
+        exit_stack.metafy()
+        symbolic_overflow = any([b.symbolic_overflow for b in group])
+        has_unresolved_jump = any([b.has_unresolved_jump for b in group])
         preds = set()
         succs = set()
         for b in group:
@@ -369,6 +373,8 @@ class TACGraph(cfg.ControlFlowGraph):
         new_block.preds = list(preds)
         new_block.succs = list(succs)
         new_block.ident_suffix = "_" + str(i)
+        new_block.symbolic_overflow = symbolic_overflow
+        new_block.has_unresolved_jump = has_unresolved_jump
 
         merged_blocks.append(new_block)
 
@@ -386,6 +392,10 @@ class TACGraph(cfg.ControlFlowGraph):
 
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
+
+        new_block.hook_up_stack_vars()
+        new_block.apply_operations()
+        new_block.hook_up_jumps()
 
   def transitive_closure(self, origin_addresses:t.Iterable[int]) \
   -> t.Iterable['TACBasicBlock']:
@@ -670,7 +680,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    new_succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
 
    for s in old_succs:
-     if s not in new_succs:
+     if s not in new_succs and s.entry in jumpdests:
        self.cfg.remove_edge(self, s)
 
    for s in new_succs:
