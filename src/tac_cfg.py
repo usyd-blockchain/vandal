@@ -919,6 +919,19 @@ class TACArg:
     return cls(var=var)
 
 
+class TACPCRef:
+  """Contains a reference to a program counter within a particular block."""
+
+  def __init__(self, block, pc):
+    self.block = block
+    """The block that contains the referenced instruction."""
+    self.pc = pc
+    """The program counter of the referenced instruction."""
+
+  def __str__(self):
+    return "{}.{}".format(self.block.ident(), hex(self.pc))
+
+
 class Destackifier:
   """Converts EVMBasicBlocks into corresponding TACBasicBlocks.
 
