@@ -247,7 +247,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     return len(self.value)
 
   def __iter__(self):
-    if len(self) == 0:
+    if self.is_top:
       raise TypeError("Top lattice element cannot be iterated.")
     return iter(self.value)
 

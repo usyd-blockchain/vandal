@@ -502,8 +502,7 @@ class VariableStack(LatticeElement):
   def peek(self, n: int = 0) -> Variable:
     """Return the n'th element from the top without popping anything."""
     if n >= len(self):
-      return self.__new_metavar(n - len(self) + self.empty_pops,
-                                def_sites=ssle.top())
+      return self.__new_metavar(n - len(self) + self.empty_pops)
     return self.value[-(n+1)]
 
   def push(self, var:Variable) -> None:
@@ -520,8 +519,7 @@ class VariableStack(LatticeElement):
       return self.value.pop()
     else:
       self.empty_pops += 1
-      return self.__new_metavar(self.empty_pops - 1,
-                                def_sites=ssle.top())
+      return self.__new_metavar(self.empty_pops - 1)
 
   def push_many(self, vs:t.Iterable[Variable]) -> None:
     """
