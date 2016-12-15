@@ -222,19 +222,20 @@ class TACGraph(cfg.ControlFlowGraph):
 
         # We have identified a splittable chain, now split it
 
+        # Remove the old chain from the graph.
+        # Note well that this deletion will remove all edges to successors
+        # of elements of this chain, so we can lose information.
+        for b in chain:
+          skip.add(b)
+          self.remove_block(b)
+
         # copy the chains
         chain_copies = [[copy.deepcopy(b) for b in chain]
                   for _ in range(len(chain_preds))]
 
-        # remove links between preds and chain heads.
-        for chain_copy in chain_copies:
-          for p in chain_preds:
-            self.remove_edge(p, chain_copy[-1])
-
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
           self.add_edge(p, chain_copies[i][-1])
-          self.remove_edge(p, chain[-1])
           for b in chain_copies[i]:
             b.ident_suffix += "_" + p.ident()
 
@@ -242,27 +243,12 @@ class TACGraph(cfg.ControlFlowGraph):
         for chain_copy in chain_copies:
           for i in range(len(chain_copy) - 1):
             self.add_edge(chain_copy[i+1], chain_copy[i])
-            self.remove_edge(chain_copy[i+1], chain[i])
-            self.remove_edge(chain[i+1], chain_copy[i])
 
-        # Connect up chain successors properly
-        for s in chain_succs:
-          self.remove_edge(chain[0], s)
-
-        for chain_copy in chain_copies:
-          for b in chain_copy:
-            for s in b.succs:
-              self.add_edge(b, s)
-
-        # Remove the old chain and add the new ones.
+        # Add the new chains to the graph.
         for c in chain_copies:
           for b in c:
             skip.add(b)
             self.add_block(b)
-
-        for b in chain:
-          skip.add(b)
-          self.remove_block(b)
 
         modified = True
 
