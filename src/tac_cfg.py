@@ -42,6 +42,12 @@ class TACGraph(cfg.ControlFlowGraph):
     self.root = next((b for b in self.blocks if b.entry == 0), None)
     """The root block of this CFG. The entry point will always be at index 0, if it exists."""
 
+    self.split_node_succs = {}
+    """
+    A mapping from block entries to block entries storing all successors of a
+    block at the time it was split. At merge time these edges can be restored.
+    """
+
     # Propagate constants and add CFG edges.
     self.apply_operations()
     self.hook_up_jumps()
@@ -226,6 +232,15 @@ class TACGraph(cfg.ControlFlowGraph):
         # Note well that this deletion will remove all edges to successors
         # of elements of this chain, so we can lose information.
         for b in chain:
+          # Save the edges of each block in case they can't be reinferred.
+          # They will be added back in at a later stage.
+          if b.entry not in self.split_node_succs:
+            self.split_node_succs[b.entry] = [s.entry for s in b.succs]
+          else:
+            new_list = self.split_node_succs[b.entry]
+            new_list += [s.entry for s in b.succs if s.entry not in new_list]
+            self.split_node_succs[b.entry] = new_list
+
           skip.add(b)
           self.remove_block(b)
 
