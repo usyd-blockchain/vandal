@@ -306,7 +306,8 @@ class TACGraph(cfg.ControlFlowGraph):
         ignore_succs: blocks will be merged even if their successors differ.
     """
 
-    # Build a list of lists of blocks to be merged.
+    # Define an equivalence relation over basic blocks.
+    # Blocks deemed equivalent by this function will be merged.
     def blocks_equal(a, b):
       if a.entry != b.entry:
         return False
@@ -324,6 +325,7 @@ class TACGraph(cfg.ControlFlowGraph):
       groups = []
       merged_blocks = []
 
+      # Group equivalent blocks together into lists.
       for block in self.blocks:
         grouped = False
         for group in groups:
@@ -334,12 +336,13 @@ class TACGraph(cfg.ControlFlowGraph):
         if not grouped:
           groups.append([block])
 
+      # Remove blocks that are in groups by themselves.
       groups = [g for g in groups if len(g) > 1]
 
       if len(groups) > 0:
         modified = True
 
-      # Actually merge stuff.
+      # Merge each group into a single new block.
       for i, group in enumerate(groups):
         entry_stack = mem.VariableStack.join_all([b.entry_stack for b in group])
         entry_stack.metafy()
@@ -376,9 +379,12 @@ class TACGraph(cfg.ControlFlowGraph):
         for b in group:
           self.remove_block(b)
 
+        # If this block no longer has any duplicates in the graph,
+        # then it no longer needs an ident suffix to disambiguate it.
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
+      # Recondition the graph, having merged everything.
       for block in self.blocks:
         block.build_entry_stack()
         block.build_exit_stack()
@@ -396,6 +402,7 @@ class TACGraph(cfg.ControlFlowGraph):
                           to be returned.
     """
 
+    # Populate the work queue with the origin blocks for the transitive closure.
     queue = []
     for address in origin_addresses:
       for block in self.get_blocks_by_pc(address):
@@ -403,6 +410,7 @@ class TACGraph(cfg.ControlFlowGraph):
           queue.append(block)
     reached = []
 
+    # Follow all successor edges until we can find no more new blocks.
     while queue:
       block = queue.pop()
       reached.append(block)
@@ -411,7 +419,6 @@ class TACGraph(cfg.ControlFlowGraph):
           queue.append(succ)
 
     return reached
-
 
   def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) \
   -> None:
@@ -426,9 +433,7 @@ class TACGraph(cfg.ControlFlowGraph):
                           are unreachable to be deleted.
     """
 
-    # Transitive closure from entry points
     reached = self.transitive_closure(origin_addresses)
-
     for block in list(self.blocks):
       if block not in reached:
         self.remove_block(block)
