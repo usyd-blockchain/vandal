@@ -44,7 +44,7 @@ class TACGraph(cfg.ControlFlowGraph):
 
     self.split_node_succs = {}
     """
-    A mapping from block entries to block entries storing all successors of a
+    A mapping from addresses to addresses storing all successors of a
     block at the time it was split. At merge time these edges can be restored.
     """
 
@@ -140,6 +140,16 @@ class TACGraph(cfg.ControlFlowGraph):
 
     return modified
 
+  def add_missing_split_jumps(self):
+    for pred_address in self.split_node_succs:
+      preds = self.get_blocks_by_pc(pred_address)
+      s_lists = [node.succs for node in preds]
+      succs = set(s for succ_list in s_lists for s in succ_list)
+      for succ in self.split_node_succs[pred_address]:
+        if succ not in succs:
+          for pred in preds:
+            self.add_edge(pred, succ)
+
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter refers to a valid jumpdest."""
     ops = self.get_ops_by_pc(pc)
@@ -216,7 +226,6 @@ class TACGraph(cfg.ControlFlowGraph):
             break
 
         chain_preds = list(curr_block.preds)
-        chain_succs = list(chain[0].succs)
 
         if cycle or len(chain_preds) == 0:
           continue
@@ -235,10 +244,10 @@ class TACGraph(cfg.ControlFlowGraph):
           # Save the edges of each block in case they can't be reinferred.
           # They will be added back in at a later stage.
           if b.entry not in self.split_node_succs:
-            self.split_node_succs[b.entry] = [s.entry for s in b.succs]
+            self.split_node_succs[b.entry] = [s for s in b.succs]
           else:
             new_list = self.split_node_succs[b.entry]
-            new_list += [s.entry for s in b.succs if s.entry not in new_list]
+            new_list += [s for s in b.succs if s not in new_list]
             self.split_node_succs[b.entry] = new_list
 
           skip.add(b)
@@ -247,6 +256,15 @@ class TACGraph(cfg.ControlFlowGraph):
         # copy the chains
         chain_copies = [[copy.deepcopy(b) for b in chain]
                   for _ in range(len(chain_preds))]
+
+        # Copy the nodes properly in the split node succs mapping.
+        for i, b in enumerate(chain):
+          for a in self.split_node_succs:
+            node_copies = [c[i] for c in chain_copies]
+            if b in self.split_node_succs[a]:
+              self.split_node_succs[a].remove(b)
+              self.split_node_succs[a] += node_copies
+
 
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
