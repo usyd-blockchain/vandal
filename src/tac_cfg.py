@@ -417,6 +417,17 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
+          for a in self.split_node_succs:
+            s_list = self.split_node_succs[a]
+            for g in [g for g in group if g in s_list]:
+              s_list.remove(g)
+
+          if new_block.entry in self.split_node_succs:
+            for succ in self.split_node_succs[new_block.entry]:
+              if succ not in new_block.succs:
+                new_block.succs.append(succ)
+            del self.split_node_succs[new_block.entry]
+
       # Recondition the graph, having merged everything.
       for block in self.blocks:
         block.build_entry_stack()
