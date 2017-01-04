@@ -400,7 +400,9 @@ class TACGraph(cfg.ControlFlowGraph):
 
         merged_blocks.append(new_block)
 
+        new_block.reset_block_refs()
         self.add_block(new_block)
+
         for pred in preds:
           self.add_edge(pred, new_block)
           for b in group:
@@ -586,12 +588,20 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     new_block.ident_suffix = self.ident_suffix
     new_block.cfg = self.cfg
 
-    for op in new_block.tac_ops:
-      op.block = new_block
-    for op in new_block.evm_ops:
-      op.block = new_block
+    new_block.reset_block_refs()
 
     return new_block
+
+  def reset_block_refs(self) -> None:
+    """Update all operations and new def sites to refer to this block."""
+
+    for op in self.evm_ops:
+      op.block = self
+    for op in self.tac_ops:
+      op.block = self
+      if isinstance(op, TACAssignOp) and isinstance(op.lhs, mem.Variable):
+        for site in op.lhs.def_sites:
+          site.block = self
 
   def build_entry_stack(self) -> bool:
     """
@@ -963,8 +973,24 @@ class TACPCRef:
     self.pc = pc
     """The program counter of the referenced instruction."""
 
+  def __deepcopy__(self, memodict={}):
+    return type(self)(self.block, self.pc)
+
   def __str__(self):
     return "{}.{}".format(self.block.ident(), hex(self.pc))
+
+  def __eq__(self, other):
+    return self.block == other.block and self.pc == other.pc
+
+  def __hash__(self):
+    return hash(self.block) ^ hash(self.pc)
+
+  def get_instruction(self):
+    """Return the TACOp referred to by this TACPCRef, if it exists."""
+    for i in self.block.tac_ops:
+      if i.pc == self.pc:
+        return i
+    return None
 
 
 class Destackifier:
@@ -1001,7 +1027,7 @@ class Destackifier:
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
     var = mem.Variable.top(name="V{}".format(self.stack_vars),
-                           def_sites=ssle([self.block_entry]))
+                           def_sites=ssle([TACPCRef(None, self.block_entry)]))
     self.stack_vars += 1
     return var
 
@@ -1026,8 +1052,9 @@ class Destackifier:
     new_block = TACBasicBlock(entry, exit, self.ops, evm_block.evm_ops,
                               self.stack)
 
-    for op in self.ops:
-      op.block = new_block
+    # Link up new ops and def sites to the block that contains them.
+    new_block.reset_block_refs()
+
     return new_block
 
   def __handle_evm_op(self, op:evm_cfg.EVMOp) -> None:
@@ -1056,19 +1083,24 @@ class Destackifier:
     inst = None
     # All instructions that push anything push exactly
     # one word to the stack. Assign that symbolic variable here.
-    var = self.__new_var() if op.opcode.push == 1 else None
+    new_var = self.__new_var() if op.opcode.push == 1 else None
+
+    # Set this variable's def site
+    if new_var is not None:
+      for site in new_var.def_sites:
+        site.pc = op.pc
 
     # Generate the appropriate TAC operation.
     # Special cases first, followed by the fallback to generic instructions.
     if op.opcode.is_push():
       args = [TACArg(var=mem.Variable(values=[op.value], name="C"))]
-      inst = TACAssignOp(var, opcodes.CONST, args, op.pc, print_name=False)
+      inst = TACAssignOp(new_var, opcodes.CONST, args, op.pc, print_name=False)
     elif op.opcode.is_log():
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(opcodes.LOG, args, op.pc)
     elif op.opcode == opcodes.MLOAD:
       args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(var, op.opcode, args, op.pc, print_name=False)
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
       inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
@@ -1079,19 +1111,19 @@ class Destackifier:
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
       args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(var, op.opcode, args, op.pc, print_name=False)
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
       inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
-    elif var is not None:
+    elif new_var is not None:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
-      inst = TACAssignOp(var, op.opcode, args, op.pc)
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     else:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(op.opcode, args, op.pc)
 
     # This var must only be pushed after the operation is performed.
-    if var is not None:
-      self.stack.push(var)
+    if new_var is not None:
+      self.stack.push(new_var)
     self.ops.append(inst)

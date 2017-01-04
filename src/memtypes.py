@@ -4,7 +4,7 @@ in the ethereum machine."""
 import typing as t
 import abc
 from itertools import zip_longest, dropwhile
-from copy import copy
+import copy
 
 from lattice import LatticeElement, SubsetLatticeElement as ssle
 
@@ -67,6 +67,16 @@ class Variable(ssle, Location):
     super().__init__(value=mod)
     self.name = name
     self.def_sites = def_sites
+
+  def __deepcopy__(self, memodict={}):
+    if self.is_top:
+      return type(self).top(self.name, copy.deepcopy(self.def_sites, memodict))
+    if self.is_bottom:
+      return type(self).bottom(self.name, copy.deepcopy(self.def_sites, memodict))
+
+    return type(self)(copy.deepcopy(self.value, memodict),
+                      self.name,
+                      copy.deepcopy(self.def_sites, memodict))
 
   @property
   def values(self) -> ssle:
@@ -362,9 +372,14 @@ class MetaVariable(Variable):
 
     self.payload = payload
 
-
   def __str__(self):
     return self.identifier
+
+  def __deepcopy__(self, memodict={}):
+    return type(self)(self.name,
+                      self.payload,
+                      copy.deepcopy(self.def_sites, memodict))
+
 
 
 class MemLoc(Location):
@@ -480,7 +495,7 @@ class VariableStack(LatticeElement):
     the variables it contains.
     """
     new_stack = type(self)()
-    new_stack.value = copy(self.value)
+    new_stack.value = copy.copy(self.value)
     new_stack.empty_pops = self.empty_pops
     new_stack.max_size = self.max_size
     return new_stack
