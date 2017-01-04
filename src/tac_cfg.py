@@ -106,6 +106,14 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       block.hook_up_stack_vars()
 
+  def hook_up_def_site_jumps(self) -> None:
+    """
+    Add jumps to blocks with unresolved jumps if they can be inferred
+    from the jump variable's definition sites.
+    """
+    for block in self.blocks:
+      block.hook_up_def_site_jumps()
+
   def hook_up_jumps(self,
                     mutate_jumps:bool=False,
                     generate_throws:bool=False) -> bool:
@@ -685,6 +693,35 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
             # as we would thereby lose information.
             if stack_var.payload < len(self.entry_stack):
               op.args[i].var = self.entry_stack.peek(stack_var.payload)
+
+  def hook_up_def_site_jumps(self) -> None:
+    """
+    Add jumps to this block if they can be inferred from its jump variable's
+    definition sites.
+    """
+    final_op = self.tac_ops[-1]
+    if final_op.opcode in [opcodes.JUMP, opcodes.JUMPI]:
+      dest = final_op.args[0].value
+      vars = [d.get_instruction().lhs for d in dest.def_sites]
+      non_top_vars = [v for v in vars if not v.is_top]
+
+      existing_dests = [s.entry for s in self.succs]
+
+      # join all values to obtain possible jump dests
+      # add jumps to those locations if they are valid and don't already exist
+      for d in mem.Variable.join_all(non_top_vars):
+        if d in existing_dests or not self.cfg.is_valid_jump_dest(d):
+          continue
+        for b in self.cfg.get_blocks_by_pc(d):
+          self.cfg.add_edge(self, b)
+
+      # Jump still unresolved if some value was top or if empty successors
+      # note that no_succs should hopefully cover the case where a variable
+      # has no def sites (i.e. the variable defining it was popped from an
+      # empty stack).
+      had_top = (len(vars) - len(non_top_vars)) > 0
+      no_succs = len(self.succs) == 0
+      self.has_unresolved_jump = had_top or no_succs
 
   def hook_up_jumps(self,
                     mutate_jumps:bool=False,
