@@ -71,6 +71,13 @@ class ControlFlowGraph(patterns.Visitable):
         blocks.append(block)
     return blocks
 
+  def get_block_by_ident(self, ident:str) -> 'BasicBlock':
+    """Return the block with the specified identifier, if it exists."""
+    for block in self.blocks:
+      if block.ident() == ident:
+        return block
+    return None
+
   def recalc_preds(self) -> None:
     """
     Given a cfg where block successor lists are populated,
@@ -191,6 +198,18 @@ class ControlFlowGraph(patterns.Visitable):
     G.add_edges_from((block.ident(), "?") for block in self.blocks
                      if block.has_unresolved_jump)
     return G
+
+  def immediate_dominators(self):
+    """
+    Return the immediate dominator mapping of this graph.
+
+    Returns:
+      dict: str -> str, a map from a given block identifier to the identifier of
+            its unique immediately dominating blocks.
+    """
+    nx_graph = self.nx_graph()
+    start = self.root.ident()
+    return nx.algorithms.dominance.immediate_dominators(nx_graph, start)
 
 
 class BasicBlock(patterns.Visitable):
