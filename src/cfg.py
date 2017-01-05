@@ -5,6 +5,8 @@ import typing as T
 
 import patterns
 
+import networkx as nx
+
 class ControlFlowGraph(patterns.Visitable):
   """Abstract base class for a Control Flow Graph (CFG)"""
 
@@ -76,6 +78,20 @@ class ControlFlowGraph(patterns.Visitable):
   def has_unresolved_jump(self):
     """True iff any block in this cfg contains an unresolved jump."""
     return any(b.has_unresolved_jump for b in self.blocks)
+
+  def nx_graph(self) -> nx.DiGraph:
+    """
+    Return a networkx representation of this CFG.
+    Nodes are labelled by their corresponding block's identifier.
+    """
+
+    G = nx.DiGraph()
+    G.add_nodes_from(b.ident() for b in self.blocks)
+    G.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
+    G.add_edges_from((block.ident(), "?") for block in self.blocks
+                     if block.has_unresolved_jump)
+    return G
+
 
 
 class BasicBlock(patterns.Visitable):
