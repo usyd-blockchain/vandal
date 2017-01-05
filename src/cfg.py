@@ -199,17 +199,61 @@ class ControlFlowGraph(patterns.Visitable):
                      if block.has_unresolved_jump)
     return G
 
-  def immediate_dominators(self):
+  def immediate_dominators(self, post:bool=False) -> T.Dict[str, str]:
     """
     Return the immediate dominator mapping of this graph.
+    Each block is mapped to its unique immediately dominating block.
+    This mapping defines a tree with the root being its own immediate dominator.
+
+    Args:
+        post: if true, return post-dominators instead, with an auxiliary node
+              END with edges from all terminal nodes in the CFG.
 
     Returns:
-      dict: str -> str, a map from a given block identifier to the identifier of
-            its unique immediately dominating blocks.
+      dict: str -> str, maps from block identifiers to block identifiers.
     """
-    nx_graph = self.nx_graph()
-    start = self.root.ident()
-    return nx.algorithms.dominance.immediate_dominators(nx_graph, start)
+    nx_graph = self.nx_graph().reverse() if post else self.nx_graph()
+    start = "END" if post else self.root.ident()
+
+    if post:
+      terminal_edges = [("END", block.ident()) for block in self.blocks
+                        if block.tac_ops[-1].opcode.possibly_halts()]
+      nx_graph.add_node("END")
+      nx_graph.add_edges_from(terminal_edges)
+
+    doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
+    idents = [b.ident() for b in self.blocks]
+    for d in [d for d in doms if d not in idents]:
+      del doms[d]
+
+    if post:
+      doms["END"] = "END"
+
+    return doms
+
+  def dominators(self, post:bool=False) -> T.Dict[str, T.Set[str]]:
+    """
+    Return the dominator mapping of this graph.
+    Each block is mapped to the set of blocks that dominate it; its ancestors
+    in the dominator tree.
+
+    Args
+      post: if true, return postdominators instead.
+
+    Returns:
+      dict: str -> [str], a map block identifiers to block identifiers.
+    """
+
+    idoms = self.immediate_dominators(post)
+    doms = {d: set() for d in idoms}
+
+    for d in doms:
+      prev = d
+      while prev not in doms[d]:
+        doms[d].add(prev)
+        prev = idoms[prev]
+
+    return doms
 
 
 class BasicBlock(patterns.Visitable):
