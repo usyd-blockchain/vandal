@@ -28,6 +28,106 @@ class ControlFlowGraph(patterns.Visitable):
   def __str__(self):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
 
+  def remove_block(self, block:'BasicBlock'):
+    """
+    Remove the given block from the graph, disconnecting all incident edges.
+    """
+    if block == self.root:
+      self.root = None
+
+    for p in list(block.preds):
+      self.remove_edge(p, block)
+    for s in list(block.succs):
+      self.remove_edge(block, s)
+
+    self.blocks.remove(block)
+
+  def add_block(self, block:'BasicBlock'):
+    """
+    Add the given block to the graph, assuming it does not already exist.
+    """
+    if block not in self.blocks:
+      self.blocks.append(block)
+
+  def remove_edge(self, head:'BasicBlock', tail:'BasicBlock'):
+    """Remove the CFG edge that goes from head to tail."""
+    if tail in head.succs:
+      head.succs.remove(tail)
+    if head in tail.preds:
+      tail.preds.remove(head)
+
+  def add_edge(self, head:'BasicBlock', tail:'BasicBlock'):
+    """Add a CFG edge that goes from head to tail."""
+    if tail not in head.succs:
+      head.succs.append(tail)
+    if head not in tail.preds:
+      tail.preds.append(head)
+
+  def get_blocks_by_pc(self, pc:int) -> T.List['BasicBlock']:
+    """Return the blocks whose spans include the given program counter value."""
+    blocks = []
+    for block in self.blocks:
+      if block.entry <= pc <= block.exit:
+        blocks.append(block)
+    return blocks
+
+  def recalc_preds(self) -> None:
+    """
+    Given a cfg where block successor lists are populated,
+    also repopulate the predecessor lists, after emptying them.
+    """
+    for block in self.blocks:
+      block.preds = []
+    for block in self.blocks:
+      for successor in block.succs:
+        successor.preds.append(block)
+
+  def transitive_closure(self, origin_addresses:T.Iterable[int]) \
+  -> T.Iterable['BasicBlock']:
+    """
+    Return a list of blocks reachable from the input addresses.
+
+    Args:
+        origin_addresses: the input addresses blocks from which are reachable
+                          to be returned.
+    """
+
+    # Populate the work queue with the origin blocks for the transitive closure.
+    queue = []
+    for address in origin_addresses:
+      for block in self.get_blocks_by_pc(address):
+        if block not in queue:
+          queue.append(block)
+    reached = []
+
+    # Follow all successor edges until we can find no more new blocks.
+    while queue:
+      block = queue.pop()
+      reached.append(block)
+      for succ in block.succs:
+        if succ not in queue and succ not in reached:
+          queue.append(succ)
+
+    return reached
+
+  def remove_unreachable_code(self, origin_addresses:T.Iterable[int]=[0]) \
+  -> None:
+    """
+    Remove all blocks not reachable from the program entry point.
+
+    NB: if not all jumps have been resolved, unreached blocks may actually
+    be reachable.
+
+    Args:
+        origin_addresses: default value: [0], entry addresses, blocks from which
+                          are unreachable to be deleted.
+    """
+
+    reached = self.transitive_closure(origin_addresses)
+    for block in list(self.blocks):
+      if block not in reached:
+        self.remove_block(block)
+
   def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
     """
     Returns:
@@ -91,7 +191,6 @@ class ControlFlowGraph(patterns.Visitable):
     G.add_edges_from((block.ident(), "?") for block in self.blocks
                      if block.has_unresolved_jump)
     return G
-
 
 
 class BasicBlock(patterns.Visitable):

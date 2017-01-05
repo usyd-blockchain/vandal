@@ -136,7 +136,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   if hook_up_jumps:
     cfg.hook_up_jumps(mutate_jumps=mutate_jumps,
                       generate_throws=generate_throws)
-    cfg.add_missing_split_jumps()
+    cfg.add_missing_split_edges()
 
 
 def stack_size_analysis(cfg:cfg.ControlFlowGraph):

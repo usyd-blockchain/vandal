@@ -75,17 +75,6 @@ class TACGraph(cfg.ControlFlowGraph):
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
     return cls(blockparse.EVMBytecodeParser(bytecode).parse(strict))
 
-  def recalc_preds(self) -> None:
-    """
-    Given a cfg where block successor lists are populated,
-    also repopulate the predecessor lists, after emptying them.
-    """
-    for block in self.blocks:
-      block.preds = []
-    for block in self.blocks:
-      for successor in block.succs:
-        successor.preds.append(block)
-
   def apply_operations(self, use_sets=False) -> None:
     """
     Propagate and fold constants through the arithmetic TAC instructions
@@ -148,7 +137,13 @@ class TACGraph(cfg.ControlFlowGraph):
 
     return modified
 
-  def add_missing_split_jumps(self):
+  def add_missing_split_edges(self):
+    """
+    If this graph has had its nodes split, if new edges are inferred,
+    we need to join them up to all copies of a node, but the split
+    paths should remain separate, so only add such edges if parallel ones
+    don't already exist.
+    """
     for pred_address in self.split_node_succs:
       preds = self.get_blocks_by_pc(pred_address)
       s_lists = [node.succs for node in preds]
@@ -162,14 +157,6 @@ class TACGraph(cfg.ControlFlowGraph):
     """True iff the given program counter refers to a valid jumpdest."""
     ops = self.get_ops_by_pc(pc)
     return (len(ops) != 0) and any(op.opcode == opcodes.JUMPDEST for op in ops)
-
-  def get_blocks_by_pc(self, pc:int) -> t.List['TACBasicBlock']:
-    """Return the blocks whose spans include the given program counter value."""
-    blocks = []
-    for block in self.blocks:
-      if block.entry <= pc <= block.exit:
-        blocks.append(block)
-    return blocks
 
   def get_ops_by_pc(self, pc:int) -> 'TACOp':
     """Return the operations with the given program counter, if any exist."""
@@ -293,41 +280,6 @@ class TACGraph(cfg.ControlFlowGraph):
 
         modified = True
 
-  def remove_block(self, block:'TACBasicBlock'):
-    """
-    Remove the given block from the graph, disconnecting all incident edges.
-    """
-    if block == self.root:
-      self.root = None
-
-    for p in list(block.preds):
-      self.remove_edge(p, block)
-    for s in list(block.succs):
-      self.remove_edge(block, s)
-
-    self.blocks.remove(block)
-
-  def add_block(self, block:'TACBasicBlock'):
-    """
-    Add the given block to the graph, assuming it does not already exist.
-    """
-    if block not in self.blocks:
-      self.blocks.append(block)
-
-  def remove_edge(self, head:'TACBasicBlock', tail:'TACBasicBlock'):
-    """Remove the CFG edge that goes from head to tail."""
-    if tail in head.succs:
-      head.succs.remove(tail)
-    if head in tail.preds:
-      tail.preds.remove(head)
-
-  def add_edge(self, head:'TACBasicBlock', tail:'TACBasicBlock'):
-    """Add a CFG edge that goes from head to tail."""
-    if tail not in head.succs:
-      head.succs.append(tail)
-    if head not in tail.preds:
-      tail.preds.append(head)
-
   def merge_duplicate_blocks(self,
                              ignore_preds:bool=False,
                              ignore_succs:bool=False) -> None:
@@ -445,52 +397,6 @@ class TACGraph(cfg.ControlFlowGraph):
         block.hook_up_stack_vars()
         block.apply_operations()
         block.hook_up_jumps()
-
-  def transitive_closure(self, origin_addresses:t.Iterable[int]) \
-  -> t.Iterable['TACBasicBlock']:
-    """
-    Return a list of blocks reachable from the input addresses.
-
-    Args:
-        origin_addresses: the input addresses blocks from which are reachable
-                          to be returned.
-    """
-
-    # Populate the work queue with the origin blocks for the transitive closure.
-    queue = []
-    for address in origin_addresses:
-      for block in self.get_blocks_by_pc(address):
-        if block not in queue:
-          queue.append(block)
-    reached = []
-
-    # Follow all successor edges until we can find no more new blocks.
-    while queue:
-      block = queue.pop()
-      reached.append(block)
-      for succ in block.succs:
-        if succ not in queue and succ not in reached:
-          queue.append(succ)
-
-    return reached
-
-  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) \
-  -> None:
-    """
-    Remove all blocks not reachable from the program entry point.
-
-    NB: if not all jumps have been resolved, unreached blocks may actually
-    be reachable.
-
-    Args:
-        origin_addresses: default value: [0], entry addresses, blocks from which
-                          are unreachable to be deleted.
-    """
-
-    reached = self.transitive_closure(origin_addresses)
-    for block in list(self.blocks):
-      if block not in reached:
-        self.remove_block(block)
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
