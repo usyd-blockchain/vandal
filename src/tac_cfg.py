@@ -621,13 +621,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
         for b in self.cfg.get_blocks_by_pc(d):
           self.cfg.add_edge(self, b)
 
-      # Jump still unresolved if some value was top or if empty successors
-      # note that no_succs should hopefully cover the case where a variable
-      # has no def sites (i.e. the variable defining it was popped from an
-      # empty stack).
-      had_top = (len(vars) - len(non_top_vars)) > 0
-      no_succs = len(self.succs) == 0
-      self.has_unresolved_jump = had_top or no_succs
+      self.has_unresolved_jump = (len(non_top_vars) == 0)
 
   def hook_up_jumps(self,
                     mutate_jumps:bool=False,
