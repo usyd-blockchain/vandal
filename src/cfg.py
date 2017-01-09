@@ -7,6 +7,11 @@ import patterns
 
 import networkx as nx
 
+
+POSTDOM_END_NODE = "END"
+"""The name of the synthetic end node added for post-dominator calculations."""
+
+
 class ControlFlowGraph(patterns.Visitable):
   """Abstract base class for a Control Flow Graph (CFG)"""
 
@@ -213,12 +218,13 @@ class ControlFlowGraph(patterns.Visitable):
       dict: str -> str, maps from block identifiers to block identifiers.
     """
     nx_graph = self.nx_graph().reverse() if post else self.nx_graph()
-    start = "END" if post else self.root.ident()
+    start = POSTDOM_END_NODE if post else self.root.ident()
 
     if post:
-      terminal_edges = [("END", block.ident()) for block in self.blocks
+      terminal_edges = [(POSTDOM_END_NODE, block.ident())
+                        for block in self.blocks
                         if block.tac_ops[-1].opcode.possibly_halts()]
-      nx_graph.add_node("END")
+      nx_graph.add_node(POSTDOM_END_NODE)
       nx_graph.add_edges_from(terminal_edges)
 
     doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
@@ -227,7 +233,7 @@ class ControlFlowGraph(patterns.Visitable):
       del doms[d]
 
     if post:
-      doms["END"] = "END"
+      doms[POSTDOM_END_NODE] = POSTDOM_END_NODE
 
     return doms
 

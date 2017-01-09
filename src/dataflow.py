@@ -5,9 +5,8 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-from memtypes import VariableStack as VStack
-from memtypes import MetaVariable as MetaVar
-import exporter
+from memtypes import VariableStack
+
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
@@ -48,8 +47,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   if reinit_stacks:
     for block in cfg.blocks:
       block.symbolic_overflow = False
-      block.entry_stack = VStack()
-      block.exit_stack = VStack()
+      block.entry_stack = VariableStack()
+      block.exit_stack = VariableStack()
 
   # Initialise a worklist with blocks that have no precedessors
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
@@ -61,7 +60,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   graph_size = len(cfg.blocks)
 
   # Holds the join of all states this entry stack has ever been in.
-  cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
+  cumulative_entry_stacks = {block.ident(): VariableStack()
+                             for block in cfg.blocks}
   # Widen if the size of a given variable exceeds this threshold
   widen_threshold = 20
 
@@ -97,7 +97,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
           queue += [s for s in old_succs if s not in queue]
 
           if widen_large_variables:
-            cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
+            cumulative_entry_stacks = {block.ident(): VariableStack()
+                                       for block in cfg.blocks}
           if clamp_large_stacks:
             unmod_stack_changed_count = 0
             for succ in curr_block.succs:
@@ -110,7 +111,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
       # computations involving those large stack variables don't take too long.
 
       cume_stack = cumulative_entry_stacks[curr_block.ident()]
-      cumulative_entry_stacks[curr_block.ident()] = VStack.join(cume_stack,
+      cumulative_entry_stacks[curr_block.ident()] = VariableStack.join(cume_stack,
                                                         curr_block.entry_stack)
 
       # Check for each stack variable whether it needs widening.
