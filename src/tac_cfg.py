@@ -196,14 +196,12 @@ class TACGraph(cfg.ControlFlowGraph):
         if len(block.tac_ops) == 0:
           continue
 
-        final_op = block.tac_ops[-1]
-
-        if final_op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
+        if block.last_op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
           continue
 
         # We will only split if there were actually multiple jump destinations
         # defined in multiple different blocks.
-        dests = final_op.args[0].value
+        dests = block.last_op.args[0].value
         if dests.is_const or dests.def_sites.is_const \
             or (dests.is_top and dests.def_sites.is_top):
           continue
@@ -508,6 +506,24 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     return new_block
 
+  @property
+  def last_op(self) -> 'TACOp':
+    """Return the last TAC operation in this block if it exists."""
+    if len(self.tac_ops):
+      return self.tac_ops[-1]
+    return None
+
+  @last_op.setter
+  def last_op(self, op):
+    """
+    Set the last TAC operation in this block, if there is one.
+    Append if one doesn't exist.
+    """
+    if len(self.tac_ops):
+      self.tac_ops[-1] = op
+    else:
+      self.tac_ops.append(op)
+
   def reset_block_refs(self) -> None:
     """Update all operations and new def sites to refer to this block."""
 
@@ -607,9 +623,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     Add jumps to this block if they can be inferred from its jump variable's
     definition sites.
     """
-    final_op = self.tac_ops[-1]
-    if final_op.opcode in [opcodes.JUMP, opcodes.JUMPI]:
-      dest = final_op.args[0].value
+    if self.last_op.opcode in [opcodes.JUMP, opcodes.JUMPI]:
+      dest = self.last_op.args[0].value
       site_vars = [d.get_instruction().lhs for d in dest.def_sites]
       non_top_vars = [v for v in site_vars if not v.is_top]
 
@@ -645,7 +660,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    # A mapping from a jump dest to all the blocks addressed at that dest
 
    fallthrough = []
-   final_op = self.tac_ops[-1]
+   last_op = self.last_op
    invalid_jump = False
    unresolved = True
 
@@ -664,20 +679,20 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
      return True
 
-   if final_op.opcode == opcodes.JUMPI:
-     dest = final_op.args[0].value
-     cond = final_op.args[1].value
+   if last_op.opcode == opcodes.JUMPI:
+     dest = last_op.args[0].value
+     cond = last_op.args[1].value
 
      # If the condition cannot be true, remove the jump.
      if mutate_jumps and cond.is_false:
        self.tac_ops.pop()
-       fallthrough = self.cfg.get_blocks_by_pc(final_op.pc + 1)
+       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
        unresolved = False
 
      # If the condition must be true, the JUMPI behaves like a JUMP.
      elif mutate_jumps and cond.is_true:
-       final_op.opcode = opcodes.JUMP
-       final_op.args.pop()
+       last_op.opcode = opcodes.JUMP
+       last_op.args.pop()
 
        if handle_valid_dests(dest) and len(jumpdests) == 0:
          invalid_jump = True
@@ -686,7 +701,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
      # Otherwise, the condition can't be resolved, but check the destination>
      else:
-       fallthrough = self.cfg.get_blocks_by_pc(final_op.pc + 1)
+       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
 
        # We've already covered the case that both cond and dest are known,
        # so only handle a variable destination
@@ -696,8 +711,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
        if not dest.is_unconstrained:
          unresolved = False
 
-   elif final_op.opcode == opcodes.JUMP:
-     dest = final_op.args[0].value
+   elif last_op.opcode == opcodes.JUMP:
+     dest = last_op.args[0].value
 
      if handle_valid_dests(dest) and len(jumpdests) == 0:
        invalid_jump = True
@@ -711,7 +726,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
      unresolved = False
 
      # No terminating jump or a halt; fall through to next block.
-     if not final_op.opcode.halts():
+     if not last_op.opcode.halts():
        fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
 
    # Block's jump went to an invalid location, replace the jump with a throw
@@ -719,7 +734,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    # transformed into a THROWI unless *ALL* its destinations
    # are invalid.
    if generate_throws and invalid_jump:
-     self.tac_ops[-1] = TACOp.convert_jump_to_throw(final_op)
+     self.last_op = TACOp.convert_jump_to_throw(last_op)
    self.has_unresolved_jump = unresolved
 
    for address, block_list in list(jumpdests.items()):

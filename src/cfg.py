@@ -223,7 +223,7 @@ class ControlFlowGraph(patterns.Visitable):
     if post:
       terminal_edges = [(POSTDOM_END_NODE, block.ident())
                         for block in self.blocks
-                        if block.tac_ops[-1].opcode.possibly_halts()]
+                        if block.last_op.opcode.possibly_halts()]
       nx_graph.add_node(POSTDOM_END_NODE)
       nx_graph.add_edges_from(terminal_edges)
 
