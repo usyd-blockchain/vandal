@@ -347,11 +347,15 @@ class TACGraph(cfg.ControlFlowGraph):
 
     modified = True
 
+    # We'll keep on merging until there's nothing left to be merged.
+    # At present, the equivalence relation is such that all equivalent
+    # blocks should be merged in one pass, but it may be necessary in future
+    # to worry about new merge candidates being produced after merging.
     while modified:
       modified = False
 
+      # A list of lists of blocks to be merged.
       groups = []
-      merged_blocks = []
 
       # Group equivalent blocks together into lists.
       for block in self.blocks:
@@ -364,7 +368,7 @@ class TACGraph(cfg.ControlFlowGraph):
         if not grouped:
           groups.append([block])
 
-      # Remove blocks that are in groups by themselves.
+      # Ignore blocks that are in groups by themselves.
       groups = [g for g in groups if len(g) > 1]
 
       if len(groups) > 0:
@@ -372,18 +376,27 @@ class TACGraph(cfg.ControlFlowGraph):
 
       # Merge each group into a single new block.
       for i, group in enumerate(groups):
+
+        # Join all stacks in merged blocks.
         entry_stack = mem.VariableStack.join_all([b.entry_stack for b in group])
         entry_stack.metafy()
         exit_stack = mem.VariableStack.join_all([b.exit_stack for b in group])
         exit_stack.metafy()
-        symbolic_overflow = any([b.symbolic_overflow for b in group])
-        has_unresolved_jump = any([b.has_unresolved_jump for b in group])
+
+        # Collect all predecessors and successors of the merged blocks.
         preds = set()
         succs = set()
         for b in group:
           preds |= set(b.preds)
           succs |= set(b.succs)
 
+        # Produce the disjunction of other informative fields within the group.
+        symbolic_overflow = any([b.symbolic_overflow for b in group])
+        has_unresolved_jump = any([b.has_unresolved_jump for b in group])
+
+        # Construct the new merged block itself.
+        # Its identifier will end in an identifying number unless its entry
+        # address is unique in the graph.
         new_block = copy.deepcopy(group[0])
         new_block.entry_stack = entry_stack
         new_block.exit_stack = exit_stack
@@ -393,9 +406,11 @@ class TACGraph(cfg.ControlFlowGraph):
         new_block.symbolic_overflow = symbolic_overflow
         new_block.has_unresolved_jump = has_unresolved_jump
 
-        merged_blocks.append(new_block)
-
+        # Make sure block references inside ops and variables are redirected.
         new_block.reset_block_refs()
+
+        # Add the new block to the graph and connect its edges up properly,
+        # while also removing all merged blocks and incident edges.
         self.add_block(new_block)
 
         for pred in preds:
@@ -410,7 +425,10 @@ class TACGraph(cfg.ControlFlowGraph):
           self.remove_block(b)
 
         # If this block no longer has any duplicates in the graph,
-        # then it no longer needs an ident suffix to disambiguate it.
+        # then everything it was split from has been merged.
+        # It no longer needs an ident suffix to disambiguate it and its entry in
+        # he split successors mapping can be removed, along with the edges
+        # inferred from that mapping connected up.
         if len(self.get_blocks_by_pc(new_block.entry)) == 1:
           new_block.ident_suffix = ""
 
