@@ -40,7 +40,10 @@ class TACGraph(cfg.ControlFlowGraph):
       b.cfg = self
 
     self.root = next((b for b in self.blocks if b.entry == 0), None)
-    """The root block of this CFG. The entry point will always be at index 0, if it exists."""
+    """
+    The root block of this CFG.
+    The entry point will always be at index 0, if it exists.
+    """
 
     self.split_node_succs = {}
     """
@@ -260,7 +263,6 @@ class TACGraph(cfg.ControlFlowGraph):
               self.split_node_succs[a].remove(b)
               self.split_node_succs[a] += node_copies
 
-
         # hook up each pred to a chain individually.
         for i, p in enumerate(chain_preds):
           self.add_edge(p, chain_copies[i][-1])
@@ -405,8 +407,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   applied to the stack as a consequence of its execution."""
 
   def __init__(self, entry_pc:int, exit_pc:int,
-               tac_ops:t.Iterable['TACOp'],
-               evm_ops:t.Iterable[evm_cfg.EVMOp],
+               tac_ops:t.List['TACOp'],
+               evm_ops:t.List[evm_cfg.EVMOp],
                delta_stack:mem.VariableStack,
                cfg=None):
     """
@@ -608,8 +610,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     final_op = self.tac_ops[-1]
     if final_op.opcode in [opcodes.JUMP, opcodes.JUMPI]:
       dest = final_op.args[0].value
-      vars = [d.get_instruction().lhs for d in dest.def_sites]
-      non_top_vars = [v for v in vars if not v.is_top]
+      site_vars = [d.get_instruction().lhs for d in dest.def_sites]
+      non_top_vars = [v for v in site_vars if not v.is_top]
 
       existing_dests = [s.entry for s in self.succs]
 

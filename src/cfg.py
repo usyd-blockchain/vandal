@@ -28,7 +28,7 @@ class ControlFlowGraph(patterns.Visitable):
   def __str__(self):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
 
-  def remove_block(self, block:'BasicBlock'):
+  def remove_block(self, block:'BasicBlock') -> None:
     """
     Remove the given block from the graph, disconnecting all incident edges.
     """
@@ -42,14 +42,14 @@ class ControlFlowGraph(patterns.Visitable):
 
     self.blocks.remove(block)
 
-  def add_block(self, block:'BasicBlock'):
+  def add_block(self, block:'BasicBlock') -> None:
     """
     Add the given block to the graph, assuming it does not already exist.
     """
     if block not in self.blocks:
       self.blocks.append(block)
 
-  def remove_edge(self, head:'BasicBlock', tail:'BasicBlock'):
+  def remove_edge(self, head:'BasicBlock', tail:'BasicBlock') -> None:
     """Remove the CFG edge that goes from head to tail."""
     if tail in head.succs:
       head.succs.remove(tail)
@@ -182,7 +182,7 @@ class ControlFlowGraph(patterns.Visitable):
         b.accept(visitor)
 
   @property
-  def has_unresolved_jump(self):
+  def has_unresolved_jump(self) -> bool:
     """True iff any block in this cfg contains an unresolved jump."""
     return any(b.has_unresolved_jump for b in self.blocks)
 
@@ -299,7 +299,11 @@ class BasicBlock(patterns.Visitable):
     """True if the node contains a jump whose destination is a variable."""
 
     self.ident_suffix = ""
-    """Extra information to be appended to this block's identifier."""
+    """
+    Extra information to be appended to this block's identifier.
+    Used, for example, to differentiate duplicated blocks.
+    """
+
 
   def __len__(self):
     """Returns the number of lines of code contained within this block."""

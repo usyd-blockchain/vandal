@@ -59,7 +59,7 @@ class Variable(ssle, Location):
     Args:
       values: the set of values this variable could take.
       name: the name that uniquely identifies this variable.
-      def_sites: a set of blocks where this variable was possibly last defined.
+      def_sites: a set of locations where this variable was possibly defined.
     """
 
     # Make sure the input values are not out of range.
@@ -168,26 +168,26 @@ class Variable(ssle, Location):
     return cls(values=vals, def_sites=sites)
 
   @classmethod
-  def top(cls, name="Var", def_sites:ssle=ssle.bottom()):
+  def top(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Top value, and optionally set its name.
 
     Args:
       name: the name of the new variable.
-      def_sites: a set of blocks where this variable was possibly last defined.
+      def_sites: a set of locations where this variable was possibly defined.
     """
     result = cls(name=name, def_sites=def_sites)
     result.value = cls._top_val()
     return result
 
   @classmethod
-  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()):
+  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Bottom value, and optionally set its name.
 
     Args:
       name: the name of the new variable.
-      def_sites: a set of blocks where this variable was possibly last defined.
+      def_sites: a set of locations where this variable was possibly defined.
     """
     return cls(values=cls._bottom_val(), name=name, def_sites=def_sites)
 
@@ -361,6 +361,7 @@ class MetaVariable(Variable):
     Args:
       name: the name of the new MetaVariable
       payload: some information to carry along with this MetaVariable.
+      def_sites: a set of locations where this variable was possibly defined.
     """
     super().__init__(values=self._bottom_val(), name=name, def_sites=def_sites)
 
@@ -379,7 +380,6 @@ class MetaVariable(Variable):
     return type(self)(self.name,
                       self.payload,
                       copy.deepcopy(self.def_sites, memodict))
-
 
 
 class MemLoc(Location):
@@ -458,20 +458,29 @@ class VariableStack(LatticeElement):
   """
 
   DEFAULT_MAX = 1024
-  MIN_SIZE = 20
+  DEFAULT_MIN_MAX_SIZE = 20
 
   def __init__(self, state:t.Iterable[Variable]=None,
-               max_size=DEFAULT_MAX):
+               max_size=DEFAULT_MAX, min_max_size=DEFAULT_MIN_MAX_SIZE):
     super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
+
+
+    self.min_max_size = min_max_size
+    """
+    The minimum size of this variable stack's maximum size.
+    Taking the meet of two stacks produces a stack whose maximum size is the
+    smaller of the two, but at least as large as this value.
+    """
 
     self.max_size = max_size
     """
     The maximum size of this variable stack before it overflows.
     Pushing to a full stack has no effect.
     """
+    self.set_max_size(max_size)
 
 
   def __iter__(self):
@@ -566,7 +575,7 @@ class VariableStack(LatticeElement):
 
   def set_max_size(self, n:int) -> None:
     """Set this stack's maximum capacity."""
-    new_size = max(self.MIN_SIZE, n)
+    new_size = max(self.min_max_size, n)
     self.max_size = new_size
     self.value = self.value[-new_size:]
 

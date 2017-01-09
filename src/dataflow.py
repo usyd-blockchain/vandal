@@ -14,7 +14,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
                    mutate_jumps:bool=False, generate_throws:bool=False,
                    mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
-                   widen_large_variables:bool=True):
+                   widen_large_variables:bool=True) -> None:
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -36,6 +36,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                       rather than after the whole analysis is complete.
     clamp_large_stacks: if stacks start growing without bound, reduce the stack
                         size in order to hasten convergence.
+    widen_large_variables: if any stack variable's number of possible values
+                           exceeds a given threshold, widen its value to Top.
 
   If we have already reached complete information about our stack CFG structure
   and stack states, we can use die_on_empty_pop and reinit_stacks to discover
@@ -53,20 +55,18 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   queue = [block for block in cfg.blocks if len(block.preds) == 0]
   visited = {block: False for block in cfg.blocks}
 
-  # If n visited blocks change their stack states without
-  # the structure of the graph being changed, then we assume there is a
-  # positive cycle that will overflow the stacks. Clamp max stack size to
-  # current maximum in response.
+  # The number of times any stack has changed during a step of the analysis
+  # since the last time the structure of the graph was modified.
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
 
+  # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VStack() for block in cfg.blocks}
+  # Widen if the size of a given variable exceeds this threshold
   widen_threshold = 20
-  iterations = 0
 
   # Churn until we reach a fixed point.
   while queue:
-    iterations += 1
     curr_block = queue.pop(0)
 
     # If there was no change to the entry stack, then there will be no
@@ -81,9 +81,13 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
       continue
 
     if mutate_blockwise:
+      # Hook up edges from the changed stack after each block has been handled,
+      # rather than all at once at the end. The graph evolves as we go.
+
       if hook_up_stack_vars:
         curr_block.hook_up_stack_vars()
         curr_block.apply_operations()
+
       if hook_up_jumps:
         old_succs = list(curr_block.succs)
         modified = curr_block.hook_up_jumps(mutate_jumps=mutate_jumps,
@@ -100,10 +104,16 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
               visited[succ] = False
 
     if widen_large_variables:
+      # If a variable's possible value set might be practically unbounded,
+      # it must be widened in order for our analysis not to take forever.
+      # Additionally, the widening threshold should be set low enough that
+      # computations involving those large stack variables don't take too long.
+
       cume_stack = cumulative_entry_stacks[curr_block.ident()]
       cumulative_entry_stacks[curr_block.ident()] = VStack.join(cume_stack,
                                                         curr_block.entry_stack)
 
+      # Check for each stack variable whether it needs widening.
       for i in range(len(cume_stack)):
         v = cume_stack.value[i]
 
@@ -115,6 +125,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
     if clamp_large_stacks:
+      # As variables can grow in size, stacks can grow in depth.
+      # If a stack is getting unmanageably deep, we may choose to freeze its
+      # maximum depth at some point.
+      # If graph_size visited blocks change their stack states without
+      # the structure of the graph being changed, then we assume there is a
+      # positive cycle that will overflow the stacks. Clamp max stack size to
+      # current maximum in response.
+
       if visited[curr_block]:
         unmod_stack_changed_count += 1
 
