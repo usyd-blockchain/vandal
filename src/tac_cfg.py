@@ -971,7 +971,7 @@ class TACArg:
     return cls(var=var)
 
 
-class TACPCRef:
+class TACLocRef:
   """Contains a reference to a program counter within a particular block."""
 
   def __init__(self, block, pc):
@@ -993,7 +993,7 @@ class TACPCRef:
     return hash(self.block) ^ hash(self.pc)
 
   def get_instruction(self):
-    """Return the TACOp referred to by this TACPCRef, if it exists."""
+    """Return the TACOp referred to by this TACLocRef, if it exists."""
     for i in self.block.tac_ops:
       if i.pc == self.pc:
         return i
@@ -1034,7 +1034,7 @@ class Destackifier:
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
     var = mem.Variable.top(name="V{}".format(self.stack_vars),
-                           def_sites=ssle([TACPCRef(None, self.block_entry)]))
+                           def_sites=ssle([TACLocRef(None, self.block_entry)]))
     self.stack_vars += 1
     return var
 
