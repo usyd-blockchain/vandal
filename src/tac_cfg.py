@@ -132,12 +132,13 @@ class TACGraph(cfg.ControlFlowGraph):
         True iff any edges in the graph were modified.
     """
 
+    # Hook up all jumps, modified will be true if any jump in the graph
+    # was changed. Did not use any() and a generator due to lazy-eval,
+    # which would be incorrect behaviour.
     modified = False
-
     for block in self.blocks:
       modified |= block.hook_up_jumps(mutate_jumps=mutate_jumps,
                                       generate_throws=generate_throws)
-
     return modified
 
   def add_missing_split_edges(self):
@@ -145,12 +146,12 @@ class TACGraph(cfg.ControlFlowGraph):
     If this graph has had its nodes split, if new edges are inferred,
     we need to join them up to all copies of a node, but the split
     paths should remain separate, so only add such edges if parallel ones
-    don't already exist.
+    don't already exist on some split path.
     """
     for pred_address in self.split_node_succs:
       preds = self.get_blocks_by_pc(pred_address)
       s_lists = [node.succs for node in preds]
-      succs = set(s for succ_list in s_lists for s in succ_list)
+      succs = set(s for s_list in s_lists for s in s_list)
       for succ in self.split_node_succs[pred_address]:
         if succ not in succs:
           for pred in preds:
@@ -176,7 +177,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     If block terminates in a jump with an ambiguous (but constrained)
     jump destination, then find its most recent ancestral confluence point
-    and split the chain of blocks between into parallel chains, one for each
+    and split the path of blocks between into parallel paths, one for each
     predecessor of the block at the confluence point.
     """
 
@@ -188,97 +189,131 @@ class TACGraph(cfg.ControlFlowGraph):
 
       for block in self.blocks:
 
-        # Don't split on blocks we only just generated; some will
-        # certainly satisfy the fission condition.
-        if block in skip:
-          continue
-
-        if len(block.tac_ops) == 0:
-          continue
-
-        if block.last_op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
-          continue
-
-        # We will only split if there were actually multiple jump destinations
-        # defined in multiple different blocks.
-        dests = block.last_op.args[0].value
-        if dests.is_const or dests.def_sites.is_const \
-            or (dests.is_top and dests.def_sites.is_top):
+        if not self.__split_block_is_splittable(block, skip):
           continue
 
         # We satisfy the conditions for attempting a split.
-        chain = [block]
+        path = [block]
         curr_block = block
         cycle = False
 
+        # Find the actual path to be split.
         while len(curr_block.preds) == 1:
           curr_block = curr_block.preds[0]
 
-          if curr_block not in chain:
-            chain.append(curr_block)
+          if curr_block not in path:
+            path.append(curr_block)
           else:
             # We are in a cycle, break out
             cycle = True
             break
 
-        chain_preds = list(curr_block.preds)
+        path_preds = list(curr_block.preds)
 
-        if cycle or len(chain_preds) == 0:
+        # If there's a cycle within the path, die
+        # IDEA: See what happens if we copy these cycles
+        if cycle or len(path_preds) == 0:
+          continue
+        if any(pred in path for pred in path_preds):
           continue
 
-        # If there's a cycle within the chain, die
-        # TODO See what happens if we copy these cycles
-        if any(pred in chain for pred in chain_preds):
-          continue
+        # We have identified a splittable path, now split it
 
-        # We have identified a splittable chain, now split it
-
-        # Remove the old chain from the graph.
+        # Remove the old path from the graph.
+        skip |= self.__split_remove_path(path)
         # Note well that this deletion will remove all edges to successors
-        # of elements of this chain, so we can lose information.
-        for b in chain:
-          # Save the edges of each block in case they can't be reinferred.
-          # They will be added back in at a later stage.
-          if b.entry not in self.split_node_succs:
-            self.split_node_succs[b.entry] = [s for s in b.succs]
-          else:
-            new_list = self.split_node_succs[b.entry]
-            new_list += [s for s in b.succs if s not in new_list]
-            self.split_node_succs[b.entry] = new_list
+        # of elements of this path, so we can lose information.
 
-          skip.add(b)
-          self.remove_block(b)
-
-        # copy the chains
-        chain_copies = [[copy.deepcopy(b) for b in chain]
-                  for _ in range(len(chain_preds))]
-
-        # Copy the nodes properly in the split node succs mapping.
-        for i, b in enumerate(chain):
-          for a in self.split_node_succs:
-            node_copies = [c[i] for c in chain_copies]
-            if b in self.split_node_succs[a]:
-              self.split_node_succs[a].remove(b)
-              self.split_node_succs[a] += node_copies
-
-        # hook up each pred to a chain individually.
-        for i, p in enumerate(chain_preds):
-          self.add_edge(p, chain_copies[i][-1])
-          for b in chain_copies[i]:
-            b.ident_suffix += "_" + p.ident()
-
-        # Connect the chains up within themselves
-        for chain_copy in chain_copies:
-          for i in range(len(chain_copy) - 1):
-            self.add_edge(chain_copy[i+1], chain_copy[i])
-
-        # Add the new chains to the graph.
-        for c in chain_copies:
-          for b in c:
-            skip.add(b)
-            self.add_block(b)
+        # Generate new paths from the old path, and hook them up properly.
+        skip |= self.__split_copy_path(path, path_preds)
 
         modified = True
+
+  def __split_block_is_splittable(self, block, skip):
+    """
+    True when the given block satisfies the conditions for being the final node
+    in a fissionable path. This will be the start point from which the path
+    itself will be constructed, following CFG edges backwards until some
+    ancestor with multiple predecessors is reached.
+    """
+    # Don't split on blocks we only just generated; some will
+    # certainly satisfy the fission condition.
+    if block in skip:
+      return False
+
+    # If the block does not end in a jump, don't start a split here.
+    if block.last_op.opcode not in [opcodes.JUMP, opcodes.JUMPI]:
+      return False
+
+    # We will only split if there were actually multiple jump destinations
+    # defined in multiple different ancestral blocks.
+    dests = block.last_op.args[0].value
+    if dests.is_const or dests.def_sites.is_const \
+        or (dests.is_top and dests.def_sites.is_top):
+      return False
+
+    return True
+
+  def __split_remove_path(self, path):
+    """
+    Resect the given path of nodes from the graph, and add its successors
+    to the split_node_succs mapping in anticipation of the path's members
+    being duplicated and reinserted into the graph.
+    Return the set of blocks that need to be added to the skip list.
+    """
+    skip = set()
+    for b in path:
+      # Save the edges of each block in case they can't be re-inferred.
+      # They will be added back in at a later stage.
+      if b.entry not in self.split_node_succs:
+        self.split_node_succs[b.entry] = [s for s in b.succs]
+      else:
+        new_list = self.split_node_succs[b.entry]
+        new_list += [s for s in b.succs if s not in new_list]
+        self.split_node_succs[b.entry] = new_list
+
+      skip.add(b)
+      self.remove_block(b)
+
+    return skip
+
+  def __split_copy_path(self, path, path_preds):
+    """
+    Duplicate the given path once for each block in path_preds,
+    with each pred being the sole parent of the head of each duplicated path.
+    Return the set of blocks that need to be added to the skip list.
+    """
+    # copy the path
+    path_copies = [[copy.deepcopy(b) for b in path]
+                    for _ in range(len(path_preds))]
+
+    # Copy the nodes properly in the split node succs mapping.
+    for i, b in enumerate(path):
+      for a in self.split_node_succs:
+        node_copies = [c[i] for c in path_copies]
+        if b in self.split_node_succs[a]:
+          self.split_node_succs[a].remove(b)
+          self.split_node_succs[a] += node_copies
+
+    # hook up each pred to a path individually.
+    for i, p in enumerate(path_preds):
+      self.add_edge(p, path_copies[i][-1])
+      for b in path_copies[i]:
+        b.ident_suffix += "_" + p.ident()
+
+    # Connect the paths up within themselves
+    for path_copy in path_copies:
+      for i in range(len(path_copy) - 1):
+        self.add_edge(path_copy[i+1], path_copy[i])
+
+    skip = set()
+    # Add the new paths to the graph.
+    for c in path_copies:
+      for b in c:
+        skip.add(b)
+        self.add_block(b)
+
+    return skip
 
   def merge_duplicate_blocks(self,
                              ignore_preds:bool=False,
