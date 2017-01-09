@@ -717,21 +717,6 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    invalid_jump = False
    unresolved = True
 
-   def handle_valid_dests(d):
-     """
-     Append any valid jump destinations to the jumpdest list,
-     returning False iff the possible destination set is unconstrained.
-     A jump must be considered invalid if it has no valid destinations.
-     """
-     if d.is_unconstrained:
-       return False
-
-     for v in d:
-       if self.cfg.is_valid_jump_dest(v):
-         jumpdests[v] = [op.block for op in self.cfg.get_ops_by_pc(v)]
-
-     return True
-
    if last_op.opcode == opcodes.JUMPI:
      dest = last_op.args[0].value
      cond = last_op.args[1].value
@@ -747,7 +732,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
        last_op.opcode = opcodes.JUMP
        last_op.args.pop()
 
-       if handle_valid_dests(dest) and len(jumpdests) == 0:
+       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
          invalid_jump = True
 
        unresolved = False
@@ -758,7 +743,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
        # We've already covered the case that both cond and dest are known,
        # so only handle a variable destination
-       if handle_valid_dests(dest) and len(jumpdests) == 0:
+       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
          invalid_jump = True
 
        if not dest.is_unconstrained:
@@ -767,7 +752,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
    elif last_op.opcode == opcodes.JUMP:
      dest = last_op.args[0].value
 
-     if handle_valid_dests(dest) and len(jumpdests) == 0:
+     if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
        invalid_jump = True
 
      if not dest.is_unconstrained:
@@ -811,6 +796,22 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
        self.cfg.add_edge(self, s)
 
    return set(old_succs) != set(self.succs)
+
+  def __handle_valid_dests(self, d:mem.Variable,
+                           jumpdests:t.Dict[int, 'TACBasicBlock']):
+    """
+    Append any valid jump destinations in d to its jumpdest list,
+    returning False iff the possible destination set is unconstrained.
+    A jump must be considered invalid if it has no valid destinations.
+    """
+    if d.is_unconstrained:
+      return False
+
+    for v in d:
+      if self.cfg.is_valid_jump_dest(v):
+        jumpdests[v] = [op.block for op in self.cfg.get_ops_by_pc(v)]
+
+    return True
 
   def apply_operations(self, use_sets=False) -> None:
     """
