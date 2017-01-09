@@ -77,6 +77,8 @@ class Variable(ssle, Location):
     return type(self)(copy.deepcopy(self.value, memodict),
                       self.name,
                       copy.deepcopy(self.def_sites, memodict))
+    # Note: type(self) dynamically obtains the Variable class.
+    #       Hence, no explicit Variable constructor reference required.
 
   @property
   def values(self) -> ssle:
@@ -458,7 +460,13 @@ class VariableStack(LatticeElement):
   """
 
   DEFAULT_MAX = 1024
+  """
+  The default maximum size of a variable stack.
+  Any further elements pushed to a stack that is at its capacity are discarded.
+  """
+
   DEFAULT_MIN_MAX_SIZE = 20
+  """The minimum maximum size of a variable stack."""
 
   def __init__(self, state:t.Iterable[Variable]=None,
                max_size=DEFAULT_MAX, min_max_size=DEFAULT_MIN_MAX_SIZE):
@@ -466,7 +474,6 @@ class VariableStack(LatticeElement):
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
-
 
     self.min_max_size = min_max_size
     """
@@ -481,7 +488,6 @@ class VariableStack(LatticeElement):
     Pushing to a full stack has no effect.
     """
     self.set_max_size(max_size)
-
 
   def __iter__(self):
     """Iteration occurs from head of stack downwards."""
