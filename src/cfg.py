@@ -54,6 +54,12 @@ class ControlFlowGraph(patterns.Visitable):
     if block not in self.blocks:
       self.blocks.append(block)
 
+  def has_edge(self, head:'BasicBlock', tail:'BasicBlock') -> bool:
+    """
+    True iff the edge between head and tail exists in the graph.
+    """
+    return tail in head.succs
+
   def remove_edge(self, head:'BasicBlock', tail:'BasicBlock') -> None:
     """Remove the CFG edge that goes from head to tail."""
     if tail in head.succs:

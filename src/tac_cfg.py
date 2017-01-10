@@ -147,7 +147,11 @@ class TACGraph(cfg.ControlFlowGraph):
     we need to join them up to all copies of a node, but the split
     paths should remain separate, so only add such edges if parallel ones
     don't already exist on some split path.
+
+    Returns true iff some new edge was added to the graph.
     """
+    modified = False
+
     for pred_address in self.split_node_succs:
       preds = self.get_blocks_by_pc(pred_address)
       s_lists = [node.succs for node in preds]
@@ -155,7 +159,11 @@ class TACGraph(cfg.ControlFlowGraph):
       for succ in self.split_node_succs[pred_address]:
         if succ not in succs:
           for pred in preds:
-            self.add_edge(pred, succ)
+            if not self.has_edge(pred, succ):
+              self.add_edge(pred, succ)
+              modified = True
+
+    return modified
 
   def is_valid_jump_dest(self, pc:int) -> bool:
     """True iff the given program counter refers to a valid jumpdest."""
@@ -173,14 +181,18 @@ class TACGraph(cfg.ControlFlowGraph):
 
     return ops
 
-  def clone_ambiguous_jump_blocks(self) -> None:
+  def clone_ambiguous_jump_blocks(self) -> bool:
     """
     If block terminates in a jump with an ambiguous (but constrained)
     jump destination, then find its most recent ancestral confluence point
     and split the path of blocks between into parallel paths, one for each
     predecessor of the block at the confluence point.
+
+    Returns:
+        True iff some block was cloned.
     """
 
+    split_occurred = False
     modified = True
     skip = set()
 
@@ -228,6 +240,9 @@ class TACGraph(cfg.ControlFlowGraph):
         skip |= self.__split_copy_path(path, path_preds)
 
         modified = True
+        split_occurred = True
+
+    return split_occurred
 
   def __split_block_is_splittable(self, block, skip):
     """
