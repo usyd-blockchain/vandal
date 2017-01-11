@@ -939,6 +939,10 @@ class TACAssignOp(TACOp):
                                 " ".join(arglist))
 
   def __deepcopy__(self, memodict={}):
+    """
+    Return a copy of this TACAssignOp, deep copying the args and vars,
+    but leaving block references unchanged.
+    """
     new_op = type(self)(copy.deepcopy(self.lhs, memodict),
                         self.opcode,
                         copy.deepcopy(self.args, memodict),
@@ -1049,6 +1053,9 @@ class Destackifier:
 
   def __new_var(self) -> mem.Variable:
     """Construct and return a new variable with the next free identifier."""
+
+    # Generate the new variable, numbering it by the implicit stack location
+    # it came from.
     var = mem.Variable.top(name="V{}".format(self.stack_vars),
                            def_sites=ssle([TACLocRef(None, self.block_entry)]))
     self.stack_vars += 1
@@ -1125,18 +1132,18 @@ class Destackifier:
       args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
       inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE:
-      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE.pop)]
       inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.MSTORE8:
-      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE8.pop)]
       inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif op.opcode == opcodes.SLOAD:
       args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
       inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
     elif op.opcode == opcodes.SSTORE:
-      args = [TACArg.from_var(var) for var in self.stack.pop_many(2)]
+      args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.SSTORE.pop)]
       inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
                          op.pc, print_name=False)
     elif new_var is not None:
