@@ -4,7 +4,7 @@ in the ethereum machine."""
 import typing as t
 import abc
 from itertools import zip_longest, dropwhile
-from copy import copy
+import copy
 
 from lattice import LatticeElement, SubsetLatticeElement as ssle
 
@@ -53,17 +53,32 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:t.Iterable=None, name:str="Var"):
+  def __init__(self, values:t.Iterable=None, name:str="Var",
+               def_sites:ssle=ssle.bottom()):
     """
     Args:
       values: the set of values this variable could take.
       name: the name that uniquely identifies this variable.
+      def_sites: a set of locations where this variable was possibly defined.
     """
 
     # Make sure the input values are not out of range.
     mod = [] if values is None else [v % self.CARDINALITY for v in values]
     super().__init__(value=mod)
     self.name = name
+    self.def_sites = def_sites
+
+  def __deepcopy__(self, memodict={}):
+    if self.is_top:
+      return type(self).top(self.name, copy.deepcopy(self.def_sites, memodict))
+    if self.is_bottom:
+      return type(self).bottom(self.name, copy.deepcopy(self.def_sites, memodict))
+
+    return type(self)(copy.deepcopy(self.value, memodict),
+                      self.name,
+                      copy.deepcopy(self.def_sites, memodict))
+    # Note: type(self) dynamically obtains the Variable class.
+    #       Hence, no explicit Variable constructor reference required.
 
   @property
   def values(self) -> ssle:
@@ -86,24 +101,12 @@ class Variable(ssle, Location):
     return self.name
 
   @property
-  def is_const(self) -> bool:
-    """True iff this variable has exactly one possible value."""
-    return self.is_finite and len(self) == 1
-
-  @property
-  def is_finite(self) -> bool:
-    """
-    True iff this variable has a finite and nonzero number of possible values.
-    """
-    return not (self.is_unconstrained or self.is_bottom)
-
-  @property
   def is_true(self) -> bool:
     """
     True iff all values contained in this variable are nonzero.
     N.B. is_true is not the inverse of is_false, as Variables are not bivalent.
     """
-    if self.is_unconstrained or self.is_bottom:
+    if not self.is_finite:
       return False
     return all(c != 0 for c in self)
 
@@ -113,7 +116,7 @@ class Variable(ssle, Location):
     True iff all values contained in this variable are zero.
     N.B. is_false is not the inverse of is_true, as Variables are not bivalent.
     """
-    if self.is_unconstrained or self.is_bottom:
+    if not self.is_finite:
       return False
     return all(c == 0 for c in self)
 
@@ -123,7 +126,7 @@ class Variable(ssle, Location):
     if self.is_const:
       return hex(self.const_value)
     val_str = ", ".join([hex(val) for val in self.value])
-    return "{}: {{{}}}".format(self.identifier, val_str)
+    return "{{{}}}".format(val_str)
 
   def __repr__(self):
     return "<{0} object {1}, {2}>".format(
@@ -137,32 +140,58 @@ class Variable(ssle, Location):
 
   def __hash__(self):
     if self.is_top:
-      return hash(self.value) ^ hash(self.name)
+      return hash(self.TOP_SYMBOL) ^ hash(self.name)
     else:
       # frozenset because plain old sets are unhashable
       return hash(frozenset(self.value)) ^ hash(self.name)
 
   @classmethod
-  def top(cls, name="Var"):
+  def meet(cls, a:'Variable', b:'Variable') -> 'Variable':
+    """
+    Return a Variable whose values and def sites are the
+    intersections of the inputs value and def site sets.
+    """
+    vals = ssle.meet(a, b)
+    sites = ssle.meet(a.def_sites, b.def_sites)
+    if vals.is_top:
+      return cls.top(def_sites=sites)
+    return cls(values=vals, def_sites=sites)
+
+  @classmethod
+  def join(cls, a:'Variable', b:'Variable') -> 'Variable':
+    """
+    Return a Variable whose values and def sites are the
+    unions of the inputs value and def site sets.
+    """
+    vals = ssle.join(a, b)
+    sites = ssle.join(a.def_sites, b.def_sites)
+    if vals.is_top:
+      return cls.top(def_sites=sites)
+    return cls(values=vals, def_sites=sites)
+
+  @classmethod
+  def top(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Top value, and optionally set its name.
 
     Args:
-      name: the name of the new variable
+      name: the name of the new variable.
+      def_sites: a set of locations where this variable was possibly defined.
     """
-    result = cls(name=name)
+    result = cls(name=name, def_sites=def_sites)
     result.value = cls._top_val()
     return result
 
   @classmethod
-  def bottom(cls, name="Var"):
+  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Bottom value, and optionally set its name.
 
     Args:
-      name: the name of the new variable
+      name: the name of the new variable.
+      def_sites: a set of locations where this variable was possibly defined.
     """
-    return cls(values=cls._bottom_val(), name=name)
+    return cls(values=cls._bottom_val(), name=name, def_sites=def_sites)
 
   @property
   def const_value(self):
@@ -329,13 +358,14 @@ class Variable(ssle, Location):
 
 class MetaVariable(Variable):
   """A Variable to stand in for Variables."""
-  def __init__(self, name:str, payload=None):
+  def __init__(self, name:str, payload=None, def_sites:ssle=ssle.bottom()):
     """
     Args:
       name: the name of the new MetaVariable
       payload: some information to carry along with this MetaVariable.
+      def_sites: a set of locations where this variable was possibly defined.
     """
-    super().__init__(values=self._bottom_val(), name=name)
+    super().__init__(values=self._bottom_val(), name=name, def_sites=def_sites)
 
     self.value = self._top_val()
     """
@@ -345,9 +375,13 @@ class MetaVariable(Variable):
 
     self.payload = payload
 
-
   def __str__(self):
     return self.identifier
+
+  def __deepcopy__(self, memodict={}):
+    return type(self)(self.name,
+                      self.payload,
+                      copy.deepcopy(self.def_sites, memodict))
 
 
 class MemLoc(Location):
@@ -425,17 +459,35 @@ class VariableStack(LatticeElement):
   associated with the BoundedLatticeElement class.
   """
 
-  MAX_SIZE = 1024
+  DEFAULT_MAX = 1024
   """
-  The maximum size of a variable stack before it overflows.
-  Pushing to a full stack has no effect.
+  The default maximum size of a variable stack.
+  Any further elements pushed to a stack that is at its capacity are discarded.
   """
 
-  def __init__(self, state:t.Iterable[Variable]=None):
+  DEFAULT_MIN_MAX_SIZE = 20
+  """The minimum maximum size of a variable stack."""
+
+  def __init__(self, state:t.Iterable[Variable]=None,
+               max_size=DEFAULT_MAX, min_max_size=DEFAULT_MIN_MAX_SIZE):
     super().__init__([] if state is None else list(state))
 
     self.empty_pops = 0
     """The number of times the stack was popped while empty."""
+
+    self.min_max_size = min_max_size
+    """
+    The minimum size of this variable stack's maximum size.
+    Taking the meet of two stacks produces a stack whose maximum size is the
+    smaller of the two, but at least as large as this value.
+    """
+
+    self.max_size = max_size
+    """
+    The maximum size of this variable stack before it overflows.
+    Pushing to a full stack has no effect.
+    """
+    self.set_max_size(max_size)
 
   def __iter__(self):
     """Iteration occurs from head of stack downwards."""
@@ -458,14 +510,25 @@ class VariableStack(LatticeElement):
     the variables it contains.
     """
     new_stack = type(self)()
-    new_stack.value = copy(self.value)
+    new_stack.value = copy.copy(self.value)
     new_stack.empty_pops = self.empty_pops
+    new_stack.max_size = self.max_size
     return new_stack
 
+  def metafy(self) -> None:
+    """
+    Turn all unconstrained variables into metavariables whose labels
+    are their current stack position.
+    """
+    for i in range(len(self)):
+      var = self.value[-(i+1)]
+      if var.is_unconstrained:
+        self.value[-(i+1)] = self.__new_metavar(i, def_sites=var.def_sites)
+
   @staticmethod
-  def __new_metavar(n:int) -> MetaVariable:
+  def __new_metavar(n:int, def_sites:ssle=ssle.bottom()) -> MetaVariable:
     """Return a MetaVariable with the given payload and a corresponding name."""
-    return MetaVariable(name="S{}".format(n), payload=n)
+    return MetaVariable(name="S{}".format(n), payload=n, def_sites=def_sites)
 
   def peek(self, n: int = 0) -> Variable:
     """Return the n'th element from the top without popping anything."""
@@ -475,7 +538,7 @@ class VariableStack(LatticeElement):
 
   def push(self, var:Variable) -> None:
     """Push a variable to the stack."""
-    if len(self.value) < self.MAX_SIZE:
+    if len(self.value) < self.max_size:
         self.value.append(var)
 
   def pop(self) -> Variable:
@@ -516,6 +579,12 @@ class VariableStack(LatticeElement):
     swapped = [items[-1]] + items[1:-1] + [items[0]]
     self.push_many(reversed(swapped))
 
+  def set_max_size(self, n:int) -> None:
+    """Set this stack's maximum capacity."""
+    new_size = max(self.min_max_size, n)
+    self.max_size = new_size
+    self.value = self.value[-new_size:]
+
   @classmethod
   def meet(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
     """
@@ -525,8 +594,10 @@ class VariableStack(LatticeElement):
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=Variable.bottom())
+    max_size = a.max_size if a.max_size < b.max_size else b.max_size
     return cls(dropwhile(lambda x: x.is_bottom,
-                         [Variable.meet(*p) for p in pairs][::-1]))
+                         [Variable.meet(*p) for p in pairs][::-1]),
+               max_size)
 
   @classmethod
   def join(cls, a:'VariableStack', b:'VariableStack') -> 'VariableStack':
@@ -537,7 +608,8 @@ class VariableStack(LatticeElement):
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
                                   fillvalue=Variable.bottom())
-    return cls([Variable.join(*p) for p in pairs][::-1])
+    max_size = a.max_size if a.max_size > b.max_size else b.max_size
+    return cls([Variable.join(*p) for p in pairs][::-1], max_size)
 
   @classmethod
   def join_all(cls, elements:t.Iterable['VariableStack']) -> 'VariableStack':

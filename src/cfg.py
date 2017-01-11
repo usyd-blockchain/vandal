@@ -5,6 +5,13 @@ import typing as T
 
 import patterns
 
+import networkx as nx
+
+
+POSTDOM_END_NODE = "END"
+"""The name of the synthetic end node added for post-dominator calculations."""
+
+
 class ControlFlowGraph(patterns.Visitable):
   """Abstract base class for a Control Flow Graph (CFG)"""
 
@@ -25,6 +32,119 @@ class ControlFlowGraph(patterns.Visitable):
 
   def __str__(self):
     return self.__STR_SEP.join(str(b) for b in self.blocks)
+
+  def remove_block(self, block:'BasicBlock') -> None:
+    """
+    Remove the given block from the graph, disconnecting all incident edges.
+    """
+    if block == self.root:
+      self.root = None
+
+    for p in list(block.preds):
+      self.remove_edge(p, block)
+    for s in list(block.succs):
+      self.remove_edge(block, s)
+
+    self.blocks.remove(block)
+
+  def add_block(self, block:'BasicBlock') -> None:
+    """
+    Add the given block to the graph, assuming it does not already exist.
+    """
+    if block not in self.blocks:
+      self.blocks.append(block)
+
+  def has_edge(self, head:'BasicBlock', tail:'BasicBlock') -> bool:
+    """
+    True iff the edge between head and tail exists in the graph.
+    """
+    return tail in head.succs
+
+  def remove_edge(self, head:'BasicBlock', tail:'BasicBlock') -> None:
+    """Remove the CFG edge that goes from head to tail."""
+    if tail in head.succs:
+      head.succs.remove(tail)
+    if head in tail.preds:
+      tail.preds.remove(head)
+
+  def add_edge(self, head:'BasicBlock', tail:'BasicBlock'):
+    """Add a CFG edge that goes from head to tail."""
+    if tail not in head.succs:
+      head.succs.append(tail)
+    if head not in tail.preds:
+      tail.preds.append(head)
+
+  def get_blocks_by_pc(self, pc:int) -> T.List['BasicBlock']:
+    """Return the blocks whose spans include the given program counter value."""
+    blocks = []
+    for block in self.blocks:
+      if block.entry <= pc <= block.exit:
+        blocks.append(block)
+    return blocks
+
+  def get_block_by_ident(self, ident:str) -> 'BasicBlock':
+    """Return the block with the specified identifier, if it exists."""
+    for block in self.blocks:
+      if block.ident() == ident:
+        return block
+    return None
+
+  def recalc_preds(self) -> None:
+    """
+    Given a cfg where block successor lists are populated,
+    also repopulate the predecessor lists, after emptying them.
+    """
+    for block in self.blocks:
+      block.preds = []
+    for block in self.blocks:
+      for successor in block.succs:
+        successor.preds.append(block)
+
+  def transitive_closure(self, origin_addresses:T.Iterable[int]) \
+  -> T.Iterable['BasicBlock']:
+    """
+    Return a list of blocks reachable from the input addresses.
+
+    Args:
+        origin_addresses: the input addresses blocks from which are reachable
+                          to be returned.
+    """
+
+    # Populate the work queue with the origin blocks for the transitive closure.
+    queue = []
+    for address in origin_addresses:
+      for block in self.get_blocks_by_pc(address):
+        if block not in queue:
+          queue.append(block)
+    reached = []
+
+    # Follow all successor edges until we can find no more new blocks.
+    while queue:
+      block = queue.pop()
+      reached.append(block)
+      for succ in block.succs:
+        if succ not in queue and succ not in reached:
+          queue.append(succ)
+
+    return reached
+
+  def remove_unreachable_code(self, origin_addresses:T.Iterable[int]=[0]) \
+  -> None:
+    """
+    Remove all blocks not reachable from the program entry point.
+
+    NB: if not all jumps have been resolved, unreached blocks may actually
+    be reachable.
+
+    Args:
+        origin_addresses: default value: [0], entry addresses, blocks from which
+                          are unreachable to be deleted.
+    """
+
+    reached = self.transitive_closure(origin_addresses)
+    for block in list(self.blocks):
+      if block not in reached:
+        self.remove_block(block)
 
   def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
     """
@@ -72,6 +192,81 @@ class ControlFlowGraph(patterns.Visitable):
       for b in generator:
         b.accept(visitor)
 
+  @property
+  def has_unresolved_jump(self) -> bool:
+    """True iff any block in this cfg contains an unresolved jump."""
+    return any(b.has_unresolved_jump for b in self.blocks)
+
+  def nx_graph(self) -> nx.DiGraph:
+    """
+    Return a networkx representation of this CFG.
+    Nodes are labelled by their corresponding block's identifier.
+    """
+
+    G = nx.DiGraph()
+    G.add_nodes_from(b.ident() for b in self.blocks)
+    G.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
+    G.add_edges_from((block.ident(), "?") for block in self.blocks
+                     if block.has_unresolved_jump)
+    return G
+
+  def immediate_dominators(self, post:bool=False) -> T.Dict[str, str]:
+    """
+    Return the immediate dominator mapping of this graph.
+    Each block is mapped to its unique immediately dominating block.
+    This mapping defines a tree with the root being its own immediate dominator.
+
+    Args:
+        post: if true, return post-dominators instead, with an auxiliary node
+              END with edges from all terminal nodes in the CFG.
+
+    Returns:
+      dict: str -> str, maps from block identifiers to block identifiers.
+    """
+    nx_graph = self.nx_graph().reverse() if post else self.nx_graph()
+    start = POSTDOM_END_NODE if post else self.root.ident()
+
+    if post:
+      terminal_edges = [(POSTDOM_END_NODE, block.ident())
+                        for block in self.blocks
+                        if block.last_op.opcode.possibly_halts()]
+      nx_graph.add_node(POSTDOM_END_NODE)
+      nx_graph.add_edges_from(terminal_edges)
+
+    doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
+    idents = [b.ident() for b in self.blocks]
+    for d in [d for d in doms if d not in idents]:
+      del doms[d]
+
+    if post:
+      doms[POSTDOM_END_NODE] = POSTDOM_END_NODE
+
+    return doms
+
+  def dominators(self, post:bool=False) -> T.Dict[str, T.Set[str]]:
+    """
+    Return the dominator mapping of this graph.
+    Each block is mapped to the set of blocks that dominate it; its ancestors
+    in the dominator tree.
+
+    Args
+      post: if true, return postdominators instead.
+
+    Returns:
+      dict: str -> [str], a map block identifiers to block identifiers.
+    """
+
+    idoms = self.immediate_dominators(post)
+    doms = {d: set() for d in idoms}
+
+    for d in doms:
+      prev = d
+      while prev not in doms[d]:
+        doms[d].add(prev)
+        prev = idoms[prev]
+
+    return doms
+
 
 class BasicBlock(patterns.Visitable):
   """
@@ -115,6 +310,13 @@ class BasicBlock(patterns.Visitable):
     self.has_unresolved_jump = False
     """True if the node contains a jump whose destination is a variable."""
 
+    self.ident_suffix = ""
+    """
+    Extra information to be appended to this block's identifier.
+    Used, for example, to differentiate duplicated blocks.
+    """
+
+
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
     if self.exit is None or self.entry is None:
@@ -124,7 +326,8 @@ class BasicBlock(patterns.Visitable):
   def __str__(self):
     entry, exit = map(lambda n: hex(n) if n is not None else 'Unknown',
                       (self.entry, self.exit))
-    head = "Block [{}:{}]".format(entry, exit)
+    b_id = self.ident() if self.entry is not None else "Unidentified"
+    head = "Block {}\n[{}:{}]".format(b_id, entry, exit)
     pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
     succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
     unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""
@@ -139,4 +342,4 @@ class BasicBlock(patterns.Visitable):
     """
     if self.entry is None:
       raise ValueError("Can't compute ident() for block with unknown entry")
-    return hex(self.entry)
+    return hex(self.entry) + self.ident_suffix

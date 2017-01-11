@@ -247,7 +247,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
     return len(self.value)
 
   def __iter__(self):
-    if len(self) == 0:
+    if self.is_top:
       raise TypeError("Top lattice element cannot be iterated.")
     return iter(self.value)
 
@@ -284,7 +284,7 @@ class SubsetLatticeElement(BoundedLatticeElement):
 
   @classmethod
   def _top_val(cls):
-    return cls.TOP_SYMBOL
+    return set(cls.TOP_SYMBOL)
 
   @classmethod
   def _bottom_val(cls):
@@ -309,3 +309,16 @@ class SubsetLatticeElement(BoundedLatticeElement):
       return cls.top()
 
     return cls(a.value | b.value)
+
+  @property
+  def is_const(self) -> bool:
+    """True iff this variable has exactly one possible value."""
+    return self.is_finite and len(self) == 1
+
+  @property
+  def is_finite(self) -> bool:
+    """
+    True iff this variable has a finite and nonzero number of possible values.
+    """
+    return not (self.is_top or self.is_bottom)
+
