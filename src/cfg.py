@@ -5,12 +5,6 @@ import typing as T
 
 import patterns
 
-import networkx as nx
-
-
-POSTDOM_END_NODE = "END"
-"""The name of the synthetic end node added for post-dominator calculations."""
-
 
 class ControlFlowGraph(patterns.Visitable):
   """Abstract base class for a Control Flow Graph (CFG)"""
@@ -151,6 +145,7 @@ class ControlFlowGraph(patterns.Visitable):
     Returns:
       a list of the CFG's edges, with each edge in the form
         ( pred, succ )
+      where pred and succ are object references.
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 
@@ -196,76 +191,6 @@ class ControlFlowGraph(patterns.Visitable):
   def has_unresolved_jump(self) -> bool:
     """True iff any block in this cfg contains an unresolved jump."""
     return any(b.has_unresolved_jump for b in self.blocks)
-
-  def nx_graph(self) -> nx.DiGraph:
-    """
-    Return a networkx representation of this CFG.
-    Nodes are labelled by their corresponding block's identifier.
-    """
-
-    G = nx.DiGraph()
-    G.add_nodes_from(b.ident() for b in self.blocks)
-    G.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
-    G.add_edges_from((block.ident(), "?") for block in self.blocks
-                     if block.has_unresolved_jump)
-    return G
-
-  def immediate_dominators(self, post:bool=False) -> T.Dict[str, str]:
-    """
-    Return the immediate dominator mapping of this graph.
-    Each block is mapped to its unique immediately dominating block.
-    This mapping defines a tree with the root being its own immediate dominator.
-
-    Args:
-        post: if true, return post-dominators instead, with an auxiliary node
-              END with edges from all terminal nodes in the CFG.
-
-    Returns:
-      dict: str -> str, maps from block identifiers to block identifiers.
-    """
-    nx_graph = self.nx_graph().reverse() if post else self.nx_graph()
-    start = POSTDOM_END_NODE if post else self.root.ident()
-
-    if post:
-      terminal_edges = [(POSTDOM_END_NODE, block.ident())
-                        for block in self.blocks
-                        if block.last_op.opcode.possibly_halts()]
-      nx_graph.add_node(POSTDOM_END_NODE)
-      nx_graph.add_edges_from(terminal_edges)
-
-    doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
-    idents = [b.ident() for b in self.blocks]
-    for d in [d for d in doms if d not in idents]:
-      del doms[d]
-
-    if post:
-      doms[POSTDOM_END_NODE] = POSTDOM_END_NODE
-
-    return doms
-
-  def dominators(self, post:bool=False) -> T.Dict[str, T.Set[str]]:
-    """
-    Return the dominator mapping of this graph.
-    Each block is mapped to the set of blocks that dominate it; its ancestors
-    in the dominator tree.
-
-    Args
-      post: if true, return postdominators instead.
-
-    Returns:
-      dict: str -> [str], a map block identifiers to block identifiers.
-    """
-
-    idoms = self.immediate_dominators(post)
-    doms = {d: set() for d in idoms}
-
-    for d in doms:
-      prev = d
-      while prev not in doms[d]:
-        doms[d].add(prev)
-        prev = idoms[prev]
-
-    return doms
 
 
 class BasicBlock(patterns.Visitable):

@@ -3,6 +3,7 @@ objects."""
 
 import typing as t
 import copy
+import networkx as nx
 
 import opcodes
 import cfg
@@ -11,6 +12,10 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
+
+
+POSTDOM_END_NODE = "END"
+"""The name of the synthetic end node added for post-dominator calculations."""
 
 
 class TACGraph(cfg.ControlFlowGraph):
@@ -77,6 +82,132 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
     return cls(blockparse.EVMBytecodeParser(bytecode).parse(strict))
+
+  @property
+  def tac_ops(self):
+    for block in self.blocks:
+      for op in block.tac_ops:
+        yield op
+
+  @property
+  def last_op(self):
+    return max((b.last_op for b in self.blocks),
+               key=lambda o: o.pc)
+
+  @property
+  def terminal_ops(self):
+    terminals = [op for op in self.tac_ops if op.opcode.possibly_halts()]
+    last_op = self.last_op
+    if last_op not in terminals:
+      return terminals + [last_op]
+    return terminals
+
+  def op_edge_list(self) -> t.Iterable[t.Tuple['TACOp', 'TACOp']]:
+    """
+    Returns:
+      a list of the CFG's operation edges, with each edge in the form
+        ( pred, succ )
+      where pred and succ are object references.
+    """
+    edges = []
+    for block in self.blocks:
+      intra_edges = list(zip(block.tac_ops[:-1], block.tac_ops[1:]))
+      edges += intra_edges
+      for succ in block.succs:
+        edges.append((block.tac_ops[-1], succ.tac_ops[0]))
+    return edges
+
+  def nx_graph(self, op_edges=False) -> nx.DiGraph:
+    """
+    Return a networkx representation of this CFG.
+    Nodes are labelled by their corresponding block's identifier.
+
+    Args:
+      op_edges: if true, return edges between instructions rather than blocks.
+    """
+    g = nx.DiGraph()
+
+    if op_edges:
+      g.add_nodes_from(hex(op.pc) for op in self.tac_ops)
+      g.add_edges_from((hex(p.pc), hex(s.pc)) for p, s in self.op_edge_list())
+      g.add_edges_from((hex(block.last_op.pc), "?") for block in self.blocks
+                       if block.has_unresolved_jump)
+    else:
+      g.add_nodes_from(b.ident() for b in self.blocks)
+      g.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
+      g.add_edges_from((block.ident(), "?") for block in self.blocks
+                       if block.has_unresolved_jump)
+    return g
+
+  def immediate_dominators(self, post:bool=False, op_edges=False)\
+    -> t.Dict[str, str]:
+    """
+    Return the immediate dominator mapping of this graph.
+    Each node is mapped to its unique immediately dominating node.
+    This mapping defines a tree with the root being its own immediate dominator.
+
+    Args:
+      post: if true, return post-dominators instead, with an auxiliary node
+              END with edges from all terminal nodes in the CFG.
+      op_edges: if true, return edges between instructions rather than blocks.
+
+    Returns:
+      dict: str -> str, maps from node identifiers to node identifiers.
+    """
+    nx_graph = self.nx_graph(op_edges).reverse() if post \
+                                                 else self.nx_graph(op_edges)
+
+    # Logic here is not quite robust when op_edges is true, but correct
+    # whenever there is a unique entry node, and no graph-splitting.
+    start = POSTDOM_END_NODE if post else self.root.ident()
+
+    if post:
+      if op_edges:
+        terminal_edges = [(POSTDOM_END_NODE, hex(op.pc))
+                          for op in self.terminal_ops]
+      else:
+        terminal_edges = [(POSTDOM_END_NODE, op.block.ident())
+                          for op in self.terminal_ops]
+      nx_graph.add_node(POSTDOM_END_NODE)
+      nx_graph.add_edges_from(terminal_edges)
+
+    doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
+    idents = [b.ident() for b in self.blocks]
+
+    if not op_edges:
+      for d in [d for d in doms if d not in idents]:
+        del doms[d]
+
+    # TODO: ask bernhard whether to remove non-terminal END-postdominators
+    #       and turn terminal ones into self-postdominators
+
+    return doms
+
+  def dominators(self, post:bool=False, op_edges=False)\
+    -> t.Dict[str, t.Set[str]]:
+    """
+    Return the dominator mapping of this graph.
+    Each block is mapped to the set of blocks that dominate it; its ancestors
+    in the dominator tree.
+
+    Args
+      post: if true, return postdominators instead.
+      op_edges: if true, return edges between instructions rather than blocks.
+
+    Returns:
+      dict: str -> [str], a map block identifiers to block identifiers.
+    """
+
+    idoms = self.immediate_dominators(post, op_edges)
+    doms = {d: set() for d in idoms}
+
+    for d in doms:
+      prev = d
+      while prev not in doms[d]:
+        doms[d].add(prev)
+        prev = idoms[prev]
+
+    return doms
 
   def apply_operations(self, use_sets=False) -> None:
     """
