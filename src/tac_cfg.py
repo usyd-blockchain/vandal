@@ -1164,21 +1164,27 @@ class Destackifier:
   a block containing EVM instructions with no corresponding TAC code.
   """
 
-  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
-    """Reinitialise all structures in preparation for converting a block."""
-
+  def __init__(self):
     # A sequence of three-address operations
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
     self.stack = mem.VariableStack()
 
+    # Entry address of the current block being converted
+    self.block_entry = None
+
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
     # the number of items pushed to the stack.
+    # We increment it so that variable names will be globally unique.
     self.stack_vars = 0
 
-    # Entry address of the current block being converted
+
+  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
+    """Reinitialise all structures in preparation for converting a block."""
+    self.ops = []
+    self.stack = mem.VariableStack()
     self.block_entry = evm_block.evm_ops[0].pc \
                        if len(evm_block.evm_ops) > 0 else None
 
