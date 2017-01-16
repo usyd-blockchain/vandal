@@ -16,6 +16,8 @@ from lattice import SubsetLatticeElement as ssle
 
 POSTDOM_END_NODE = "END"
 """The name of the synthetic end node added for post-dominator calculations."""
+UNRES_DEST = "?"
+"""The name of the unresolved jump destination auxiliary node."""
 
 
 class TACGraph(cfg.ControlFlowGraph):
@@ -130,12 +132,12 @@ class TACGraph(cfg.ControlFlowGraph):
     if op_edges:
       g.add_nodes_from(hex(op.pc) for op in self.tac_ops)
       g.add_edges_from((hex(p.pc), hex(s.pc)) for p, s in self.op_edge_list())
-      g.add_edges_from((hex(block.last_op.pc), "?") for block in self.blocks
-                       if block.has_unresolved_jump)
+      g.add_edges_from((hex(block.last_op.pc), UNRES_DEST)
+                       for block in self.blocks if block.has_unresolved_jump)
     else:
       g.add_nodes_from(b.ident() for b in self.blocks)
       g.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
-      g.add_edges_from((block.ident(), "?") for block in self.blocks
+      g.add_edges_from((block.ident(), UNRES_DEST) for block in self.blocks
                        if block.has_unresolved_jump)
     return g
 

@@ -9,6 +9,12 @@ import copy
 from lattice import LatticeElement, SubsetLatticeElement as ssle
 
 
+VAR_DEFAULT_NAME = "Var"
+"""The fallback name when creating a fresh variable."""
+VAR_RESULT_NAME = "Res"
+"""The name to apply to variables resulting from an arithmetic operation."""
+
+
 class Location(abc.ABC):
   """A generic storage location: variables, memory, static storage."""
 
@@ -53,7 +59,7 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:t.Iterable=None, name:str="Var",
+  def __init__(self, values:t.Iterable=None, name:str=VAR_DEFAULT_NAME,
                def_sites:ssle=ssle.bottom()):
     """
     Args:
@@ -171,7 +177,7 @@ class Variable(ssle, Location):
     return cls(values=vals, def_sites=sites)
 
   @classmethod
-  def top(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
+  def top(cls, name=VAR_DEFAULT_NAME, def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Top value, and optionally set its name.
 
@@ -184,7 +190,7 @@ class Variable(ssle, Location):
     return result
 
   @classmethod
-  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
+  def bottom(cls, name=VAR_DEFAULT_NAME, def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Bottom value, and optionally set its name.
 
@@ -205,7 +211,8 @@ class Variable(ssle, Location):
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    return type(self)(values=self.value.map(self.twos_comp), name="Res")
+    return type(self)(values=self.value.map(self.twos_comp),
+                      name=VAR_RESULT_NAME)
 
   @classmethod
   def twos_comp(cls, v:int) -> int:
@@ -221,7 +228,7 @@ class Variable(ssle, Location):
 
   @classmethod
   def arith_op(cls, opname:str, args:t.Iterable['Variable'],
-               name="Res") -> 'Variable':
+               name=VAR_RESULT_NAME) -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
     in all ordered combinations, and return a Variable containing the result.
