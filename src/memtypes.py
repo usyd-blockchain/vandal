@@ -9,6 +9,12 @@ import copy
 from lattice import LatticeElement, SubsetLatticeElement as ssle
 
 
+VAR_DEFAULT_NAME = "Var"
+"""The fallback name when creating a fresh variable."""
+VAR_RESULT_NAME = "Res"
+"""The name to apply to variables resulting from an arithmetic operation."""
+
+
 class Location(abc.ABC):
   """A generic storage location: variables, memory, static storage."""
 
@@ -53,13 +59,14 @@ class Variable(ssle, Location):
   The maximum integer representable by this Variable is then CARDINALITY - 1.
   """
 
-  def __init__(self, values:t.Iterable=None, name:str="Var",
+  def __init__(self, values:t.Iterable=None, name:str=VAR_DEFAULT_NAME,
                def_sites:ssle=ssle.bottom()):
     """
     Args:
       values: the set of values this variable could take.
       name: the name that uniquely identifies this variable.
-      def_sites: a set of locations where this variable was possibly defined.
+      def_sites: a set of locations (TACLocRefs) where this variable
+                 was possibly defined.
     """
 
     # Make sure the input values are not out of range.
@@ -170,7 +177,7 @@ class Variable(ssle, Location):
     return cls(values=vals, def_sites=sites)
 
   @classmethod
-  def top(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
+  def top(cls, name=VAR_DEFAULT_NAME, def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Top value, and optionally set its name.
 
@@ -183,7 +190,7 @@ class Variable(ssle, Location):
     return result
 
   @classmethod
-  def bottom(cls, name="Var", def_sites:ssle=ssle.bottom()) -> 'Variable':
+  def bottom(cls, name=VAR_DEFAULT_NAME, def_sites:ssle=ssle.bottom()) -> 'Variable':
     """
     Return a Variable with Bottom value, and optionally set its name.
 
@@ -204,7 +211,8 @@ class Variable(ssle, Location):
     """
     Return the signed two's complement interpretation of this constant's values.
     """
-    return type(self)(values=self.value.map(self.twos_comp), name="Res")
+    return type(self)(values=self.value.map(self.twos_comp),
+                      name=VAR_RESULT_NAME)
 
   @classmethod
   def twos_comp(cls, v:int) -> int:
@@ -220,7 +228,7 @@ class Variable(ssle, Location):
 
   @classmethod
   def arith_op(cls, opname:str, args:t.Iterable['Variable'],
-               name="Res") -> 'Variable':
+               name=VAR_RESULT_NAME) -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
     in all ordered combinations, and return a Variable containing the result.
@@ -382,66 +390,6 @@ class MetaVariable(Variable):
     return type(self)(self.name,
                       self.payload,
                       copy.deepcopy(self.def_sites, memodict))
-
-
-class MemLoc(Location):
-  """A generic storage location."""
-
-  def __init__(self, space_id:str, size:int, address:Variable):
-    """
-    Construct a location from the name of the space,
-    and the size of the storage location in bytes.
-
-    Args:
-      space_id: The identifier of an address space.
-      size: Size of this location in bytes.
-      address: A variable indicating the location.
-    """
-    super().__init__()
-
-    self.space_id = space_id
-    self.size = size
-    self.address = address
-
-  @property
-  def identifier(self):
-    return str(self)
-
-  def __str__(self):
-    return "{}[{}]".format(self.space_id, self.address)
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      self.__str__()
-    )
-
-  def __eq__(self, other):
-    return ((self.space_id == other.space_id) and
-            (self.address == other.address) and
-            (self.size == other.size))
-
-  def __hash__(self):
-    return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
-
-
-class MLoc32(MemLoc):
-  """A symbolic memory region 32 bytes in length."""
-  def __init__(self, address:Variable):
-    super().__init__("M", 32, address)
-
-
-class MLoc1(MemLoc):
-  """ A symbolic one-byte cell from memory."""
-  def __init__(self, address:Variable):
-    super().__init__("M1", 1, address)
-
-
-class SLoc32(MemLoc):
-  """A symbolic one word static storage location."""
-  def __init__(self, address:Variable):
-    super().__init__("S", 32, address)
 
 
 class VariableStack(LatticeElement):

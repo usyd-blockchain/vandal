@@ -16,6 +16,8 @@ from lattice import SubsetLatticeElement as ssle
 
 POSTDOM_END_NODE = "END"
 """The name of the synthetic end node added for post-dominator calculations."""
+UNRES_DEST = "?"
+"""The name of the unresolved jump destination auxiliary node."""
 
 
 class TACGraph(cfg.ControlFlowGraph):
@@ -130,12 +132,12 @@ class TACGraph(cfg.ControlFlowGraph):
     if op_edges:
       g.add_nodes_from(hex(op.pc) for op in self.tac_ops)
       g.add_edges_from((hex(p.pc), hex(s.pc)) for p, s in self.op_edge_list())
-      g.add_edges_from((hex(block.last_op.pc), "?") for block in self.blocks
-                       if block.has_unresolved_jump)
+      g.add_edges_from((hex(block.last_op.pc), UNRES_DEST)
+                       for block in self.blocks if block.has_unresolved_jump)
     else:
       g.add_nodes_from(b.ident() for b in self.blocks)
       g.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
-      g.add_edges_from((block.ident(), "?") for block in self.blocks
+      g.add_edges_from((block.ident(), UNRES_DEST) for block in self.blocks
                        if block.has_unresolved_jump)
     return g
 
@@ -597,6 +599,75 @@ class TACGraph(cfg.ControlFlowGraph):
         block.apply_operations()
         block.hook_up_jumps()
 
+  def prop_vars_between_blocks(self) -> None:
+    """
+    If some entry stack variable is defined in exactly one place, fetch the
+    appropriate variable from its source block and substitute it in, along with
+    all occurrences of that stack variable in operations and the exit stack.
+    """
+
+    for block in self.blocks:
+      for i in range(len(block.entry_stack)):
+        stack = block.entry_stack
+        if stack.value[i].def_sites.is_const:
+          # Fetch variable from def site.
+          location = next(iter(stack.value[i].def_sites))
+          old_var = stack.value[i]
+          new_var = None
+          for op in location.block.tac_ops:
+            if op.pc == location.pc:
+              new_var = op.lhs
+
+          # Reassign the entry stack position.
+          stack.value[i] = new_var
+
+          # Reassign exit stack occurrences
+          for j in range(len(block.exit_stack)):
+            if block.exit_stack.value[j] is old_var:
+              block.exit_stack.value[j] = new_var
+
+          # Reassign occurrences on RHS of operations
+          for o in block.tac_ops:
+            for j in range(len(o.args)):
+              if o.args[j].value is old_var:
+                o.args[j].var = new_var
+
+  def make_stack_names_unique(self) -> None:
+    """
+    If two variables on the same entry stack share a name but are not the
+    same variable, then make the names unique.
+    The renaming will propagate through to all occurrences of that var.
+    """
+
+    for block in self.blocks:
+      # Group up the variables by their names
+      variables = sorted(block.entry_stack.value, key=lambda x: x.name)
+      if len(variables) == 0:
+        continue
+      groups = [[variables[0]]]
+      for i in range(len(variables))[1:]:
+        v = variables[i]
+        # When the var name in the name-sorted list changes, start a new group.
+        if v.name != variables[i-1].name:
+          groups.append([v])
+        else:
+          # If the variable has already been processed, it only needs to
+          # be renamed once.
+          appeared = False
+          for prev_var in groups[-1]:
+            if v is prev_var:
+              appeared = True
+              break
+          if not appeared:
+            groups[-1].append(v)
+
+      # Actually perform the renaming operation on any groups longer than 1
+      for group in groups:
+        if len(group) < 2:
+          continue
+        for i in range(len(group)):
+          group[i].name += str(i)
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
@@ -1001,6 +1072,16 @@ class TACOp(patterns.Visitable):
     self.block = block
 
   def __str__(self):
+    if self.opcode in [opcodes.MSTORE, opcodes.MSTORE8, opcodes.SSTORE]:
+      if self.opcode == opcodes.MSTORE:
+        lhs = "M[{}]".format(self.args[0])
+      elif self.opcode == opcodes.MSTORE8:
+        lhs = "M8[{}]".format(self.args[0])
+      else:
+        lhs = "S[{}]".format(self.args[0])
+
+      return "{}: {} = {}".format(hex(self.pc), lhs,
+                                  " ".join([str(arg) for arg in self.args[1:]]))
     return "{}: {} {}".format(hex(self.pc), self.opcode,
                               " ".join([str(arg) for arg in self.args]))
 
@@ -1064,6 +1145,13 @@ class TACAssignOp(TACOp):
     self.print_name = print_name
 
   def __str__(self):
+    if self.opcode in [opcodes.SLOAD, opcodes.MLOAD]:
+      if self.opcode == opcodes.SLOAD:
+        rhs = "S[{}]".format(self.args[0])
+      else:
+        rhs = "M[{}]".format(self.args[0])
+
+      return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier, rhs)
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier,
@@ -1164,21 +1252,26 @@ class Destackifier:
   a block containing EVM instructions with no corresponding TAC code.
   """
 
-  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
-    """Reinitialise all structures in preparation for converting a block."""
-
+  def __init__(self):
     # A sequence of three-address operations
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
     self.stack = mem.VariableStack()
 
+    # Entry address of the current block being converted
+    self.block_entry = None
+
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
     # the number of items pushed to the stack.
+    # We increment it so that variable names will be globally unique.
     self.stack_vars = 0
 
-    # Entry address of the current block being converted
+  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
+    """Reinitialise all structures in preparation for converting a block."""
+    self.ops = []
+    self.stack = mem.VariableStack()
     self.block_entry = evm_block.evm_ops[0].pc \
                        if len(evm_block.evm_ops) > 0 else None
 
@@ -1260,23 +1353,20 @@ class Destackifier:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(opcodes.LOG, args, op.pc)
     elif op.opcode == opcodes.MLOAD:
-      args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE.pop)]
-      inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE8:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE8.pop)]
-      inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.SLOAD:
-      args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.SSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.SSTORE.pop)]
-      inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif new_var is not None:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACAssignOp(new_var, op.opcode, args, op.pc)
