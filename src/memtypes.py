@@ -59,7 +59,8 @@ class Variable(ssle, Location):
     Args:
       values: the set of values this variable could take.
       name: the name that uniquely identifies this variable.
-      def_sites: a set of locations where this variable was possibly defined.
+      def_sites: a set of locations (TACLocRefs) where this variable
+                 was possibly defined.
     """
 
     # Make sure the input values are not out of range.

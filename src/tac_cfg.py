@@ -597,6 +597,39 @@ class TACGraph(cfg.ControlFlowGraph):
         block.apply_operations()
         block.hook_up_jumps()
 
+  def prop_vars_between_blocks(self) -> None:
+    """
+    If some stack variable is defined in exactly one place, fetch the variable
+    from its source block and substitute it in.
+    """
+
+    def handle_stack_var(index, stack) -> None:
+      """
+      Reassign this stack position the variable that defined it if unique.
+
+      Args:
+          index: the stack position to examine.
+          stack: the stack to operate upon.
+      """
+      if stack.value[i].def_sites.is_const:
+          # fetch variable
+          location = next(iter(stack.value[i].def_sites))
+          op = None
+          for o in location.block.tac_ops:
+            if o.pc == location.pc:
+              op = o
+          # Since this operation defined a variable, it must be a TACAssignOp,
+          # so must have an LHS.
+          var = op.lhs
+          stack.value[i] = var
+
+    for block in self.blocks:
+      for i in range(len(block.entry_stack)):
+        handle_stack_var(i, block.entry_stack)
+      for i in range(len(block.exit_stack)):
+        handle_stack_var(i, block.exit_stack)
+
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
