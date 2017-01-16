@@ -1070,11 +1070,11 @@ class TACOp(patterns.Visitable):
   def __str__(self):
     if self.opcode in [opcodes.MSTORE, opcodes.MSTORE8, opcodes.SSTORE]:
       if self.opcode == opcodes.MSTORE:
-        lhs = "M[{}]".format(self.args[1])
+        lhs = "M[{}]".format(self.args[0])
       elif self.opcode == opcodes.MSTORE8:
-        lhs = "M1[{}]".format(self.args[1])
+        lhs = "M1[{}]".format(self.args[0])
       else:
-        lhs = "S[{}]".format(self.args[1])
+        lhs = "S[{}]".format(self.args[0])
 
       return "{}: {} = {}".format(hex(self.pc), lhs,
                                   " ".join([str(arg) for arg in self.args[1:]]))
