@@ -603,31 +603,32 @@ class TACGraph(cfg.ControlFlowGraph):
     from its source block and substitute it in.
     """
 
-    def handle_stack_var(index, stack) -> None:
-      """
-      Reassign this stack position the variable that defined it if unique.
-
-      Args:
-          index: the stack position to examine.
-          stack: the stack to operate upon.
-      """
-      if stack.value[i].def_sites.is_const:
-          # fetch variable
-          location = next(iter(stack.value[i].def_sites))
-          op = None
-          for o in location.block.tac_ops:
-            if o.pc == location.pc:
-              op = o
-          # Since this operation defined a variable, it must be a TACAssignOp,
-          # so must have an LHS.
-          var = op.lhs
-          stack.value[i] = var
-
     for block in self.blocks:
       for i in range(len(block.entry_stack)):
-        handle_stack_var(i, block.entry_stack)
-      for i in range(len(block.exit_stack)):
-        handle_stack_var(i, block.exit_stack)
+        stack = block.entry_stack
+        if stack.value[i].def_sites.is_const:
+          # fetch variable
+          location = next(iter(stack.value[i].def_sites))
+
+          old_var = stack.value[i]
+          new_var = None
+          for op in location.block.tac_ops:
+            if op.pc == location.pc:
+              new_var = op.lhs
+
+          # Reassign the entry stack position.
+          stack.value[i] = new_var
+
+          # Reassign exit stack occurrences
+          for j in range(len(block.exit_stack)):
+            if block.exit_stack.value[j] is old_var:
+              block.exit_stack.value[j] = new_var
+
+          # Reassign occurrences on RHS of operations
+          for o in block.tac_ops:
+            for j in range(len(o.args)):
+              if o.args[j].value is old_var:
+                o.args[j].var = new_var
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
