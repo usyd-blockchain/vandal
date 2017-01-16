@@ -385,66 +385,6 @@ class MetaVariable(Variable):
                       copy.deepcopy(self.def_sites, memodict))
 
 
-class MemLoc(Location):
-  """A generic storage location."""
-
-  def __init__(self, space_id:str, size:int, address:Variable):
-    """
-    Construct a location from the name of the space,
-    and the size of the storage location in bytes.
-
-    Args:
-      space_id: The identifier of an address space.
-      size: Size of this location in bytes.
-      address: A variable indicating the location.
-    """
-    super().__init__()
-
-    self.space_id = space_id
-    self.size = size
-    self.address = address
-
-  @property
-  def identifier(self):
-    return str(self)
-
-  def __str__(self):
-    return "{}[{}]".format(self.space_id, self.address)
-
-  def __repr__(self):
-    return "<{0} object {1}, {2}>".format(
-      self.__class__.__name__,
-      hex(id(self)),
-      self.__str__()
-    )
-
-  def __eq__(self, other):
-    return ((self.space_id == other.space_id) and
-            (self.address == other.address) and
-            (self.size == other.size))
-
-  def __hash__(self):
-    return hash(self.space_id) ^ hash(self.size) ^ hash(self.address)
-
-
-class MLoc32(MemLoc):
-  """A symbolic memory region 32 bytes in length."""
-  def __init__(self, address:Variable):
-    super().__init__("M", 32, address)
-
-
-class MLoc1(MemLoc):
-  """ A symbolic one-byte cell from memory."""
-  def __init__(self, address:Variable):
-    super().__init__("M1", 1, address)
-
-
-class SLoc32(MemLoc):
-  """A symbolic one word static storage location."""
-  def __init__(self, address:Variable):
-    super().__init__("S", 32, address)
-
-
 class VariableStack(LatticeElement):
   """
   A stack that holds TAC variables.

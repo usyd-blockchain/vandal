@@ -630,7 +630,6 @@ class TACGraph(cfg.ControlFlowGraph):
         handle_stack_var(i, block.exit_stack)
 
 
-
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
   equivalent EVM code, along with information about the transformation
@@ -1034,6 +1033,16 @@ class TACOp(patterns.Visitable):
     self.block = block
 
   def __str__(self):
+    if self.opcode in [opcodes.MSTORE, opcodes.MSTORE8, opcodes.SSTORE]:
+      if self.opcode == opcodes.MSTORE:
+        lhs = "M[{}]".format(self.args[1])
+      elif self.opcode == opcodes.MSTORE8:
+        lhs = "M1[{}]".format(self.args[1])
+      else:
+        lhs = "S[{}]".format(self.args[1])
+
+      return "{}: {} = {}".format(hex(self.pc), lhs,
+                                  " ".join([str(arg) for arg in self.args[1:]]))
     return "{}: {} {}".format(hex(self.pc), self.opcode,
                               " ".join([str(arg) for arg in self.args]))
 
@@ -1097,6 +1106,13 @@ class TACAssignOp(TACOp):
     self.print_name = print_name
 
   def __str__(self):
+    if self.opcode in [opcodes.SLOAD, opcodes.MLOAD]:
+      if self.opcode == opcodes.SLOAD:
+        rhs = "S[{}]".format(self.args[0])
+      else:
+        rhs = "M[{}]".format(self.args[0])
+
+      return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier, rhs)
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier,
@@ -1213,7 +1229,6 @@ class Destackifier:
     # We increment it so that variable names will be globally unique.
     self.stack_vars = 0
 
-
   def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
     """Reinitialise all structures in preparation for converting a block."""
     self.ops = []
@@ -1299,23 +1314,20 @@ class Destackifier:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(opcodes.LOG, args, op.pc)
     elif op.opcode == opcodes.MLOAD:
-      args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE.pop)]
-      inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE8:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE8.pop)]
-      inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.SLOAD:
-      args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.SSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.SSTORE.pop)]
-      inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif new_var is not None:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACAssignOp(new_var, op.opcode, args, op.pc)
