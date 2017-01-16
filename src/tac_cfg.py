@@ -630,6 +630,40 @@ class TACGraph(cfg.ControlFlowGraph):
               if o.args[j].value is old_var:
                 o.args[j].var = new_var
 
+  def make_stack_names_unique(self) -> None:
+    """
+    If two stack variables share a name and are not the same variable,
+    then make the names unique.
+    """
+
+    for block in self.blocks:
+      # Group up the variables by their names
+      variables = sorted(block.entry_stack.value, key=lambda x: x.name)
+      if len(variables) == 0:
+        continue
+      groups = [[variables[0]]]
+      for i in range(len(variables))[1:]:
+        v = variables[i]
+        # When the var name in the name-sorted list changes, start a new group.
+        if v.name != variables[i-1].name:
+          groups.append([v])
+        else:
+          # If the variable has already been processed, it only needs to
+          # be renamed once.
+          appeared = False
+          for prev_var in groups[-1]:
+            if v is prev_var:
+              appeared = True
+              break
+          if not appeared:
+            groups[-1].append(v)
+
+      for group in groups:
+        if len(group) < 2:
+          continue
+        for i in range(len(group)):
+          group[i].name += str(i)
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its

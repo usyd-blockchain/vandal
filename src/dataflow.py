@@ -58,6 +58,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
+  cfg.make_stack_names_unique()
 
   # Clean up any unreachable blocks in the graph if necessary.
   if remove_unreachable:
