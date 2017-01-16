@@ -599,17 +599,17 @@ class TACGraph(cfg.ControlFlowGraph):
 
   def prop_vars_between_blocks(self) -> None:
     """
-    If some stack variable is defined in exactly one place, fetch the variable
-    from its source block and substitute it in.
+    If some entry stack variable is defined in exactly one place, fetch the
+    appropriate variable from its source block and substitute it in, along with
+    all occurrences of that stack variable in operations and the exit stack.
     """
 
     for block in self.blocks:
       for i in range(len(block.entry_stack)):
         stack = block.entry_stack
         if stack.value[i].def_sites.is_const:
-          # fetch variable
+          # Fetch variable from def site.
           location = next(iter(stack.value[i].def_sites))
-
           old_var = stack.value[i]
           new_var = None
           for op in location.block.tac_ops:
@@ -632,8 +632,9 @@ class TACGraph(cfg.ControlFlowGraph):
 
   def make_stack_names_unique(self) -> None:
     """
-    If two stack variables share a name and are not the same variable,
-    then make the names unique.
+    If two variables on the same entry stack share a name but are not the
+    same variable, then make the names unique.
+    The renaming will propagate through to all occurrences of that var.
     """
 
     for block in self.blocks:
@@ -658,6 +659,7 @@ class TACGraph(cfg.ControlFlowGraph):
           if not appeared:
             groups[-1].append(v)
 
+      # Actually perform the renaming operation on any groups longer than 1
       for group in groups:
         if len(group) < 2:
           continue
@@ -1072,7 +1074,7 @@ class TACOp(patterns.Visitable):
       if self.opcode == opcodes.MSTORE:
         lhs = "M[{}]".format(self.args[0])
       elif self.opcode == opcodes.MSTORE8:
-        lhs = "M1[{}]".format(self.args[0])
+        lhs = "M8[{}]".format(self.args[0])
       else:
         lhs = "S[{}]".format(self.args[0])
 
