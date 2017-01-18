@@ -241,7 +241,6 @@ class BasicBlock(patterns.Visitable):
     Used, for example, to differentiate duplicated blocks.
     """
 
-
   def __len__(self):
     """Returns the number of lines of code contained within this block."""
     if self.exit is None or self.entry is None:

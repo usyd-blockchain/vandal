@@ -115,7 +115,7 @@ class Variable(ssle, Location):
     """
     if not self.is_finite:
       return False
-    return all(c != 0 for c in self)
+    return not any(c == 0 for c in self)
 
   @property
   def is_false(self) -> bool:
@@ -125,7 +125,7 @@ class Variable(ssle, Location):
     """
     if not self.is_finite:
       return False
-    return all(c == 0 for c in self)
+    return not any(c != 0 for c in self)
 
   def __str__(self):
     if self.is_unconstrained:

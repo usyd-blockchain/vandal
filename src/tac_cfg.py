@@ -913,106 +913,120 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   def hook_up_jumps(self,
                     mutate_jumps:bool=False,
                     generate_throws:bool=False) -> bool:
-   """
-   Connect this block up to any successors that can be inferred
-   from this block's jump condition and destination.
-   An invalid jump will be replaced with a THROW instruction.
+    """
+    Connect this block up to any successors that can be inferred
+    from this block's jump condition and destination.
+    An invalid jump will be replaced with a THROW instruction.
 
-   Args:
-       mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
-       generate_throws: JUMP and JUMPI instructions with invalid destinations
-                        become THROW and THROWIs
+    Args:
+        mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
+        generate_throws: JUMP and JUMPI instructions with invalid destinations
+                         become THROW and THROWIs
 
-   Returns:
-       True iff this block's successor list was modified.
-   """
-   jumpdests = {}
-   # A mapping from a jump dest to all the blocks addressed at that dest
+    Returns:
+        True iff this block's successor list was modified.
+    """
+    jumpdests = {}
+    # A mapping from a jump dest to all the blocks addressed at that dest
 
-   fallthrough = []
-   last_op = self.last_op
-   invalid_jump = False
-   unresolved = True
+    fallthrough = []
+    last_op = self.last_op
+    invalid_jump = False
+    unresolved = True
+    remove_non_fallthrough = False
+    remove_fallthrough = False
 
-   if last_op.opcode == opcodes.JUMPI:
-     dest = last_op.args[0].value
-     cond = last_op.args[1].value
+    if last_op.opcode == opcodes.JUMPI:
+      dest = last_op.args[0].value
+      cond = last_op.args[1].value
 
-     # If the condition cannot be true, remove the jump.
-     if mutate_jumps and cond.is_false:
-       self.tac_ops.pop()
-       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
-       unresolved = False
+      # If the condition cannot be true, remove the jump.
+      if mutate_jumps and cond.is_false:
+        self.tac_ops.pop()
+        fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+        unresolved = False
+        remove_non_fallthrough = True
 
-     # If the condition must be true, the JUMPI behaves like a JUMP.
-     elif mutate_jumps and cond.is_true:
-       last_op.opcode = opcodes.JUMP
-       last_op.args.pop()
+      # If the condition must be true, the JUMPI behaves like a JUMP.
+      elif mutate_jumps and cond.is_true:
+        last_op.opcode = opcodes.JUMP
+        last_op.args.pop()
 
-       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-         invalid_jump = True
+        if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+          invalid_jump = True
 
-       unresolved = False
+        unresolved = False
+        remove_fallthrough = True
 
-     # Otherwise, the condition can't be resolved, but check the destination>
-     else:
-       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+      # Otherwise, the condition can't be resolved, but check the destination>
+      else:
+        fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
 
-       # We've already covered the case that both cond and dest are known,
-       # so only handle a variable destination
-       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-         invalid_jump = True
+        # We've already covered the case that both cond and dest are known,
+        # so only handle a variable destination
+        if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+          invalid_jump = True
 
-       if not dest.is_unconstrained:
-         unresolved = False
+        if not dest.is_unconstrained:
+          unresolved = False
 
-   elif last_op.opcode == opcodes.JUMP:
-     dest = last_op.args[0].value
+    elif last_op.opcode == opcodes.JUMP:
+      dest = last_op.args[0].value
 
-     if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-       invalid_jump = True
+      if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+        invalid_jump = True
 
-     if not dest.is_unconstrained:
-       unresolved = False
+      if not dest.is_unconstrained:
+        unresolved = False
 
-   # The final argument is not a JUMP or a JUMPI
-   # Note that this case handles THROW and THROWI
-   else:
-     unresolved = False
+    # The final argument is not a JUMP or a JUMPI
+    # Note that this case handles THROW and THROWI
+    else:
+      unresolved = False
 
-     # No terminating jump or a halt; fall through to next block.
-     if not last_op.opcode.halts():
-       fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
+      # No terminating jump or a halt; fall through to next block.
+      if not last_op.opcode.halts():
+        fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
 
-   # Block's jump went to an invalid location, replace the jump with a throw
-   # Note that a JUMPI could still potentially throw, but not be
-   # transformed into a THROWI unless *ALL* its destinations
-   # are invalid.
-   if generate_throws and invalid_jump:
-     self.last_op = TACOp.convert_jump_to_throw(last_op)
-   self.has_unresolved_jump = unresolved
+    # Block's jump went to an invalid location, replace the jump with a throw
+    # Note that a JUMPI could still potentially throw, but not be
+    # transformed into a THROWI unless *ALL* its destinations
+    # are invalid.
+    if generate_throws and invalid_jump:
+      self.last_op = TACOp.convert_jump_to_throw(last_op)
+    self.has_unresolved_jump = unresolved
 
-   for address, block_list in list(jumpdests.items()):
-     to_add = [d for d in block_list if d in self.succs]
-     if len(to_add) != 0:
-       jumpdests[address] = to_add
+    for address, block_list in list(jumpdests.items()):
+      to_add = [d for d in block_list if d in self.succs]
+      if len(to_add) != 0:
+        jumpdests[address] = to_add
 
-   to_add = [d for d in fallthrough if d in self.succs]
-   if len(to_add) != 0:
-     fallthrough = to_add
+    to_add = [d for d in fallthrough if d in self.succs]
+    if len(to_add) != 0:
+      fallthrough = to_add
 
-   old_succs = list(self.succs)
-   new_succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
+    old_succs = list(self.succs)
+    new_succs = {d for dl in list(jumpdests.values())+[fallthrough] for d in dl}
 
-   for s in old_succs:
-     if s not in new_succs and s.entry in jumpdests:
-       self.cfg.remove_edge(self, s)
+    for s in old_succs:
+      if s not in new_succs and s.entry in jumpdests:
+        self.cfg.remove_edge(self, s)
 
-   for s in new_succs:
-     if s not in self.succs:
-       self.cfg.add_edge(self, s)
+    for s in new_succs:
+      if s not in self.succs:
+        self.cfg.add_edge(self, s)
 
-   return set(old_succs) != set(self.succs)
+    if mutate_jumps:
+      fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+      if remove_non_fallthrough:
+        for d in self.succs:
+          if d not in fallthrough:
+            self.cfg.remove_edge(self, d)
+      if remove_fallthrough:
+        for d in fallthrough:
+          self.cfg.remove_edge(self, d)
+
+    return set(old_succs) != set(self.succs)
 
   def __handle_valid_dests(self, d:mem.Variable,
                            jumpdests:t.Dict[int, 'TACBasicBlock']):

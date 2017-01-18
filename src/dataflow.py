@@ -54,7 +54,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
-  stack_analysis(cfg, generate_throws=True)
+  stack_analysis(cfg, mutate_jumps=True, generate_throws=True)
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
