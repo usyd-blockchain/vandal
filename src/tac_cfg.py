@@ -3,6 +3,7 @@ objects."""
 
 import typing as t
 import copy
+import networkx as nx
 
 import opcodes
 import cfg
@@ -11,6 +12,12 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
+
+
+POSTDOM_END_NODE = "END"
+"""The name of the synthetic end node added for post-dominator calculations."""
+UNRES_DEST = "?"
+"""The name of the unresolved jump destination auxiliary node."""
 
 
 class TACGraph(cfg.ControlFlowGraph):
@@ -77,6 +84,132 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
     return cls(blockparse.EVMBytecodeParser(bytecode).parse(strict))
+
+  @property
+  def tac_ops(self):
+    for block in self.blocks:
+      for op in block.tac_ops:
+        yield op
+
+  @property
+  def last_op(self):
+    return max((b.last_op for b in self.blocks),
+               key=lambda o: o.pc)
+
+  @property
+  def terminal_ops(self):
+    terminals = [op for op in self.tac_ops if op.opcode.possibly_halts()]
+    last_op = self.last_op
+    if last_op not in terminals:
+      return terminals + [last_op]
+    return terminals
+
+  def op_edge_list(self) -> t.Iterable[t.Tuple['TACOp', 'TACOp']]:
+    """
+    Returns:
+      a list of the CFG's operation edges, with each edge in the form
+        ( pred, succ )
+      where pred and succ are object references.
+    """
+    edges = []
+    for block in self.blocks:
+      intra_edges = list(zip(block.tac_ops[:-1], block.tac_ops[1:]))
+      edges += intra_edges
+      for succ in block.succs:
+        edges.append((block.tac_ops[-1], succ.tac_ops[0]))
+    return edges
+
+  def nx_graph(self, op_edges=False) -> nx.DiGraph:
+    """
+    Return a networkx representation of this CFG.
+    Nodes are labelled by their corresponding block's identifier.
+
+    Args:
+      op_edges: if true, return edges between instructions rather than blocks.
+    """
+    g = nx.DiGraph()
+
+    if op_edges:
+      g.add_nodes_from(hex(op.pc) for op in self.tac_ops)
+      g.add_edges_from((hex(p.pc), hex(s.pc)) for p, s in self.op_edge_list())
+      g.add_edges_from((hex(block.last_op.pc), UNRES_DEST)
+                       for block in self.blocks if block.has_unresolved_jump)
+    else:
+      g.add_nodes_from(b.ident() for b in self.blocks)
+      g.add_edges_from((p.ident(), s.ident()) for p, s in self.edge_list())
+      g.add_edges_from((block.ident(), UNRES_DEST) for block in self.blocks
+                       if block.has_unresolved_jump)
+    return g
+
+  def immediate_dominators(self, post:bool=False, op_edges=False)\
+    -> t.Dict[str, str]:
+    """
+    Return the immediate dominator mapping of this graph.
+    Each node is mapped to its unique immediately dominating node.
+    This mapping defines a tree with the root being its own immediate dominator.
+
+    Args:
+      post: if true, return post-dominators instead, with an auxiliary node
+              END with edges from all terminal nodes in the CFG.
+      op_edges: if true, return edges between instructions rather than blocks.
+
+    Returns:
+      dict: str -> str, maps from node identifiers to node identifiers.
+    """
+    nx_graph = self.nx_graph(op_edges).reverse() if post \
+                                                 else self.nx_graph(op_edges)
+
+    # Logic here is not quite robust when op_edges is true, but correct
+    # whenever there is a unique entry node, and no graph-splitting.
+    start = POSTDOM_END_NODE if post else self.root.ident()
+
+    if post:
+      if op_edges:
+        terminal_edges = [(POSTDOM_END_NODE, hex(op.pc))
+                          for op in self.terminal_ops]
+      else:
+        terminal_edges = [(POSTDOM_END_NODE, op.block.ident())
+                          for op in self.terminal_ops]
+      nx_graph.add_node(POSTDOM_END_NODE)
+      nx_graph.add_edges_from(terminal_edges)
+
+    doms = nx.algorithms.dominance.immediate_dominators(nx_graph, start)
+    idents = [b.ident() for b in self.blocks]
+
+    if not op_edges:
+      for d in [d for d in doms if d not in idents]:
+        del doms[d]
+
+    # TODO: ask bernhard whether to remove non-terminal END-postdominators
+    #       and turn terminal ones into self-postdominators
+
+    return doms
+
+  def dominators(self, post:bool=False, op_edges=False)\
+    -> t.Dict[str, t.Set[str]]:
+    """
+    Return the dominator mapping of this graph.
+    Each block is mapped to the set of blocks that dominate it; its ancestors
+    in the dominator tree.
+
+    Args
+      post: if true, return postdominators instead.
+      op_edges: if true, return edges between instructions rather than blocks.
+
+    Returns:
+      dict: str -> [str], a map block identifiers to block identifiers.
+    """
+
+    idoms = self.immediate_dominators(post, op_edges)
+    doms = {d: set() for d in idoms}
+
+    for d in doms:
+      prev = d
+      while prev not in doms[d]:
+        doms[d].add(prev)
+        prev = idoms[prev]
+
+    return doms
 
   def apply_operations(self, use_sets=False) -> None:
     """
@@ -466,6 +599,75 @@ class TACGraph(cfg.ControlFlowGraph):
         block.apply_operations()
         block.hook_up_jumps()
 
+  def prop_vars_between_blocks(self) -> None:
+    """
+    If some entry stack variable is defined in exactly one place, fetch the
+    appropriate variable from its source block and substitute it in, along with
+    all occurrences of that stack variable in operations and the exit stack.
+    """
+
+    for block in self.blocks:
+      for i in range(len(block.entry_stack)):
+        stack = block.entry_stack
+        if stack.value[i].def_sites.is_const:
+          # Fetch variable from def site.
+          location = next(iter(stack.value[i].def_sites))
+          old_var = stack.value[i]
+          new_var = None
+          for op in location.block.tac_ops:
+            if op.pc == location.pc:
+              new_var = op.lhs
+
+          # Reassign the entry stack position.
+          stack.value[i] = new_var
+
+          # Reassign exit stack occurrences
+          for j in range(len(block.exit_stack)):
+            if block.exit_stack.value[j] is old_var:
+              block.exit_stack.value[j] = new_var
+
+          # Reassign occurrences on RHS of operations
+          for o in block.tac_ops:
+            for j in range(len(o.args)):
+              if o.args[j].value is old_var:
+                o.args[j].var = new_var
+
+  def make_stack_names_unique(self) -> None:
+    """
+    If two variables on the same entry stack share a name but are not the
+    same variable, then make the names unique.
+    The renaming will propagate through to all occurrences of that var.
+    """
+
+    for block in self.blocks:
+      # Group up the variables by their names
+      variables = sorted(block.entry_stack.value, key=lambda x: x.name)
+      if len(variables) == 0:
+        continue
+      groups = [[variables[0]]]
+      for i in range(len(variables))[1:]:
+        v = variables[i]
+        # When the var name in the name-sorted list changes, start a new group.
+        if v.name != variables[i-1].name:
+          groups.append([v])
+        else:
+          # If the variable has already been processed, it only needs to
+          # be renamed once.
+          appeared = False
+          for prev_var in groups[-1]:
+            if v is prev_var:
+              appeared = True
+              break
+          if not appeared:
+            groups[-1].append(v)
+
+      # Actually perform the renaming operation on any groups longer than 1
+      for group in groups:
+        if len(group) < 2:
+          continue
+        for i in range(len(group)):
+          group[i].name += str(i)
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
   """A basic block containing both three-address code, and its
@@ -711,106 +913,120 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
   def hook_up_jumps(self,
                     mutate_jumps:bool=False,
                     generate_throws:bool=False) -> bool:
-   """
-   Connect this block up to any successors that can be inferred
-   from this block's jump condition and destination.
-   An invalid jump will be replaced with a THROW instruction.
+    """
+    Connect this block up to any successors that can be inferred
+    from this block's jump condition and destination.
+    An invalid jump will be replaced with a THROW instruction.
 
-   Args:
-       mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
-       generate_throws: JUMP and JUMPI instructions with invalid destinations
-                        become THROW and THROWIs
+    Args:
+        mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
+        generate_throws: JUMP and JUMPI instructions with invalid destinations
+                         become THROW and THROWIs
 
-   Returns:
-       True iff this block's successor list was modified.
-   """
-   jumpdests = {}
-   # A mapping from a jump dest to all the blocks addressed at that dest
+    Returns:
+        True iff this block's successor list was modified.
+    """
+    jumpdests = {}
+    # A mapping from a jump dest to all the blocks addressed at that dest
 
-   fallthrough = []
-   last_op = self.last_op
-   invalid_jump = False
-   unresolved = True
+    fallthrough = []
+    last_op = self.last_op
+    invalid_jump = False
+    unresolved = True
+    remove_non_fallthrough = False
+    remove_fallthrough = False
 
-   if last_op.opcode == opcodes.JUMPI:
-     dest = last_op.args[0].value
-     cond = last_op.args[1].value
+    if last_op.opcode == opcodes.JUMPI:
+      dest = last_op.args[0].value
+      cond = last_op.args[1].value
 
-     # If the condition cannot be true, remove the jump.
-     if mutate_jumps and cond.is_false:
-       self.tac_ops.pop()
-       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
-       unresolved = False
+      # If the condition cannot be true, remove the jump.
+      if mutate_jumps and cond.is_false:
+        self.tac_ops.pop()
+        fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+        unresolved = False
+        remove_non_fallthrough = True
 
-     # If the condition must be true, the JUMPI behaves like a JUMP.
-     elif mutate_jumps and cond.is_true:
-       last_op.opcode = opcodes.JUMP
-       last_op.args.pop()
+      # If the condition must be true, the JUMPI behaves like a JUMP.
+      elif mutate_jumps and cond.is_true:
+        last_op.opcode = opcodes.JUMP
+        last_op.args.pop()
 
-       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-         invalid_jump = True
+        if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+          invalid_jump = True
 
-       unresolved = False
+        unresolved = False
+        remove_fallthrough = True
 
-     # Otherwise, the condition can't be resolved, but check the destination>
-     else:
-       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+      # Otherwise, the condition can't be resolved, but check the destination>
+      else:
+        fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
 
-       # We've already covered the case that both cond and dest are known,
-       # so only handle a variable destination
-       if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-         invalid_jump = True
+        # We've already covered the case that both cond and dest are known,
+        # so only handle a variable destination
+        if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+          invalid_jump = True
 
-       if not dest.is_unconstrained:
-         unresolved = False
+        if not dest.is_unconstrained:
+          unresolved = False
 
-   elif last_op.opcode == opcodes.JUMP:
-     dest = last_op.args[0].value
+    elif last_op.opcode == opcodes.JUMP:
+      dest = last_op.args[0].value
 
-     if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
-       invalid_jump = True
+      if self.__handle_valid_dests(dest, jumpdests) and len(jumpdests) == 0:
+        invalid_jump = True
 
-     if not dest.is_unconstrained:
-       unresolved = False
+      if not dest.is_unconstrained:
+        unresolved = False
 
-   # The final argument is not a JUMP or a JUMPI
-   # Note that this case handles THROW and THROWI
-   else:
-     unresolved = False
+    # The final argument is not a JUMP or a JUMPI
+    # Note that this case handles THROW and THROWI
+    else:
+      unresolved = False
 
-     # No terminating jump or a halt; fall through to next block.
-     if not last_op.opcode.halts():
-       fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
+      # No terminating jump or a halt; fall through to next block.
+      if not last_op.opcode.halts():
+        fallthrough = self.cfg.get_blocks_by_pc(self.exit + 1)
 
-   # Block's jump went to an invalid location, replace the jump with a throw
-   # Note that a JUMPI could still potentially throw, but not be
-   # transformed into a THROWI unless *ALL* its destinations
-   # are invalid.
-   if generate_throws and invalid_jump:
-     self.last_op = TACOp.convert_jump_to_throw(last_op)
-   self.has_unresolved_jump = unresolved
+    # Block's jump went to an invalid location, replace the jump with a throw
+    # Note that a JUMPI could still potentially throw, but not be
+    # transformed into a THROWI unless *ALL* its destinations
+    # are invalid.
+    if generate_throws and invalid_jump:
+      self.last_op = TACOp.convert_jump_to_throw(last_op)
+    self.has_unresolved_jump = unresolved
 
-   for address, block_list in list(jumpdests.items()):
-     to_add = [d for d in block_list if d in self.succs]
-     if len(to_add) != 0:
-       jumpdests[address] = to_add
+    for address, block_list in list(jumpdests.items()):
+      to_add = [d for d in block_list if d in self.succs]
+      if len(to_add) != 0:
+        jumpdests[address] = to_add
 
-   to_add = [d for d in fallthrough if d in self.succs]
-   if len(to_add) != 0:
-     fallthrough = to_add
+    to_add = [d for d in fallthrough if d in self.succs]
+    if len(to_add) != 0:
+      fallthrough = to_add
 
-   old_succs = list(self.succs)
-   new_succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
+    old_succs = list(self.succs)
+    new_succs = {d for dl in list(jumpdests.values())+[fallthrough] for d in dl}
 
-   for s in old_succs:
-     if s not in new_succs and s.entry in jumpdests:
-       self.cfg.remove_edge(self, s)
+    for s in old_succs:
+      if s not in new_succs and s.entry in jumpdests:
+        self.cfg.remove_edge(self, s)
 
-   for s in new_succs:
-     if s not in self.succs:
-       self.cfg.add_edge(self, s)
+    for s in new_succs:
+      if s not in self.succs:
+        self.cfg.add_edge(self, s)
 
-   return set(old_succs) != set(self.succs)
+    if mutate_jumps:
+      fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
+      if remove_non_fallthrough:
+        for d in self.succs:
+          if d not in fallthrough:
+            self.cfg.remove_edge(self, d)
+      if remove_fallthrough:
+        for d in fallthrough:
+          self.cfg.remove_edge(self, d)
+
+    return set(old_succs) != set(self.succs)
 
   def __handle_valid_dests(self, d:mem.Variable,
                            jumpdests:t.Dict[int, 'TACBasicBlock']):
@@ -870,6 +1086,16 @@ class TACOp(patterns.Visitable):
     self.block = block
 
   def __str__(self):
+    if self.opcode in [opcodes.MSTORE, opcodes.MSTORE8, opcodes.SSTORE]:
+      if self.opcode == opcodes.MSTORE:
+        lhs = "M[{}]".format(self.args[0])
+      elif self.opcode == opcodes.MSTORE8:
+        lhs = "M8[{}]".format(self.args[0])
+      else:
+        lhs = "S[{}]".format(self.args[0])
+
+      return "{}: {} = {}".format(hex(self.pc), lhs,
+                                  " ".join([str(arg) for arg in self.args[1:]]))
     return "{}: {} {}".format(hex(self.pc), self.opcode,
                               " ".join([str(arg) for arg in self.args]))
 
@@ -933,6 +1159,13 @@ class TACAssignOp(TACOp):
     self.print_name = print_name
 
   def __str__(self):
+    if self.opcode in [opcodes.SLOAD, opcodes.MLOAD]:
+      if self.opcode == opcodes.SLOAD:
+        rhs = "S[{}]".format(self.args[0])
+      else:
+        rhs = "M[{}]".format(self.args[0])
+
+      return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier, rhs)
     arglist = ([str(self.opcode)] if self.print_name else []) \
               + [str(arg) for arg in self.args]
     return "{}: {} = {}".format(hex(self.pc), self.lhs.identifier,
@@ -1033,21 +1266,26 @@ class Destackifier:
   a block containing EVM instructions with no corresponding TAC code.
   """
 
-  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
-    """Reinitialise all structures in preparation for converting a block."""
-
+  def __init__(self):
     # A sequence of three-address operations
     self.ops = []
 
     # The symbolic variable stack we'll be operating on.
     self.stack = mem.VariableStack()
 
+    # Entry address of the current block being converted
+    self.block_entry = None
+
     # The number of TAC variables we've assigned,
     # in order to produce unique identifiers. Typically the same as
     # the number of items pushed to the stack.
+    # We increment it so that variable names will be globally unique.
     self.stack_vars = 0
 
-    # Entry address of the current block being converted
+  def __fresh_init(self, evm_block:evm_cfg.EVMBasicBlock) -> None:
+    """Reinitialise all structures in preparation for converting a block."""
+    self.ops = []
+    self.stack = mem.VariableStack()
     self.block_entry = evm_block.evm_ops[0].pc \
                        if len(evm_block.evm_ops) > 0 else None
 
@@ -1129,23 +1367,20 @@ class Destackifier:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(opcodes.LOG, args, op.pc)
     elif op.opcode == opcodes.MLOAD:
-      args = [mem.MLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE.pop)]
-      inst = TACAssignOp(mem.MLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.MSTORE8:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.MSTORE8.pop)]
-      inst = TACAssignOp(mem.MLoc1(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode == opcodes.SLOAD:
-      args = [mem.SLoc32(TACArg.from_var(self.stack.pop()))]
-      inst = TACAssignOp(new_var, op.opcode, args, op.pc, print_name=False)
+      args = [TACArg.from_var(self.stack.pop())]
+      inst = TACAssignOp(new_var, op.opcode, args, op.pc)
     elif op.opcode == opcodes.SSTORE:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(opcodes.SSTORE.pop)]
-      inst = TACAssignOp(mem.SLoc32(args[0]), op.opcode, args[1:],
-                         op.pc, print_name=False)
+      inst = TACOp(op.opcode, args, op.pc)
     elif new_var is not None:
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACAssignOp(new_var, op.opcode, args, op.pc)
