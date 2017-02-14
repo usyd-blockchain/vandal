@@ -68,6 +68,7 @@ runtimeKnowable("GASPRICE").
 
 // p reaches q if there is a path from p to q in the CFG.
 .decl reaches(p:Statement, q:Statement)
+reaches(p, p) :- op(p, _).
 reaches(p, q) :- edge(p, q).
 reaches(p, q) :- edge(p, u), reaches(u, q).
 
@@ -83,7 +84,8 @@ depends(x, z) :- depends(x, y), depends(y, z).
 // x controls whether y is executed.
 .decl controls(x:Statement, y:Statement)
 controls(x, y) :- edge(x, w1), edge(x, w2), pdom(w1, y), !reaches(w2, y).
-controls(x, z) :- controls(x, y), controls(y, z).
+controls(x, y) :- pdom(x, y), op(x, "THROWI").
+//controls(x, z) :- controls(x, y), controls(y, z).
 
 // var is the guard variable of some conditional jump or throw stmt
 .decl conditionVar(var: Variable, stmt:Statement)
@@ -213,8 +215,10 @@ possAccessManipState(var, storeStmt) :- stateReadResult(var, stateReadStmt),
 nonConstManipulable(var) :- manipulable(var), !value(var, _).
 
 // A statement is inaccessible if some condition controls it which is not manipulable by the caller.
+// Or if it can't be reached from the program entry point.
 .decl inaccessible(stmt:Statement)
 inaccessible(stmt) :- controlsWith(_, stmt, cond), !manipulable(cond).
+inaccessible(stmt) :- op(stmt, _), !reaches("0x0", stmt).
 
 
 
@@ -280,9 +284,18 @@ uncheckedCall(u) :- callResult(_, u), !checkedCallThrows(u), !checkedCallStateUp
 
 // UNSECURED BALANCE
 
+.decl fromCallValue(var:Variable)
+fromCallValue(var) :- depends(var, callValVar), def(callValVar, callValStmt), op(callValStmt, "CALLVALUE").
+.decl usefulValue(var:Variable)
+usefulValue(var) :- !value(var, "0x0"), !fromCallValue(var), def(var, _).
+
 // A call statement satisfies this relation if its target can be manipulated (and is not constant), it actually sends some value, and it's actually callable.
 .decl unsecuredValueSend(stmt:Statement) output
-unsecuredValueSend(stmt) :- op_CALL(stmt, _, target, val, _, _, _, _), nonConstManipulable(target), !value(val, "0x0"), !inaccessible(stmt).
+unsecuredValueSend(stmt) :- op_CALL(stmt, _, target, val, _, _, _, _), nonConstManipulable(target), usefulValue(val), !inaccessible(stmt).
+
+// SUICIDE
+.decl accessibleSuicide(stmt:Statement) output
+accessibleSuicide(stmt) :- !inaccessible(stmt), op(stmt, "SUICIDE").
 
 
 // Add overwrite check,
