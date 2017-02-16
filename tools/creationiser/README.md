@@ -2,7 +2,6 @@
 
 1. convert runtime to creation bytecode using converter.py;
 2. create the contract itself:
-
 ```
 var contractABI = web3.eth.contract();
 contractABI.abi = [];
@@ -19,7 +18,6 @@ var instance = contractABI.new({from:web3.eth.accounts[0], data: code, gas: 3000
     }
 });
 ```
-
 3. make an account: `geth account new`;
 4. start geth, `geth --dev console`;
 5. unlock the account `personal.unlockAccount(eth.accounts[0])`;
