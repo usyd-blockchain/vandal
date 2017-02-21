@@ -1,4 +1,4 @@
-== STEPS FOR RUNNING CREATION BYTECODE ==
+== Running creation bytecode on a private blockchain ==
 
 1. convert runtime to creation bytecode using converter.py;
 2. create the contract itself:
@@ -18,7 +18,7 @@ var instance = contractABI.new({from:web3.eth.accounts[0], data: code, gas: 3000
     }
 });
 ```
-3. make an account: `geth account new`;
+3. make an account: `geth --dev account new`;
 4. start geth, `geth --dev console`;
 5. unlock the account `personal.unlockAccount(eth.accounts[0])`;
 6. create contract with loadScript(<path to above script shit>);
