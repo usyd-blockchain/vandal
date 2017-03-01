@@ -83,6 +83,7 @@ depends(x, z) :- depends(x, y), depends(y, z).
 // x controls whether y is executed.
 .decl controls(x:Statement, y:Statement)
 controls(x, y) :- edge(x, w1), edge(x, w2), pdom(w1, y), !reaches(w2, y).
+controls(x, y) :- pdom(x, y), op(x, "THROWI").
 controls(x, z) :- controls(x, y), controls(y, z).
 
 // var is the guard variable of some conditional jump or throw stmt
@@ -215,6 +216,7 @@ nonConstManipulable(var) :- manipulable(var), !value(var, _).
 // A statement is inaccessible if some condition controls it which is not manipulable by the caller.
 .decl inaccessible(stmt:Statement)
 inaccessible(stmt) :- controlsWith(_, stmt, cond), !manipulable(cond).
+inaccessible(stmt) :- !reaches("0x0", stmt), edge(_, stmt), stmt != "0x0".
 
 
 
