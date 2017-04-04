@@ -8,6 +8,7 @@ import networkx as nx
 import opcodes
 import cfg
 import evm_cfg
+import tac_cfg
 import memtypes as mem
 import blockparse
 import patterns
@@ -668,11 +669,53 @@ class TACGraph(cfg.ControlFlowGraph):
         for i in range(len(group)):
           group[i].name += str(i)
 
+  def public_function_sigs(self) -> t.Iterable[str]:
+    """
+    Return an approximate list of the solidity public functions
+    exposed by this contract.
+    Call this after having already called prop_vars_between_blocks().
+    """
+
+    # Find function signature variable at call data 0
+    entry_block = self.get_block_by_ident("0x0")
+    loadlist = [op for op in entry_block.tac_ops
+                if op.opcode == opcodes.CALLDATALOAD
+                and op.args[0].value.const_value == 0]
+    if len(loadlist) == 0:
+      return []
+    sig_var = loadlist[0].lhs
+
+    # Follow the signature until it's transformed into its final shape.
+    for o in entry_block.tac_ops:
+      if not isinstance(o, tac_cfg.TACAssignOp) or \
+         id(sig_var) not in [id(a.value) for a in o.args]:
+        continue
+      if o.opcode == opcodes.EQ:
+        break
+      sig_var = o.lhs
+
+    # Find all the places the function signature is compared to a constant
+    func_sigs = []
+
+    for b in self.blocks:
+      for o in b.tac_ops:
+        if not isinstance(o, tac_cfg.TACAssignOp) or\
+           id(sig_var) not in [id(a.value) for a in o.args]:
+          continue
+        if o.opcode == opcodes.EQ:
+          print(o)
+          sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
+          func_sigs.append(hex(sig.const_value))
+
+    return func_sigs
+
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
-  """A basic block containing both three-address code, and its
+  """
+  A basic block containing both three-address code, and its
   equivalent EVM code, along with information about the transformation
-  applied to the stack as a consequence of its execution."""
+  applied to the stack as a consequence of its execution.
+  """
 
   def __init__(self, entry_pc:int, exit_pc:int,
                tac_ops:t.List['TACOp'],

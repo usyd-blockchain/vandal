@@ -186,7 +186,13 @@ possAccessManipState(var, storeStmt) :- stateReadResult(var, stateReadStmt),
 		     	                use(stateLocVar, stateReadStmt),
 			     	        op_SSTORE(storeStmt, stateLocVar2, stateVal),
                                         value(stateLocVar, stateLoc), value(stateLocVar2, stateLoc),
-					manipulable(stateVal).
+					manipulable(stateVal), !inaccessible(storeStmt).
+
+//manipulable(var) :- possAccessManipState(var, storeStmt), !inaccessible(storeStmt).
+//manipulable(var) :- possAccessManipState(var, storeStmt),
+                    //!controlsWith(_, storeStmt, _).
+//manipulable(var) :- possAccessManipState(var, storeStmt),
+                    //controlsWith(_, storeStmt, cond), manipulable(cond).
 
 
 // Check that all paths from root to a statment n MUST go through some node in a set S.
@@ -202,13 +208,6 @@ possAccessManipState(var, storeStmt) :- stateReadResult(var, stateReadStmt),
 
 // locOverWrittenBefore(loc, stmt) :- reaches(e, s), entry(e), storeAtLoc(s, loc), 
 
-
-
-
-//manipulable(var) :- possAccessManipState(var, storeStmt),
-//                    !controlsWith(_, storeStmt, _).
-//manipulable(var) :- possAccessManipState(var, storeStmt),
-//	            controlsWith(_, storeStmt, cond), manipulable(cond).
 
 // A manipulable value which is non-constant, i.e. input-dependent.
 .decl nonConstManipulable(var:Variable)

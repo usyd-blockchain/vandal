@@ -12,7 +12,8 @@ from memtypes import VariableStack
 
 def analyse_graph(cfg:tac_cfg.TACGraph,
                   max_iterations:int=-1, bailout_seconds:int=-1,
-                  remove_unreachable:bool=False):
+                  remove_unreachable:bool=False,
+                  collect_analytics:bool=False):
   """
   Infer a CFG's structure by performing dataflow analyses to resolve new edges,
   until a fixed-point, max_iterations, or max_seconds is reached.
@@ -27,7 +28,13 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
                        be performed. A negative value means no maximum.
       remove_unreachable: upon completion of the analysis, if there are blocks
                           unreachable from the contract root, remove them.
+      collect_analytics: if true, return a dict of information about the
+                         contract, else return an empty dict
   """
+
+  anal_results = {}
+  if collect_analytics:
+    anal_results["bailout"] = False
 
   start_clock = time.clock()
   i = 0
@@ -47,14 +54,30 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
     elapsed = time.clock() - start_clock
     if bailout_seconds >= 0:
       if elapsed > bailout_seconds or 2*loop_time > bailout_seconds - elapsed:
+        if collect_analytics:
+          anal_results["bailout"] = True
+          anal_results["bail_time"] = elapsed
         break
 
+  if collect_analytics:
+      anal_results["num_clones"] = i
+
   # Perform a final analysis step, generating throws from invalid jumps
-  # and merging any blocks that were split.
-  # As well as extract jump destinations directly from def-sites if they were
-  # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
   stack_analysis(cfg, mutate_jumps=True, generate_throws=True)
+
+  dupe_counts = {}
+  if collect_analytics:
+    # Find out which blocks were duplicated how many times,
+    for b in cfg.blocks:
+      entry = hex(b.entry)
+      if entry not in dupe_counts:
+        dupe_counts[entry] = 0
+      dupe_counts[entry] += 1
+
+  # ...and merge any blocks that were split.
+  # As well as extract jump destinations directly from def-sites if they were
+  # not inferrable during the dataflow steps.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -62,8 +85,22 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
 
   # Clean up any unreachable blocks in the graph if necessary.
   if remove_unreachable:
-    cfg.remove_unreachable_code()
+    removed = cfg.remove_unreachable_code()
+    if collect_analytics:
+      anal_results["unreachable_blocks"] = [b.ident() for b in removed]
 
+  if collect_analytics:
+    # accrue general graph data
+    # per-block scheme: (indegree, outdegree, multiplicity)
+    anal_results["num_blocks"] = len(cfg)
+    block_dict = {}
+    for b in cfg.blocks:
+      multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
+      block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
+    anal_results["blocks"] = block_dict
+    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs() if sig is not None]
+
+  return anal_results
 
 def stack_analysis(cfg:tac_cfg.TACGraph,
                    die_on_empty_pop:bool=False, reinit_stacks:bool=True,
