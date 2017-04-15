@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""filter_results.py: filter down the results from analyse.py""" 
+"""filter_results.py: filter down the results from analyse.py"""
 
 import argparse
 import json
@@ -68,31 +68,26 @@ def satisfies(triple):
   """
   filename, properties, flags = triple
 
-  result = True
-
   for p in args.properties:
     if p not in properties:
-      result = False
-      break
-  if result:
-    for f in args.flags:
-      if f not in flags:
-        result = False
-        break
-  if result:
-    for p in args.exclude_properties:
-      if p in properties:
-        result = False
-        break
-  if result:
-    for f in args.exclude_flags:
-      if f in flags:
-        result = False
-        break
-  
-  return result
+      return False
 
-  
+  for f in args.flags:
+    if f not in flags:
+      return False
+
+  for p in args.exclude_properties:
+    if p in properties:
+      return False
+
+  for f in args.exclude_flags:
+    if f in flags:
+      return False
+
+  # result satisfied the filter => return True
+  return True
+
+
 with open(args.in_file, 'r') as f:
   results = json.loads(f.read())
   with open("filtered_results.json", 'w') as g:
