@@ -80,7 +80,7 @@ class TACGraph(cfg.ControlFlowGraph):
     Construct and return a TACGraph from the given EVM bytecode.
 
     Args:
-      bytecode: a sequence of EVM bytecode, either in a hexidecimal
+      bytecode: a sequence of EVM bytecode, either in a hexadecimal
         string format or a byte array.
     """
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
