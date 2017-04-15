@@ -1,82 +1,92 @@
-"""opcode_analysis.py: provides functions for analysis opcodes present in a
-given CFG"""
+"""analyse_opcodes.py: produces aggregate opcode stats from EVM bytecode"""
 
-## IMPORTS
-
+import argparse
 import collections
-import doctest
+import csv
+import glob
 import os
 import sys
+import typing as t
 
 # Add the source directory to the path to ensure the imports work
 from os.path import abspath, dirname, join
 src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
-# Local project imports
+# decompiler project imports
 import blockparse
-import dataflow
-import cfg
-import evm_cfg
 import opcodes
-import exporter
-import logger
-ll = logger.log_low
 
-def analyse_cfg(cfg:cfg.ControlFlowGraph) -> dict:
-  agg = collections.Counter()
+DEFAULT_CONTRACT_DIR = 'contracts'
+"""Directory to fetch contract files from by default."""
 
-  for block in cfg.blocks:
-    stats = analyse_block(block)
-    block._opcode_stats = stats
-    agg.update(stats)
+CONTRACT_GLOB = '*_runtime.hex'
+"""Files in the contract_dir which match this glob will be processed"""
 
-  cfg._opcode_stats = agg
-  return agg
+CSV_FIELDS = (
+  'contract',  # contract filename
+  'arith',     # number of arithmetic opcodes
+  'memory',    # number of memory opcodes
+  'storage',   # number of storage opcodes
+  'calls',     # number of contract call opcodes
+  'other'      # number of other opcodes
+)
+"""fields to appear in output CSV, in this order"""
 
-def analyse_block(block:evm_cfg.EVMBasicBlock) -> dict:
-  """
-  >>> s = analyse_block(__b('0x0102030405060708090a0b101112131415161718191a'))
-  >>> s == {'arithmetic': 22, 'memory': 0, 'storage': 0, 'call': 0}
-  True
+parser = argparse.ArgumentParser()
 
-  >>> s = analyse_block(__b('0x5152535455565758595a5b'))
-  >>> s == {'arithmetic': 0, 'memory': 3, 'storage': 2, 'call': 0}
-  True
+parser.add_argument("-c",
+                    "--contract_dir",
+                    nargs="?",
+                    default=DEFAULT_CONTRACT_DIR,
+                    const=DEFAULT_CONTRACT_DIR,
+                    metavar="DIR",
+                    help="the location to grab contracts from (as bytecode "
+                         "files).")
 
-  >>> s = analyse_block(__b('0xf0f1f2f3f4ff'))
-  >>> s == {'arithmetic': 0, 'memory': 0, 'storage': 0, 'call': 3}
-  True
-  """
-  stats = {
-    'arithmetic': 0,
-    'memory': 0,
-    'storage': 0,
-    'call': 0,
-  }
+parser.add_argument('outfile',
+                    nargs='?',
+                    type=argparse.FileType('w'),
+                    default=sys.stdout,
+                    help="CSV file where output statistics will be written, "
+                    "one row per contract, with a CSV header as row 1. "
+                    "Defaults to stdout if not specified.")
 
-  for op in block.evm_ops:
-    if op.opcode.is_arithmetic():
-      stats['arithmetic'] += 1
+args = parser.parse_args()
 
-    elif op.opcode.is_memory():
-      stats['memory'] += 1
-
-    elif op.opcode.is_storage():
-      stats['storage'] += 1
-
-    elif op.opcode.is_call():
-      stats['call'] += 1
-
-  return stats
-
-def __b(bytecode:str) -> evm_cfg.EVMBasicBlock:
-  # FOR UNIT TEST PURPOSES ONLY
-  # Returns a single fake EVMBasicBlock containing all operations from the
-  # input bytecode, without regard to block boundaries (RETURN, STOP, etc)
+def count_opcodes(bytecode:t.Union[str, bytes]) -> dict:
   parser = blockparse.EVMBytecodeParser(bytecode)
   parser.parse()
-  return evm_cfg.EVMBasicBlock(evm_ops=parser._ops)
 
-if __name__ == '__main__':
-  doctest.testmod()
+  # convert EVMOps to OpCodes
+  ops = list(map(lambda op: op.opcode, parser._ops))
+
+  # use Python's Counter to count each
+  return collections.Counter(ops), ops
+
+writer = csv.DictWriter(args.outfile, fieldnames=CSV_FIELDS)
+writer.writeheader()
+
+for fname in glob.glob(join(args.contract_dir, CONTRACT_GLOB)):
+  with open(fname, 'r') as f:
+
+    counts, ops = count_opcodes(f.read().strip())
+
+    arith   = sum([c for op, c in counts.items() if op.is_arithmetic()])
+    memory  = sum([c for op, c in counts.items() if op.is_memory()])
+    storage = sum([c for op, c in counts.items() if op.is_storage()])
+    calls   = sum([c for op, c in counts.items() if op.is_call()])
+    other   = sum(counts.values()) - (arith + memory + storage + calls)
+
+    row = {
+      'arith': arith,
+      'memory': memory,
+      'storage': storage,
+      'calls': calls,
+      'other': other,
+    }
+
+    assert sum(row.values()) == len(ops)
+
+    row['contract'] = os.path.basename(f.name)
+    writer.writerow(row)
