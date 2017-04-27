@@ -26,7 +26,7 @@ DEFAULT_CONTRACT_DIR = 'contracts'
 CONTRACT_GLOB = '*_runtime.hex'
 """Files in the contract_dir which match this glob will be processed"""
 
-CSV_FIELDS = ['contract'] + list(sorted(opcodes.OPCODES.keys()))
+CSV_FIELDS = ['contract'] + list(sorted(opcodes.OPCODES.keys())) + ['total']
 """fields to appear in output CSV, in this order"""
 
 parser = argparse.ArgumentParser()
@@ -98,6 +98,9 @@ for i, fname in enumerate(files):
 
     counts, ops = count_opcodes(f.read().strip())
     row = {op.name: count for op, count in counts.items()}
+
+    # add a "total" column to each row
+    row['total'] = sum(row.values())
 
     # contract filename always goes in first CSV field
     row[CSV_FIELDS[0]] = bname
