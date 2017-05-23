@@ -25,8 +25,6 @@ def funcs(request):
   funcs.extract()
   return [funcs, request.param[1], request.param[2], request.param[3]]
 
-#TODO: Check end blocks are correct. The recursion test case is broken for testing end blocks.
-
 ### TESTS ###
 
 class TestFunctionExtraction:
