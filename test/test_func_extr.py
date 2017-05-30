@@ -7,7 +7,8 @@ import os
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Format: filename, start blocks, end blocks
-@pytest.fixture(params=[
+@pytest.fixture(scope="module",
+                params=[
   ('/hex/basic_example.hex', ["0xce", "0x44", "0x75", "0x42"], ["0x5f", "0xeb", "0x90", "0x42"], 5),
   ('/hex/example_two.hex', ["0x96", "0x2a", "0x4c", "0x28"], ["0x28", "0x7d", "0x3a"], 5),
   ('/hex/recursion.hex', ["0x93", "0x2a", "0x28", "0x4c"], ["0x28", "0xb1", "0x3a"], 5),
@@ -16,14 +17,14 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def funcs(request):
   """
-  Returns: a FunExtract object extracted from a file
+  Returns: a FunExtract object extracted from a file, 
   """
   f = open(dir_path + request.param[0], 'r')
   cfg = tac_cfg.TACGraph.from_bytecode(f.read(), False)
   dataflow.analyse_graph(cfg, -1, -1)
   funcs = func_extr.FunExtract(cfg)
   funcs.extract()
-  return [funcs, request.param[1], request.param[2], request.param[3]]
+  return (funcs, request.param[1], request.param[2], request.param[3])
 
 ### TESTS ###
 
