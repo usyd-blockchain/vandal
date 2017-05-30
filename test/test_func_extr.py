@@ -17,7 +17,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 def funcs(request):
   """
-  Returns: a FunExtract object extracted from a file, 
+  Returns: a FunExtract object extracted from a file
   """
   f = open(dir_path + request.param[0], 'r')
   cfg = tac_cfg.TACGraph.from_bytecode(f.read(), False)
