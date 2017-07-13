@@ -26,7 +26,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   start_clock = time.clock()
   i = 0
 
-  # Perform the stack analysis until we reach a fixed-point or a max is 
+  # Perform the stack analysis until we reach a fixed-point or a max is
   # exceeded. We alternately infer new edges that can be inferred.
   while i != settings.max_iterations:
     loop_start_clock = time.clock()
@@ -50,8 +50,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
 
-  settings.mutate_jumps = True
-  settings.generate_throws = True
+  settings.mutate_jumps = settings.final_mutate_jumps
+  settings.generate_throws = settings.final_generate_throws
   stack_analysis(cfg, settings)
 
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
