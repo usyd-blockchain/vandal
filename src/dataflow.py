@@ -9,7 +9,6 @@ import lattice
 import memtypes
 from memtypes import VariableStack
 
-
 def analyse_graph(cfg:tac_cfg.TACGraph,
                   max_iterations:int=-1, bailout_seconds:int=-1,
                   remove_unreachable:bool=False):
@@ -70,7 +69,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                    hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
                    mutate_jumps:bool=False, generate_throws:bool=False,
                    mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
-                   widen_large_variables:bool=True) -> bool:
+                   widen_variables:bool=True, widen_threshold:int=20) -> bool:
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -92,8 +91,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
                       rather than after the whole analysis is complete.
     clamp_large_stacks: if stacks start growing without bound, reduce the stack
                         size in order to hasten convergence.
-    widen_large_variables: if any stack variable's number of possible values
-                           exceeds a given threshold, widen its value to Top.
+    widen_variables: if any stack variable's number of possible values
+                     exceeds a given threshold, widen its value to Top.
+    widen_threshold: widen if the size of a given variable exceeds this value.
 
   If we have already reached complete information about our stack CFG structure
   and stack states, we can use die_on_empty_pop and reinit_stacks to discover
@@ -125,8 +125,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
-  # Widen if the size of a given variable exceeds this threshold
-  widen_threshold = 20
 
   # Churn until we reach a fixed point.
   while queue:
@@ -161,7 +159,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
           # Some successors of a modified block may need to be rechecked.
           queue += [s for s in old_succs if s not in queue]
 
-          if widen_large_variables:
+          if widen_variables:
             cumulative_entry_stacks = {block.ident(): VariableStack()
                                        for block in cfg.blocks}
           if clamp_large_stacks:
@@ -169,7 +167,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
             for succ in curr_block.succs:
               visited[succ] = False
 
-    if widen_large_variables:
+    if widen_variables:
       # If a variable's possible value set might be practically unbounded,
       # it must be widened in order for our analysis not to take forever.
       # Additionally, the widening threshold should be set low enough that
