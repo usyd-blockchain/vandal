@@ -27,9 +27,6 @@ class TACGraph(cfg.ControlFlowGraph):
   the edges between them.
   """
 
-  _def_set = DataFlowSettings(mutate_jumps=False, generate_throws = False)
-  """Default dataflow setting struct for graph operations."""
-
   def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
     Construct a TAC control flow graph from a given sequence of EVM blocks.
