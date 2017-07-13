@@ -12,6 +12,7 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
+from dataflowsettings import DataFlowSettings
 
 
 POSTDOM_END_NODE = "END"
@@ -25,6 +26,9 @@ class TACGraph(cfg.ControlFlowGraph):
   A control flow graph holding Three-Address Code blocks and
   the edges between them.
   """
+
+  _def_set = DataFlowSettings(mutate_jumps=False, generate_throws = False)
+  """Default dataflow setting struct for graph operations."""
 
   def __init__(self, evm_blocks:t.Iterable[evm_cfg.EVMBasicBlock]):
     """
@@ -239,9 +243,7 @@ class TACGraph(cfg.ControlFlowGraph):
     for block in self.blocks:
       block.hook_up_def_site_jumps()
 
-  def hook_up_jumps(self,
-                    mutate_jumps:bool=False,
-                    generate_throws:bool=False) -> bool:
+  def hook_up_jumps(self, settings:DataFlowSettings=DataFlowSettings()) -> bool:
     """
     Connect all edges in the graph that can be inferred given any constant
     values of jump destinations and conditions.
@@ -250,16 +252,14 @@ class TACGraph(cfg.ControlFlowGraph):
     This is assumed to be performed after constant propagation and/or folding,
     since edges are deduced from constant-valued jumps.
 
-    Note that mutate_jumps and generate_throws should likely be true only in
-    the final iteration of a dataflow analysis, at which point as much
-    jump destination information as possible has been propagated around.
+    Note that the mutate_jumps and generate_throws settings should likely be 
+    true only in the final iteration of a dataflow analysis, at which point as
+    much jump destination information as possible has been propagated around.
     If these are used too early, they may prevent valid edges from being added
     later on.
 
     Args:
-       mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
-       generate_throws: JUMP and JUMPI instructions with invalid destinations
-                        become THROW and THROWIs
+       settings: the settings struct.
 
     Returns:
         True iff any edges in the graph were modified.
@@ -270,8 +270,7 @@ class TACGraph(cfg.ControlFlowGraph):
     # which would be incorrect behaviour.
     modified = False
     for block in self.blocks:
-      modified |= block.hook_up_jumps(mutate_jumps=mutate_jumps,
-                                      generate_throws=generate_throws)
+      modified |= block.hook_up_jumps(settings)
     return modified
 
   def add_missing_split_edges(self):
@@ -820,16 +819,14 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     return old_stack != self.entry_stack
 
-  def build_exit_stack(self, die_on_empty_pop:bool=False,
-                             skip_on_overflow:bool=True) -> bool:
+  def build_exit_stack(self,
+                       settings:DataFlowSettings=DataFlowSettings()) -> bool:
     """
     Apply the transformation in this block's delta stack to construct its
     exit stack from its entry stack.
 
     Args:
-      die_on_empty_pop: raise an exception if an empty stack is popped.
-      skip_on_overflow: do not apply the changes to the exit stack
-                        if a symbolic overflow occurred.
+      settings: settings structure.
 
     Returns:
         True iff a symbolic overflow occurred.
@@ -838,7 +835,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     # If variables were obtained from deeper than there are extant
     # stack items, the program is possibly popping from an empty stack.
-    if die_on_empty_pop \
+    if settings.die_on_empty_pop \
        and (len(self.entry_stack) < self.delta_stack.empty_pops):
       raise RuntimeError("Popped empty stack in {}.".format(self.ident()))
 
@@ -846,7 +843,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     delta = len(self.delta_stack) - self.delta_stack.empty_pops
     if (len(self.entry_stack) + delta) > self.exit_stack.max_size:
       self.symbolic_overflow = True
-      if skip_on_overflow:
+      if settings.skip_stack_on_overflow:
         return True
       overflow = True
 
@@ -910,18 +907,14 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
       self.has_unresolved_jump = (len(non_top_vars) == 0)
 
-  def hook_up_jumps(self,
-                    mutate_jumps:bool=False,
-                    generate_throws:bool=False) -> bool:
+  def hook_up_jumps(self, settings:DataFlowSettings=DataFlowSettings()) -> bool:
     """
     Connect this block up to any successors that can be inferred
     from this block's jump condition and destination.
     An invalid jump will be replaced with a THROW instruction.
 
     Args:
-        mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
-        generate_throws: JUMP and JUMPI instructions with invalid destinations
-                         become THROW and THROWIs
+        settings: the settings struct.
 
     Returns:
         True iff this block's successor list was modified.
@@ -941,14 +934,14 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
       cond = last_op.args[1].value
 
       # If the condition cannot be true, remove the jump.
-      if mutate_jumps and cond.is_false:
+      if settings.mutate_jumps and cond.is_false:
         self.tac_ops.pop()
         fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
         unresolved = False
         remove_non_fallthrough = True
 
       # If the condition must be true, the JUMPI behaves like a JUMP.
-      elif mutate_jumps and cond.is_true:
+      elif settings.mutate_jumps and cond.is_true:
         last_op.opcode = opcodes.JUMP
         last_op.args.pop()
 
@@ -992,7 +985,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     # Note that a JUMPI could still potentially throw, but not be
     # transformed into a THROWI unless *ALL* its destinations
     # are invalid.
-    if generate_throws and invalid_jump:
+    if settings.generate_throws and invalid_jump:
       self.last_op = TACOp.convert_jump_to_throw(last_op)
     self.has_unresolved_jump = unresolved
 
@@ -1016,7 +1009,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
       if s not in self.succs:
         self.cfg.add_edge(self, s)
 
-    if mutate_jumps:
+    if settings.mutate_jumps:
       fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
       if remove_non_fallthrough:
         for d in self.succs:
