@@ -173,11 +173,12 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         unmod_stack_changed_count += 1
 
       if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes
+        # clamp all stacks at their current sizes, if they are large enough.
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
-          b.entry_stack.set_max_size(new_size)
-          b.exit_stack.set_max_size(new_size)
+          if new_size >= settings.clamp_stack_minimum:
+            b.entry_stack.set_max_size(new_size)
+            b.exit_stack.set_max_size(new_size)
 
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
