@@ -14,9 +14,12 @@ install:
 script:
   - make clean test doc
   - bin/decompile --help
-  - bin/decompile examples/dao_hack.dasm
-  - bin/decompile examples/mem_leak.dasm
-  - bin/decompile examples/withdraw_dao.dasm
+  - bin/decompile -a examples/dao_hack.dasm
+  - bin/decompile -a examples/mem_leak.dasm
+  - bin/decompile -a examples/withdraw_dao.dasm
+  - bin/decompile examples/dao_hack.hex
+  - bin/decompile examples/mem_leak.hex
+  - bin/decompile examples/withdraw_dao.hex
   - bin/decompile -b examples/dao_hack.hex
   - bin/decompile -b examples/mem_leak.hex
   - bin/decompile -b examples/withdraw_dao.hex
