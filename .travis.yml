@@ -20,6 +20,7 @@ script:
   - bin/decompile examples/dao_hack.hex
   - bin/decompile examples/mem_leak.hex
   - bin/decompile examples/withdraw_dao.hex
+  - bin/decompile examples/invalid_ops.hex
   - bin/decompile -b examples/dao_hack.hex
   - bin/decompile -b examples/mem_leak.hex
   - bin/decompile -b examples/withdraw_dao.hex
@@ -40,6 +41,8 @@ script:
   - bash -c '[ -s tsv/imdom.facts ]'
   - bash -c '[ -s tsv/pdom.facts ]'
   - bash -c '[ -s tsv/impdom.facts ]'
+  - bin/disassemble examples/invalid_ops.hex
+  - bin/disassemble -p examples/invalid_ops.hex
   - bin/disassemble examples/dao_hack.hex
   - bin/disassemble -p examples/dao_hack.hex
   - bin/disassemble examples/dao_hack.hex | bin/decompile -a
