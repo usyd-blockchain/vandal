@@ -31,7 +31,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   while i != settings.max_iterations:
     loop_start_clock = time.clock()
     i += 1
-    modified = stack_analysis(cfg)
+    modified = stack_analysis(cfg, settings)
     modified |= cfg.clone_ambiguous_jump_blocks()
     if not modified:
       break
@@ -124,7 +124,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
       if settings.hook_up_stack_vars:
         curr_block.hook_up_stack_vars()
-        curr_block.apply_operations()
+        curr_block.apply_operations(settings.set_valued_ops)
 
       if settings.hook_up_jumps:
         old_succs = list(curr_block.succs)
