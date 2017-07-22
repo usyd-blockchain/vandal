@@ -1353,6 +1353,9 @@ class Destackifier:
     if op.opcode.is_push():
       args = [TACArg(var=mem.Variable(values=[op.value], name="C"))]
       inst = TACAssignOp(new_var, opcodes.CONST, args, op.pc, print_name=False)
+    elif op.opcode.is_missing():
+      args = [TACArg(var=mem.Variable(values=[op.value], name="C"))]
+      inst = TACOp(op.opcode, args, op.pc)
     elif op.opcode.is_log():
       args = [TACArg.from_var(var) for var in self.stack.pop_many(op.opcode.pop)]
       inst = TACOp(opcodes.LOG, args, op.pc)
