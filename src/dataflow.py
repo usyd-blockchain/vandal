@@ -8,7 +8,7 @@ import tac_cfg
 import lattice
 import memtypes
 from memtypes import VariableStack
-
+import logger
 
 def analyse_graph(cfg:tac_cfg.TACGraph,
                   max_iterations:int=-1, bailout_seconds:int=-1,
@@ -184,9 +184,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
         v = cume_stack.value[i]
 
         if len(v) > widen_threshold:
-          print("Widening {} in block {}"
-                .format(curr_block.entry_stack.value[i], curr_block.ident()))
-          print("  Accumulated values: {}".format(cume_stack.value[i]))
+          logger.log("Widening {} in block {}"
+                     .format(curr_block.entry_stack.value[i], curr_block.ident()))
+          logger.log("  Accumulated values: {}".format(cume_stack.value[i]))
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
