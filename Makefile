@@ -27,13 +27,20 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: doc docs test tests clean
+.PHONY: doc docs test tests pytest batstest clean
 
 doc docs:
 	make -C doc html
 
+pytest:
+	pytest
+
+batstest:
+	bats test/bats
+
 test tests:
 	pytest
+	bats test/bats
 
 clean:
 	make -C doc clean
