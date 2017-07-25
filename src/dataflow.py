@@ -7,19 +7,17 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-from settings import DataFlowSettings
+import settings
 from memtypes import VariableStack
 
 
-def analyse_graph(cfg:tac_cfg.TACGraph,
-                  settings:DataFlowSettings=DataFlowSettings()):
+def analyse_graph(cfg:tac_cfg.TACGraph):
   """
   Infer a CFG's structure by performing dataflow analyses to resolve new edges,
   until a fixed-point, the max time or max iteration count is reached.
 
   Args:
       cfg: the graph to analyse; will be modified in-place.
-      settings: the settings structure.
   """
 
   bail_time = settings.bailout_seconds
@@ -31,7 +29,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   while i != settings.max_iterations:
     loop_start_clock = time.clock()
     i += 1
-    modified = stack_analysis(cfg, settings)
+    modified = stack_analysis(cfg)
     modified |= cfg.clone_ambiguous_jump_blocks()
     if not modified:
       break
@@ -49,11 +47,17 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
-
+  
+  # Save the settings in order to restore them after final stack analysis
+  pre_mutate_jumps = settings.mutate_jumps
+  pre_generate_throws = settings.generate_throws
+  
+  # Perform the final analysis
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
-  stack_analysis(cfg, settings)
-
+  stack_analysis(cfg)
+  
+  # Perform final graph manipulations
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -62,10 +66,14 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
     cfg.remove_unreachable_code()
+ 
+  # Restore settings
+  settings.mutate_jumps = pre_mutate_jumps
+  settings.generate_throws = pre_generate_throws
 
 
-def stack_analysis(cfg:tac_cfg.TACGraph,
-                   settings:DataFlowSettings=DataFlowSettings()) -> bool:
+
+def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -74,7 +82,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
   Args:
     cfg: the graph to analyse.
-    settings: the settings structure.
 
   Returns:
     True iff the graph was modified.
@@ -115,7 +122,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
     # If a symbolic overflow occurred, the exit stack did not change,
     # and we can similarly skip the rest of the processing.
-    if curr_block.build_exit_stack(settings):
+    if curr_block.build_exit_stack():
       continue
 
     if settings.mutate_blockwise:
@@ -128,7 +135,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
       if settings.hook_up_jumps:
         old_succs = list(curr_block.succs)
-        modified = curr_block.hook_up_jumps(settings)
+        modified = curr_block.hook_up_jumps()
         graph_modified |= modified
 
         if modified:
@@ -193,7 +200,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     cfg.hook_up_stack_vars()
     cfg.apply_operations()
   if settings.hook_up_jumps:
-    graph_modified |= cfg.hook_up_jumps(settings)
+    graph_modified |= cfg.hook_up_jumps()
     graph_modified |= cfg.add_missing_split_edges()
 
   return graph_modified
