@@ -7,9 +7,9 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-import settings
 from memtypes import VariableStack
-
+import settings
+import logger
 
 def analyse_graph(cfg:tac_cfg.TACGraph):
   """
@@ -165,9 +165,10 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
         v = cume_stack.value[i]
 
         if len(v) > settings.widen_threshold:
-          print("Widening {} in block {}"
-                .format(curr_block.entry_stack.value[i], curr_block.ident()))
-          print("  Accumulated values: {}".format(cume_stack.value[i]))
+          logger.log("Widening {} in block {}"
+                     .format(curr_block.entry_stack.value[i].identifier,
+                             curr_block.ident()))
+          logger.log("  Accumulated values: {}".format(cume_stack.value[i]))
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
