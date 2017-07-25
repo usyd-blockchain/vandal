@@ -7,7 +7,7 @@ import evm_cfg
 import tac_cfg
 import lattice
 import memtypes
-from dataflowsettings import DataFlowSettings
+from settings import DataFlowSettings
 from memtypes import VariableStack
 
 

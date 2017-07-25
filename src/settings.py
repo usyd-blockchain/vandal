@@ -1,4 +1,4 @@
-"""dataflowsettings.py: a structure for manipulating dataflow analysis settings."""
+"""settings.py: a structure for manipulating dataflow analysis settings."""
 
 class DataFlowSettings:
     def __init__(self, max_iterations:int=-1, bailout_seconds:int=-1,

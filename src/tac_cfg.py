@@ -12,7 +12,7 @@ import memtypes as mem
 import blockparse
 import patterns
 from lattice import SubsetLatticeElement as ssle
-from dataflowsettings import DataFlowSettings
+from settings import DataFlowSettings
 
 
 POSTDOM_END_NODE = "END"
