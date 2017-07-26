@@ -10,7 +10,7 @@ Modules
    blockparse
    cfg
    dataflow
-   dataflowsettings
+   settings
    evm_cfg
    exporter
    lattice

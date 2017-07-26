@@ -109,8 +109,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     Returns:
       a list of the CFG's operation edges, with each edge in the form
-        ( pred, succ )
-      where pred and succ are object references.
+      `(pred, succ)` where pred and succ are object references.
     """
     edges = []
     for block in self.blocks:

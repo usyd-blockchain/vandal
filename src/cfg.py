@@ -2,7 +2,6 @@
 
 import abc
 import typing as T
-
 import patterns
 
 
@@ -144,8 +143,7 @@ class ControlFlowGraph(patterns.Visitable):
     """
     Returns:
       a list of the CFG's edges, with each edge in the form
-        ( pred, succ )
-      where pred and succ are object references.
+      `(pred, succ)` where pred and succ are object references.
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 
