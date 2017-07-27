@@ -74,21 +74,21 @@ structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
 """
 
-max_iterations:int=-1
-bailout_seconds:int=-1
-remove_unreachable:bool=False
-die_on_empty_pop:bool=False
-skip_stack_on_overflow:bool=True
-reinit_stacks:bool=True
-hook_up_stack_vars:bool=True
-hook_up_jumps:bool=True
-mutate_jumps:bool=False
-generate_throws:bool=False
-final_mutate_jumps:bool=False
-final_generate_throws:bool=True
-mutate_blockwise:bool=True
-clamp_large_stacks:bool=True
-clamp_stack_minimum:int=20
-widen_variables:bool=True
-widen_threshold:int=20
-set_valued_ops:bool=False
+max_iterations         = -1
+bailout_seconds        = -1
+remove_unreachable     = False
+die_on_empty_pop       = False
+skip_stack_on_overflow = True
+reinit_stacks          = True
+hook_up_stack_vars     = True
+hook_up_jumps          = True
+mutate_jumps           = False
+generate_throws        = False
+final_mutate_jumps     = False
+final_generate_throws  = True
+mutate_blockwise       = True
+clamp_large_stacks     = True
+clamp_stack_minimum    = 20
+widen_variables        = True
+widen_threshold        = 20
+set_valued_ops         = False
