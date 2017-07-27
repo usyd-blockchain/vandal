@@ -63,7 +63,7 @@ class TACGraph(cfg.ControlFlowGraph):
     self.hook_up_jumps()
 
   @classmethod
-  def from_dasm(cls, dasm:t.Iterable[str]) -> 'TACGraph':
+  def from_dasm(cls, dasm:t.Iterable[str], strict:bool=False) -> 'TACGraph':
     """
     Construct and return a TACGraph from the given EVM disassembly.
 
@@ -71,7 +71,7 @@ class TACGraph(cfg.ControlFlowGraph):
       dasm: a sequence of disasm lines, as output from the
             ethereum `dasm` disassembler.
     """
-    return cls(blockparse.EVMDasmParser(dasm).parse())
+    return cls(blockparse.EVMDasmParser(dasm).parse(strict))
 
   @classmethod
   def from_bytecode(cls, bytecode:t.Iterable, strict:bool=False) -> 'TACGraph':
