@@ -1,6 +1,7 @@
 """dataflow.py: fixed-point, dataflow, static analyses for CFGs"""
 
 import time
+from typing import Dict, Any
 
 import cfg
 import evm_cfg
@@ -12,20 +13,17 @@ import settings
 import logger
 
 
-def analyse_graph(cfg:tac_cfg.TACGraph,
-                  collect_analytics:bool=False):
+def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   """
   Infer a CFG's structure by performing dataflow analyses to resolve new edges,
   until a fixed-point, the max time or max iteration count is reached.
 
   Args:
       cfg: the graph to analyse; will be modified in-place.
-      collect_analytics: if true, return a dict of information about the
-                         contract, else return an empty dict
   """
 
   anal_results = {}
-  if collect_analytics:
+  if settings.collect_analytics:
     anal_results["bailout"] = False
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
@@ -47,12 +45,12 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
-        if collect_analytics:
+        if settings.collect_analytics:
           anal_results["bailout"] = True
           anal_results["bail_time"] = elapsed
         break
 
-  if collect_analytics:
+  if settings.collect_analytics:
       anal_results["num_clones"] = i
 
   # Perform a final analysis step, generating throws from invalid jumps
@@ -74,7 +72,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # Collect analytics about how frequently blocks were duplicated during
   # the analysis.
   dupe_counts = {}
-  if collect_analytics:
+  if settings.collect_analytics:
     # Find out which blocks were duplicated how many times,
     for b in cfg.blocks:
       entry = hex(b.entry)
@@ -94,10 +92,10 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
     removed = cfg.remove_unreachable_code()
-    if collect_analytics:
+    if settings.collect_analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
 
-  if collect_analytics:
+  if settings.collect_analytics:
     # accrue general graph data
     # per-block scheme: (indegree, outdegree, multiplicity)
     anal_results["num_blocks"] = len(cfg)

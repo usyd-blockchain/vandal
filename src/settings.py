@@ -69,6 +69,10 @@ set_valued_ops:
   otherwise, only apply them to variables whose value is definite.
   False by default.
 
+collect_analytics:
+  If true, dataflow analysis will return a dict of information about
+  the contract, otherwise return an empty dict. False by default.
+
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
@@ -92,3 +96,4 @@ clamp_stack_minimum    = 20
 widen_variables        = True
 widen_threshold        = 20
 set_valued_ops         = False
+collect_analytics      = False
