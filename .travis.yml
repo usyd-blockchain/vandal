@@ -1,0 +1,53 @@
+language: python
+
+python:
+  - 3.5.2
+
+addons:
+  apt:
+    packages:
+    - graphviz
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - make clean test doc
+  - bin/decompile --help
+  - bin/decompile -a examples/dao_hack.dasm
+  - bin/decompile -a examples/mem_leak.dasm
+  - bin/decompile -a examples/withdraw_dao.dasm
+  - bin/decompile examples/dao_hack.hex
+  - bin/decompile examples/mem_leak.hex
+  - bin/decompile examples/withdraw_dao.hex
+  - bin/decompile -b examples/dao_hack.hex
+  - bin/decompile -b examples/mem_leak.hex
+  - bin/decompile -b examples/withdraw_dao.hex
+  - bash -c '[ ! -f graph.pdf ]'
+  - bash -c '[ ! -d tsv ]'
+  - bin/decompile -g graph.pdf -t tsv -d -b examples/dao_hack.hex
+  - bash -c '[ -s graph.pdf ]'
+  - bash -c '[ -d tsv ]'
+  - bash -c '[ -s tsv/block.facts ]'
+  - bash -c '[ -s tsv/def.facts ]'
+  - bash -c '[ -s tsv/use.facts ]'
+  - bash -c '[ -s tsv/edge.facts ]'
+  - bash -c '[ -s tsv/entry.facts ]'
+  - bash -c '[ -s tsv/exit.facts ]'
+  - bash -c '[ -s tsv/op.facts ]'
+  - bash -c '[ -s tsv/value.facts ]'
+  - bash -c '[ -s tsv/dom.facts ]'
+  - bash -c '[ -s tsv/imdom.facts ]'
+  - bash -c '[ -s tsv/pdom.facts ]'
+  - bash -c '[ -s tsv/impdom.facts ]'
+  - bin/disassemble examples/dao_hack.hex
+  - bin/disassemble -p examples/dao_hack.hex
+  - bin/disassemble examples/dao_hack.hex | bin/decompile -a
+  - bash -c '[ ! -f basic.tac ]'
+  - bin/decompile -a examples/basic.dasm basic.tac
+  - bash -c '[ -s basic.tac ]'
+
+notifications:
+  slack:
+    secure: lrS78wjp3rdMXEMIPeDFnEFn3cVyn8u4R8Vf/Vuhv9ZFur7HzhsZ2u/s/LVjDuq511bODoXkwLtUt3SrWMyUPrGT2Eh4YHO6O4RzkOGS0EPvFDLa3B6uMT4CfvQuuOx+KYLP1CTsWj27BBtD3//LJOrS8tmOSLlQDeIJmLL0zK3F4PJpUSuIXgmF86Phmcd7PLikggnbHSyGZlMObxxJeiJ2Ycp8/g4VNGKTfBhOsS6CpJtWqI1rc++LB/ihk5SiY2ycJ7WhaiAjzjnEWlW1IwCBXJ5qb9Gdp1qbDEolmwF7m8wcWmfsHekK4Sx1u1tltYEUvmcDSluvXTYPbakUlVN3zSuYUnp1xv3hHtEkwNoKLzMwwp3kq/9RChpM+z4/VsLhM48kli1tk75cubPDOM1/xVCtJLer7HPDrTAFkWamFpD+xlsa9KNbI7Wrd0SmSy4bQ/p9AH27+sIQWh/ackzxy4rNAQfR72Xrzb36vqM7WnWg3g9XI4ndr+nqZMR57FG8c5MItPI5lWBADzb8E3WpDuNnRpwqBt1EAFMs6pNfWZ06ubcWr/aDkGByFEeOS1KS1RhRwQNSTlPWb2kbhNGFligEPwloZ98gU9SEU2wc2ZtCL6mxSKRFHFfD04wxe+JWryMygRQUXsUR3LP2XpTS9tT4wGx+t7so4vxXUK0=
+  email: false

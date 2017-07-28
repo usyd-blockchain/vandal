@@ -98,7 +98,7 @@ def format_value(value):
   value = "0x{:02x}".format(value)
   if args.prettify:
     value = colored(value, VAL_COL)
-  return " => " + value
+  return value
 
 try:
   for i, infile in enumerate(args.infile):

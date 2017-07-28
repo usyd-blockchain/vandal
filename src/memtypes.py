@@ -231,7 +231,7 @@ class Variable(ssle, Location):
                name=VAR_RESULT_NAME) -> 'Variable':
     """
     Apply the named arithmetic operation to the given Variables' values
-    in all ordered combinations, and return a Variable containing the result.
+    in all permutations, and return a Variable containing the result.
 
     Args:
       opname: the EVM operation to apply.
