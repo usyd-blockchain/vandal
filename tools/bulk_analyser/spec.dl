@@ -36,6 +36,7 @@
 .decl pdom(s:Statement, d:Statement)
 .input pdom
 
+// Place opcodes into various categories.
 .decl unaryArith(opcode:Opcode)
 unaryArith("ISZERO").
 unaryArith("NOT").
@@ -73,6 +74,9 @@ runtimeKnowable("CALLDATASIZE").
 runtimeKnowable("CODESIZE").
 runtimeKnowable("GASPRICE").
 
+.decl isThrow(stmt:Statement)
+isThrow(stmt) :- op(stmt, "THROW").
+isThrow(stmt) :- op(stmt, "THROWI").
 
 
 // LOGIC
@@ -131,9 +135,7 @@ stateWriteUse(var, stmt) :- op(stmt, "SSTORE"), use(var, stmt).
 usedInStateOrCond(var, stmt) :- conditionVar(var, stmt).
 usedInStateOrCond(var, stmt) :- stateWriteUse(var, stmt).
 
-.decl isThrow(stmt:Statement)
-isThrow(stmt) :- op(stmt, "THROW").
-isThrow(stmt) :- op(stmt, "THROWI").
+
 
 // statement is a binary operator and has two distinct argument variables
 .decl distinctArgs2(stmt:Statement, op1:Variable, op2:Variable)
