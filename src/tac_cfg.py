@@ -695,7 +695,6 @@ class TACGraph(cfg.ControlFlowGraph):
            id(sig_var) not in [id(a.value) for a in o.args]:
           continue
         if o.opcode == opcodes.EQ:
-          print(o)
           sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
           func_sigs.append(hex(sig.const_value))
 

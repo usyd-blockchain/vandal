@@ -5,25 +5,36 @@
 
 // INPUT
 
-.decl entry(s:Statement) input 			    // statements without predecessors
-.decl edge(h:Statement, t:Statement) input          // There is a CFG edge from h to t
-.decl def(var:Variable, stmt:Statement) input       // var is defined by stmt
-.decl use(var:Variable, stmt:Statement) input       // var is used by stmt
-.decl op(stmt:Statement, op:Opcode) input           // stmt's opcode is op
-.decl value(var:Variable, val:Value) input          // A variable's possible value set if known
+.decl entry(s:Statement) 			                // statements without predecessors
+.input entry
+.decl edge(h:Statement, t:Statement)                // There is a CFG edge from h to t
+.input edge
+.decl def(var:Variable, stmt:Statement)             // var is defined by stmt
+.input def
+.decl use(var:Variable, stmt:Statement)             // var is used by stmt
+.input use
+.decl op(stmt:Statement, op:Opcode)                 // stmt's opcode is op
+.input op
+.decl value(var:Variable, val:Value)                // A variable's possible value set if known
+.input value
 
 // Requires dominator, CALL, JUMPI, SSTORE relations.
-.decl op_CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable, data_length:Variable, return_start:Variable, return_length:Variable) input
-.decl op_JUMPI(stmt:Statement, dest:Variable, cond:Variable) input
-.decl op_SSTORE(stmt:Statement, loc:Variable, val:Variable) input
+.decl op_CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable, data_length:Variable, return_start:Variable, return_length:Variable)
+.input op_CALL
+.decl op_JUMPI(stmt:Statement, dest:Variable, cond:Variable)
+.input op_JUMPI
+.decl op_SSTORE(stmt:Statement, loc:Variable, val:Variable)
+.input op_SSTORE
 
 // Dominance relations
 // [p]dom(s, d) => s is [post-]dominated by d
 // x is dominated by y if all paths from the root to x must go through y
 // Post-domination is domination in the reversed cfg with an auxiliary node connected to all
 // exit nodes.
-.decl dom(s:Statement, d:Statement) input
-.decl pdom(s:Statement, d:Statement) input
+.decl dom(s:Statement, d:Statement)
+.input dom
+.decl pdom(s:Statement, d:Statement)
+.input pdom
 
 .decl unaryArith(opcode:Opcode)
 unaryArith("ISZERO").
@@ -253,32 +264,37 @@ protectedByLoc(protectedStmt, sLoc) :- controlsWith(controlStmt, protectedStmt, 
 gassy(stmt, var) :- use(var, stmt), depends(var, gasVar), gasResult(gasVar, _).
 
 // Could also check whether the gas is higher than some manually-set gas threshold.
-.decl reentrantCall(stmt: Statement) output
+.decl reentrantCall(stmt: Statement)
+.output reentrantCall
 reentrantCall(stmt) :- op(stmt, "CALL"), !protectedByLoc(stmt, _), gassy(stmt, gasVar), op_CALL(stmt, gasVar, _, _, _, _, _, _).
 
 
 // ORIGIN 
 
 // Dependency from the origin opcode to an actual use of it.
-.decl originUsed(stmt:Statement) output
+.decl originUsed(stmt:Statement)
+.output originUsed
 originUsed(stmt) :- originResult(originVar, stmt), depends(useVar, originVar), 
 		    usedInStateOrCond(useVar, stmt).
 
 // UNCHECKED SEND
 
-.decl checkedCallThrows(callStmt:Statement) output
+.decl checkedCallThrows(callStmt:Statement)
+.output checkedCallThrows
 checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
 			       controlsWith(_, throwStmt, cond), isThrow(throwStmt).
 checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
 			       use(cond, throwStmt), isThrow(throwStmt).
 
-.decl checkedCallStateUpdate(callStmt:Statement) output
+.decl checkedCallStateUpdate(callStmt:Statement)
+.output checkedCallStateUpdate
 checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
 			            controlsWith(_, storeStmt, cond), op(storeStmt, "SSTORE").
 checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(stateVar, resVar),
 				    use(stateVar, storeStmt), op(storeStmt, "SSTORE").
 
-.decl uncheckedCall(u:Statement) output
+.decl uncheckedCall(u:Statement)
+.output uncheckedCall
 uncheckedCall(u) :- callResult(_, u), !checkedCallThrows(u), !checkedCallStateUpdate(u).
 
 // UNSECURED BALANCE
@@ -289,11 +305,13 @@ fromCallValue(var) :- depends(var, callValVar), def(callValVar, callValStmt), op
 usefulValue(var) :- !value(var, "0x0"), !fromCallValue(var), def(var, _).
 
 // A call statement satisfies this relation if its target can be manipulated (and is not constant), it actually sends some value, and it's actually callable.
-.decl unsecuredValueSend(stmt:Statement) output
+.decl unsecuredValueSend(stmt:Statement)
+.output unsecuredValueSend
 unsecuredValueSend(stmt) :- op_CALL(stmt, _, target, val, _, _, _, _), nonConstManipulable(target), usefulValue(val), !inaccessible(stmt).
 
 // SUICIDE
-.decl accessibleSuicide(stmt:Statement) output
+.decl accessibleSuicide(stmt:Statement)
+.output accessibleSuicide
 accessibleSuicide(stmt) :- !inaccessible(stmt), op(stmt, "SUICIDE").
 
 
