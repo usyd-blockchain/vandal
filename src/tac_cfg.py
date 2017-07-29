@@ -668,17 +668,25 @@ class TACGraph(cfg.ControlFlowGraph):
     Call this after having already called prop_vars_between_blocks().
     """
 
-    # Find function signature variable at call data 0
-    entry_block = self.get_block_by_ident("0x0")
-    loadlist = [op for op in entry_block.tac_ops
-                if op.opcode == opcodes.CALLDATALOAD
-                and op.args[0].value.const_value == 0]
-    if len(loadlist) == 0:
+    # Find the function signature variable holding call data 0,
+    # at the earliest query to that location in the program.
+    load_list = []
+    load_block = None
+
+    for block in sorted(self.blocks, key=lambda b: b.entry):
+      load_list = [op for op in block.tac_ops
+                   if op.opcode == opcodes.CALLDATALOAD
+                   and op.args[0].value.const_value == 0]
+      if len(load_list) != 0:
+        load_block = block
+        break
+
+    if len(load_list) == 0:
       return []
-    sig_var = loadlist[0].lhs
+    sig_var = load_list[0].lhs
 
     # Follow the signature until it's transformed into its final shape.
-    for o in entry_block.tac_ops:
+    for o in load_block.tac_ops:
       if not isinstance(o, tac_cfg.TACAssignOp) or \
          id(sig_var) not in [id(a.value) for a in o.args]:
         continue
