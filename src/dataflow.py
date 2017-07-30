@@ -49,12 +49,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   cfg.hook_up_def_site_jumps()
 
   # Save the settings in order to restore them after final stack analysis
-  pre_mutate_jumps = settings.mutate_jumps
-  pre_generate_throws = settings.generate_throws
-
-  # Perform the final analysis
+  settings.save()
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
+
+  # Perform the final analysis
   stack_analysis(cfg)
 
   # Perform final graph manipulations
@@ -68,9 +67,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     cfg.remove_unreachable_code()
 
   # Restore settings
-  settings.mutate_jumps = pre_mutate_jumps
-  settings.generate_throws = pre_generate_throws
-
+  settings.restore()
 
 
 def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:

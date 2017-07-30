@@ -1,11 +1,11 @@
 """settings.py: dataflow analysis settings.
 
 max_iterations:
-  The maximum number of times to perform the graph analysis step. 
+  The maximum number of times to perform the graph analysis step.
   A negative value means no maximum. No limit by default.
 
 bailout_seconds:
-  Break out of the analysis loop if the time spent exceeds this value. 
+  Break out of the analysis loop if the time spent exceeds this value.
   Not a hard cap as subsequent analysis steps are required, and at least one
   iteration will always be performed. A negative value means no maximum.
   No limit by default.
@@ -74,6 +74,8 @@ structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
 """
 
+# The settings
+
 max_iterations         = -1
 bailout_seconds        = -1
 remove_unreachable     = False
@@ -92,3 +94,26 @@ clamp_stack_minimum    = 20
 widen_variables        = True
 widen_threshold        = 20
 set_valued_ops         = False
+
+
+# A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
+_module_ = __import__("sys").modules[__name__]
+
+# The names of all the settings defined above.
+_names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
+
+# A stack for saving and restoring setting configurations.
+_stack_ = []
+
+def _get_dict_():
+  """Return the current module's dictionary of members so the settings can be dynamically accessed by name."""
+  return _module_.__dict__
+
+def save():
+  """Push the current setting configuration to the stack."""
+  sd = _get_dict_()
+  _stack_.append({n: sd[n] for n in _names_})
+
+def restore():
+  """Restore the setting configuration from the top of the stack."""
+  _get_dict_().update(_stack_.pop())

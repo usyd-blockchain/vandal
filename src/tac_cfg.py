@@ -937,7 +937,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
         unresolved = False
         remove_fallthrough = True
 
-      # Otherwise, the condition can't be resolved, but check the destination>
+      # Otherwise, the condition can't be resolved (it may be either true or false), but check the destination>
       else:
         fallthrough = self.cfg.get_blocks_by_pc(last_op.pc + 1)
 
