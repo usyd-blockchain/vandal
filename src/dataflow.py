@@ -55,19 +55,14 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Perform a final analysis step, generating throws from invalid jumps
   cfg.hook_up_def_site_jumps()
-  
+
   # Save the settings in order to restore them after final stack analysis
-  pre_mutate_jumps = settings.mutate_jumps
-  pre_generate_throws = settings.generate_throws
-  
-  # Perform the final analysis
+  settings.save()
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
-  stack_analysis(cfg)
 
-  # Restore settings
-  settings.mutate_jumps = pre_mutate_jumps
-  settings.generate_throws = pre_generate_throws
+  # Perform the final analysis
+  stack_analysis(cfg)
 
   # Collect analytics about how frequently blocks were duplicated during
   # the analysis.
@@ -94,6 +89,9 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     removed = cfg.remove_unreachable_code()
     if settings.collect_analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
+
+  # Restore settings
+  settings.restore()
 
   if settings.collect_analytics:
     # accrue general graph data
@@ -146,6 +144,12 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
 
+  # We won't mutate any jumps or generate any throws until the graph has stabilised, because variables will not yet
+  # have attained their final values until that stage.
+  settings.save()
+  settings.mutate_jumps = False
+  settings.generate_throws = False
+
   # Churn until we reach a fixed point.
   while queue:
     curr_block = queue.pop(0)
@@ -156,8 +160,53 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
     if not curr_block.build_entry_stack() and visited[curr_block]:
       continue
 
+    # Perform any widening operations that need to be applied before calculating the exit stack.
+    if settings.widen_variables:
+      # If a variable's possible value set might be practically unbounded,
+      # it must be widened in order for our analysis not to take forever.
+      # Additionally, the widening threshold should be set low enough that
+      # computations involving those large stack variables don't take too long.
+
+      cume_stack = cumulative_entry_stacks[curr_block.ident()]
+      cumulative_entry_stacks[curr_block.ident()] = VariableStack.join(cume_stack,
+                                                        curr_block.entry_stack)
+
+      # Check for each stack variable whether it needs widening.
+      for i in range(len(cume_stack)):
+        v = cume_stack.value[i]
+
+        if len(v) > settings.widen_threshold and not v.is_unconstrained:
+          logger.log_high("Widening {} in block {}",
+                          curr_block.entry_stack.value[i].identifier,
+                          curr_block.ident())
+          logger.log_high("  Accumulated values: {}",
+                          cume_stack.value[i])
+          cume_stack.value[i] = memtypes.Variable.top()
+          curr_block.entry_stack.value[i].value = cume_stack.value[i].value
+
+    if settings.clamp_large_stacks:
+      # As variables can grow in size, stacks can grow in depth.
+      # If a stack is getting unmanageably deep, we may choose to freeze its
+      # maximum depth at some point.
+      # If graph_size visited blocks change their stack states without
+      # the structure of the graph being changed, then we assume there is a
+      # positive cycle that will overflow the stacks. Clamp max stack size to
+      # current maximum in response.
+
+      if visited[curr_block]:
+        unmod_stack_changed_count += 1
+
+      if unmod_stack_changed_count > graph_size:
+        # clamp all stacks at their current sizes, if they are large enough.
+        for b in cfg.blocks:
+          new_size = max(len(b.entry_stack), len(b.exit_stack))
+          if new_size >= settings.clamp_stack_minimum:
+            b.entry_stack.set_max_size(new_size)
+            b.exit_stack.set_max_size(new_size)
+
+    # Build the exit stack.
     # If a symbolic overflow occurred, the exit stack did not change,
-    # and we can similarly skip the rest of the processing.
+    # and we can skip the rest of the processing (as with entry stack).
     if curr_block.build_exit_stack():
       continue
 
@@ -186,50 +235,12 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
             for succ in curr_block.succs:
               visited[succ] = False
 
-    if settings.widen_variables:
-      # If a variable's possible value set might be practically unbounded,
-      # it must be widened in order for our analysis not to take forever.
-      # Additionally, the widening threshold should be set low enough that
-      # computations involving those large stack variables don't take too long.
-
-      cume_stack = cumulative_entry_stacks[curr_block.ident()]
-      cumulative_entry_stacks[curr_block.ident()] = VariableStack.join(cume_stack,
-                                                        curr_block.entry_stack)
-
-      # Check for each stack variable whether it needs widening.
-      for i in range(len(cume_stack)):
-        v = cume_stack.value[i]
-
-        if len(v) > settings.widen_threshold:
-          logger.log("Widening {} in block {}"
-                     .format(curr_block.entry_stack.value[i].identifier,
-                             curr_block.ident()))
-          logger.log("  Accumulated values: {}".format(cume_stack.value[i]))
-          cume_stack.value[i] = memtypes.Variable.top()
-          curr_block.entry_stack.value[i].value = cume_stack.value[i].value
-
-    if settings.clamp_large_stacks:
-      # As variables can grow in size, stacks can grow in depth.
-      # If a stack is getting unmanageably deep, we may choose to freeze its
-      # maximum depth at some point.
-      # If graph_size visited blocks change their stack states without
-      # the structure of the graph being changed, then we assume there is a
-      # positive cycle that will overflow the stacks. Clamp max stack size to
-      # current maximum in response.
-
-      if visited[curr_block]:
-        unmod_stack_changed_count += 1
-
-      if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes, if they are large enough.
-        for b in cfg.blocks:
-          new_size = max(len(b.entry_stack), len(b.exit_stack))
-          if new_size >= settings.clamp_stack_minimum:
-            b.entry_stack.set_max_size(new_size)
-            b.exit_stack.set_max_size(new_size)
-
+    # Add all the successors of this block to the queue to be processed, since its exit stack changed.
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
+
+  # Reached a fixed point in the dataflow analysis, restore settings so we can mutate jumps and gen throws.
+  settings.restore()
 
   # Recondition the graph if desired, to hook up new relationships
   # possible to determine after having performed stack analysis.
