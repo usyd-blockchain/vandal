@@ -47,16 +47,16 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
-  
+
   # Save the settings in order to restore them after final stack analysis
   pre_mutate_jumps = settings.mutate_jumps
   pre_generate_throws = settings.generate_throws
-  
+
   # Perform the final analysis
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
   stack_analysis(cfg)
-  
+
   # Perform final graph manipulations
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
@@ -66,11 +66,10 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
     cfg.remove_unreachable_code()
- 
+
   # Restore settings
   settings.mutate_jumps = pre_mutate_jumps
   settings.generate_throws = pre_generate_throws
-
 
 
 def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
@@ -105,6 +104,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   # since the last time the structure of the graph was modified.
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
+
+  # True if stack sizes have been clamped
+  stacks_clamped = False
 
   # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VariableStack()
@@ -145,7 +147,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
           if settings.widen_variables:
             cumulative_entry_stacks = {block.ident(): VariableStack()
                                        for block in cfg.blocks}
-          if settings.clamp_large_stacks:
+          if settings.clamp_large_stacks and not stacks_clamped:
             unmod_stack_changed_count = 0
             for succ in curr_block.succs:
               visited[succ] = False
@@ -172,7 +174,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
-    if settings.clamp_large_stacks:
+    if settings.clamp_large_stacks and not stacks_clamped:
       # As variables can grow in size, stacks can grow in depth.
       # If a stack is getting unmanageably deep, we may choose to freeze its
       # maximum depth at some point.
@@ -184,8 +186,11 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       if visited[curr_block]:
         unmod_stack_changed_count += 1
 
+      # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes, if they are large enough.
+        logger.log_high("Clamping stacks sizes after {} unmodified iterations.",
+                        unmod_stack_changed_count)
+        stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
           if new_size >= settings.clamp_stack_minimum:
