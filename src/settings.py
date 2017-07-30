@@ -57,7 +57,7 @@ clamp_stack_minimum:
   Stack sizes will not be clamped smaller than this value. Default value is 20.
 
 widen_variables:
-  If any stack variable's number of possible values exceeds a given threshold,
+  If any computed variable's number of possible values exceeds a given threshold,
   widen its value to Top. True by default.
 
 widen_threshold:
