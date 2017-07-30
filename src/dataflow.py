@@ -47,16 +47,16 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
-  
+
   # Save the settings in order to restore them after final stack analysis
   pre_mutate_jumps = settings.mutate_jumps
   pre_generate_throws = settings.generate_throws
-  
+
   # Perform the final analysis
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
   stack_analysis(cfg)
-  
+
   # Perform final graph manipulations
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
@@ -66,7 +66,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
     cfg.remove_unreachable_code()
- 
+
   # Restore settings
   settings.mutate_jumps = pre_mutate_jumps
   settings.generate_throws = pre_generate_throws
@@ -164,7 +164,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       for i in range(len(cume_stack)):
         v = cume_stack.value[i]
 
-        if len(v) > settings.widen_threshold:
+        if len(v) > settings.widen_threshold and not v.is_unconstrained:
           logger.log("Widening {} in block {}"
                      .format(curr_block.entry_stack.value[i].identifier,
                              curr_block.ident()))

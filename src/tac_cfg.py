@@ -1035,10 +1035,12 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     for op in self.tac_ops:
       if op.opcode == opcodes.CONST:
         op.lhs.values = op.args[0].value.values
-      elif op.opcode.is_arithmetic() and \
-           (op.constant_args() or (op.constrained_args() and use_sets)):
-        rhs = [var.value for var in op.args]
-        op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
+      elif op.opcode.is_arithmetic():
+        if op.constant_args() or (op.constrained_args() and use_sets):
+          rhs = [var.value for var in op.args]
+          op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
+        else:
+          op.lhs.widen_to_top()
 
 
 class TACOp(patterns.Visitable):
