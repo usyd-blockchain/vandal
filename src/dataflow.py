@@ -107,6 +107,12 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
 
+  # We won't mutate any jumps or generate any throws until the graph has stabilised, because variables will not yet
+  # have attained their final values until that stage.
+  settings.save()
+  settings.mutate_jumps = False
+  settings.generate_throws = False
+
   # Churn until we reach a fixed point.
   while queue:
     curr_block = queue.pop(0)
@@ -191,6 +197,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
 
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
+
+  # Reached a fixed point in the dataflow analysis, restore settings so we can mutate jumps and gen throws.
+  settings.restore()
 
   # Recondition the graph if desired, to hook up new relationships
   # possible to determine after having performed stack analysis.
