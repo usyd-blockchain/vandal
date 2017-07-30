@@ -123,36 +123,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
     if not curr_block.build_entry_stack() and visited[curr_block]:
       continue
 
-    # If a symbolic overflow occurred, the exit stack did not change,
-    # and we can similarly skip the rest of the processing.
-    if curr_block.build_exit_stack():
-      continue
-
-    if settings.mutate_blockwise:
-      # Hook up edges from the changed stack after each block has been handled,
-      # rather than all at once at the end. The graph evolves as we go.
-
-      if settings.hook_up_stack_vars:
-        curr_block.hook_up_stack_vars()
-        curr_block.apply_operations(settings.set_valued_ops)
-
-      if settings.hook_up_jumps:
-        old_succs = list(curr_block.succs)
-        modified = curr_block.hook_up_jumps()
-        graph_modified |= modified
-
-        if modified:
-          # Some successors of a modified block may need to be rechecked.
-          queue += [s for s in old_succs if s not in queue]
-
-          if settings.widen_variables:
-            cumulative_entry_stacks = {block.ident(): VariableStack()
-                                       for block in cfg.blocks}
-          if settings.clamp_large_stacks:
-            unmod_stack_changed_count = 0
-            for succ in curr_block.succs:
-              visited[succ] = False
-
+    # Perform any widening operations that need to be applied before calculating the exit stack.
     if settings.widen_variables:
       # If a variable's possible value set might be practically unbounded,
       # it must be widened in order for our analysis not to take forever.
@@ -195,6 +166,38 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
             b.entry_stack.set_max_size(new_size)
             b.exit_stack.set_max_size(new_size)
 
+    # Build the exit stack.
+    # If a symbolic overflow occurred, the exit stack did not change,
+    # and we can skip the rest of the processing (as with entry stack).
+    if curr_block.build_exit_stack():
+      continue
+
+    if settings.mutate_blockwise:
+      # Hook up edges from the changed stack after each block has been handled,
+      # rather than all at once at the end. The graph evolves as we go.
+
+      if settings.hook_up_stack_vars:
+        curr_block.hook_up_stack_vars()
+        curr_block.apply_operations(settings.set_valued_ops)
+
+      if settings.hook_up_jumps:
+        old_succs = list(curr_block.succs)
+        modified = curr_block.hook_up_jumps()
+        graph_modified |= modified
+
+        if modified:
+          # Some successors of a modified block may need to be rechecked.
+          queue += [s for s in old_succs if s not in queue]
+
+          if settings.widen_variables:
+            cumulative_entry_stacks = {block.ident(): VariableStack()
+                                       for block in cfg.blocks}
+          if settings.clamp_large_stacks:
+            unmod_stack_changed_count = 0
+            for succ in curr_block.succs:
+              visited[succ] = False
+
+    # Add all the successors of this block to the queue to be processed, since its exit stack changed.
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
 

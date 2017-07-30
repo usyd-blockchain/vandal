@@ -1037,9 +1037,9 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
         op.lhs.values = op.args[0].value.values
       elif op.opcode.is_arithmetic():
         if op.constant_args() or (op.constrained_args() and use_sets):
-          rhs = [var.value for var in op.args]
+          rhs = [arg.value for arg in op.args]
           op.lhs.values = mem.Variable.arith_op(op.opcode.name, rhs).values
-        else:
+        elif not op.lhs.is_unconstrained:
           op.lhs.widen_to_top()
 
 
