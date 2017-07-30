@@ -139,10 +139,11 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
         v = cume_stack.value[i]
 
         if len(v) > settings.widen_threshold and not v.is_unconstrained:
-          logger.log("Widening {} in block {}"
-                     .format(curr_block.entry_stack.value[i].identifier,
-                             curr_block.ident()))
-          logger.log("  Accumulated values: {}".format(cume_stack.value[i]))
+          logger.log_high("Widening {} in block {}",
+                          curr_block.entry_stack.value[i].identifier,
+                          curr_block.ident())
+          logger.log_high("  Accumulated values: {}",
+                          cume_stack.value[i])
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
