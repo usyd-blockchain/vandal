@@ -62,12 +62,12 @@ widen_variables:
 
 widen_threshold:
   Widen if the size of a given variable exceeds this value.
-  Default value is 20.
+  Default value is 10.
 
 set_valued_ops:
-  If true, apply arithmetic operations to variables with multiple values;
+  If True, apply arithmetic operations to variables with multiple values;
   otherwise, only apply them to variables whose value is definite.
-  False by default.
+  True by default.
 
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
@@ -92,8 +92,8 @@ mutate_blockwise       = True
 clamp_large_stacks     = True
 clamp_stack_minimum    = 20
 widen_variables        = True
-widen_threshold        = 20
-set_valued_ops         = False
+widen_threshold        = 10
+set_valued_ops         = True
 
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
