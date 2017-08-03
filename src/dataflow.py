@@ -188,7 +188,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
 
       # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        logger.log_high("Clamping stacks sizes after {} unmodified iterations.",
+        logging.debug("Clamping stacks sizes after %s unmodified iterations.",
                         unmod_stack_changed_count)
         stacks_clamped = True
         for b in cfg.blocks:
