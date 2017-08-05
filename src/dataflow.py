@@ -19,6 +19,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
+  
+  logging.info("Beginning dataflow analysis loop.")
 
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
@@ -40,7 +42,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
+        logging.info("Bailed out after %s seconds.", elapsed)
         break
+
+  logging.info("Completed %s dataflow iterations.", i)
+  logging.info("Finalising graph.")
 
   # Perform a final analysis step, generating throws from invalid jumps
   # and merging any blocks that were split.
@@ -65,6 +71,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
 
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
+    logging.info("Culling unreachable blocks.")
     cfg.remove_unreachable_code()
 
   # Restore settings
