@@ -9,7 +9,7 @@ import lattice
 import memtypes
 from memtypes import VariableStack
 import settings
-import logger
+import logging
 
 def analyse_graph(cfg:tac_cfg.TACGraph):
   """
@@ -19,6 +19,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
+  
+  logging.info("Beginning dataflow analysis loop.")
 
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
@@ -40,7 +42,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
+        logging.info("Bailed out after %s seconds.", elapsed)
         break
+
+  logging.info("Completed %s dataflow iterations.", i)
+  logging.info("Finalising graph.")
 
   # Perform a final analysis step, generating throws from invalid jumps
   # and merging any blocks that were split.
@@ -65,6 +71,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
 
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
+    logging.info("Culling unreachable blocks.")
     cfg.remove_unreachable_code()
 
   # Restore settings
@@ -167,10 +174,10 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
         v = cume_stack.value[i]
 
         if len(v) > settings.widen_threshold:
-          logger.log("Widening {} in block {}"
-                     .format(curr_block.entry_stack.value[i].identifier,
-                             curr_block.ident()))
-          logger.log("  Accumulated values: {}".format(cume_stack.value[i]))
+          logging.debug("Widening %s in block %s\n   Accumulated values: %s",
+                        curr_block.entry_stack.value[i].identifier,
+                        curr_block.ident(),
+                        cume_stack.value[i])
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
@@ -188,7 +195,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
 
       # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        logger.log_high("Clamping stacks sizes after {} unmodified iterations.",
+        logging.debug("Clamping stacks sizes after %s unmodified iterations.",
                         unmod_stack_changed_count)
         stacks_clamped = True
         for b in cfg.blocks:
