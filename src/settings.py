@@ -1,11 +1,11 @@
 """settings.py: dataflow analysis settings.
 
 max_iterations:
-  The maximum number of times to perform the graph analysis step. 
+  The maximum number of times to perform the graph analysis step.
   A negative value means no maximum. No limit by default.
 
 bailout_seconds:
-  Break out of the analysis loop if the time spent exceeds this value. 
+  Break out of the analysis loop if the time spent exceeds this value.
   Not a hard cap as subsequent analysis steps are required, and at least one
   iteration will always be performed. A negative value means no maximum.
   No limit by default.
@@ -57,22 +57,24 @@ clamp_stack_minimum:
   Stack sizes will not be clamped smaller than this value. Default value is 20.
 
 widen_variables:
-  If any stack variable's number of possible values exceeds a given threshold,
+  If any computed variable's number of possible values exceeds a given threshold,
   widen its value to Top. True by default.
 
 widen_threshold:
   Widen if the size of a given variable exceeds this value.
-  Default value is 20.
+  Default value is 10.
 
 set_valued_ops:
-  If true, apply arithmetic operations to variables with multiple values;
+  If True, apply arithmetic operations to variables with multiple values;
   otherwise, only apply them to variables whose value is definite.
-  False by default.
+  True by default.
 
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
 """
+
+# The settings
 
 max_iterations         = -1
 bailout_seconds        = -1
@@ -90,5 +92,28 @@ mutate_blockwise       = True
 clamp_large_stacks     = True
 clamp_stack_minimum    = 20
 widen_variables        = True
-widen_threshold        = 20
-set_valued_ops         = False
+widen_threshold        = 10
+set_valued_ops         = True
+
+
+# A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
+_module_ = __import__("sys").modules[__name__]
+
+# The names of all the settings defined above.
+_names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
+
+# A stack for saving and restoring setting configurations.
+_stack_ = []
+
+def _get_dict_():
+  """Return the current module's dictionary of members so the settings can be dynamically accessed by name."""
+  return _module_.__dict__
+
+def save():
+  """Push the current setting configuration to the stack."""
+  sd = _get_dict_()
+  _stack_.append({n: sd[n] for n in _names_})
+
+def restore():
+  """Restore the setting configuration from the top of the stack."""
+  _get_dict_().update(_stack_.pop())

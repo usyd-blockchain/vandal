@@ -54,16 +54,17 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
 
-  # Save the settings in order to restore them after final stack analysis
-  pre_mutate_jumps = settings.mutate_jumps
-  pre_generate_throws = settings.generate_throws
-
-  # Perform the final analysis
+  # Save the settings in order to restore them after final stack analysis.
+  settings.save()
+  
+  # Apply final analysis step settings.
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
+
+  # Perform the final analysis.
   stack_analysis(cfg)
 
-  # Perform final graph manipulations
+  # Perform final graph manipulations.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -74,10 +75,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     logging.info("Culling unreachable blocks.")
     cfg.remove_unreachable_code()
 
-  # Restore settings
-  settings.mutate_jumps = pre_mutate_jumps
-  settings.generate_throws = pre_generate_throws
-
+  # Restore settings.
+  settings.restore()
 
 def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   """
@@ -119,6 +118,12 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
 
+  # We won't mutate any jumps or generate any throws until the graph has stabilised, because variables will not yet
+  # have attained their final values until that stage.
+  settings.save()
+  settings.mutate_jumps = False
+  settings.generate_throws = False
+
   # Churn until we reach a fixed point.
   while queue:
     curr_block = queue.pop(0)
@@ -129,36 +134,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
     if not curr_block.build_entry_stack() and visited[curr_block]:
       continue
 
-    # If a symbolic overflow occurred, the exit stack did not change,
-    # and we can similarly skip the rest of the processing.
-    if curr_block.build_exit_stack():
-      continue
-
-    if settings.mutate_blockwise:
-      # Hook up edges from the changed stack after each block has been handled,
-      # rather than all at once at the end. The graph evolves as we go.
-
-      if settings.hook_up_stack_vars:
-        curr_block.hook_up_stack_vars()
-        curr_block.apply_operations(settings.set_valued_ops)
-
-      if settings.hook_up_jumps:
-        old_succs = list(curr_block.succs)
-        modified = curr_block.hook_up_jumps()
-        graph_modified |= modified
-
-        if modified:
-          # Some successors of a modified block may need to be rechecked.
-          queue += [s for s in old_succs if s not in queue]
-
-          if settings.widen_variables:
-            cumulative_entry_stacks = {block.ident(): VariableStack()
-                                       for block in cfg.blocks}
-          if settings.clamp_large_stacks and not stacks_clamped:
-            unmod_stack_changed_count = 0
-            for succ in curr_block.succs:
-              visited[succ] = False
-
+    # Perform any widening operations that need to be applied before calculating the exit stack.
     if settings.widen_variables:
       # If a variable's possible value set might be practically unbounded,
       # it must be widened in order for our analysis not to take forever.
@@ -173,7 +149,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       for i in range(len(cume_stack)):
         v = cume_stack.value[i]
 
-        if len(v) > settings.widen_threshold:
+        if len(v) > settings.widen_threshold and not v.is_unconstrained:
           logging.debug("Widening %s in block %s\n   Accumulated values: %s",
                         curr_block.entry_stack.value[i].identifier,
                         curr_block.ident(),
@@ -204,8 +180,43 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
             b.entry_stack.set_max_size(new_size)
             b.exit_stack.set_max_size(new_size)
 
+    # Build the exit stack.
+    # If a symbolic overflow occurred, the exit stack did not change,
+    # and we can skip the rest of the processing (as with entry stack).
+    if curr_block.build_exit_stack():
+      continue
+
+    if settings.mutate_blockwise:
+      # Hook up edges from the changed stack after each block has been handled,
+      # rather than all at once at the end. The graph evolves as we go.
+
+      if settings.hook_up_stack_vars:
+        curr_block.hook_up_stack_vars()
+        curr_block.apply_operations(settings.set_valued_ops)
+
+      if settings.hook_up_jumps:
+        old_succs = list(curr_block.succs)
+        modified = curr_block.hook_up_jumps()
+        graph_modified |= modified
+
+        if modified:
+          # Some successors of a modified block may need to be rechecked.
+          queue += [s for s in old_succs if s not in queue]
+
+          if settings.widen_variables:
+            cumulative_entry_stacks = {block.ident(): VariableStack()
+                                       for block in cfg.blocks}
+          if settings.clamp_large_stacks:
+            unmod_stack_changed_count = 0
+            for succ in curr_block.succs:
+              visited[succ] = False
+
+    # Add all the successors of this block to the queue to be processed, since its exit stack changed.
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
+
+  # Reached a fixed point in the dataflow analysis, restore settings so we can mutate jumps and gen throws.
+  settings.restore()
 
   # Recondition the graph if desired, to hook up new relationships
   # possible to determine after having performed stack analysis.
