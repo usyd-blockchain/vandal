@@ -9,7 +9,7 @@ import lattice
 import memtypes
 from memtypes import VariableStack
 import settings
-import logger
+import logging
 
 def analyse_graph(cfg:tac_cfg.TACGraph):
   """
@@ -19,6 +19,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
+  
+  logging.info("Beginning dataflow analysis loop.")
 
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
@@ -40,7 +42,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
+        logging.info("Bailed out after %s seconds.", elapsed)
         break
+
+  logging.info("Completed %s dataflow iterations.", i)
+  logging.info("Finalising graph.")
 
   # Perform a final analysis step, generating throws from invalid jumps
   # and merging any blocks that were split.
@@ -48,15 +54,17 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
 
-  # Save the settings in order to restore them after final stack analysis
+  # Save the settings in order to restore them after final stack analysis.
   settings.save()
+  
+  # Apply final analysis step settings.
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
 
-  # Perform the final analysis
+  # Perform the final analysis.
   stack_analysis(cfg)
 
-  # Perform final graph manipulations
+  # Perform final graph manipulations.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -64,11 +72,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
 
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
+    logging.info("Culling unreachable blocks.")
     cfg.remove_unreachable_code()
 
-  # Restore settings
+  # Restore settings.
   settings.restore()
-
 
 def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   """
@@ -102,6 +110,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   # since the last time the structure of the graph was modified.
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
+
+  # True if stack sizes have been clamped
+  stacks_clamped = False
 
   # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VariableStack()
@@ -139,15 +150,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
         v = cume_stack.value[i]
 
         if len(v) > settings.widen_threshold and not v.is_unconstrained:
-          logger.log_high("Widening {} in block {}",
-                          curr_block.entry_stack.value[i].identifier,
-                          curr_block.ident())
-          logger.log_high("  Accumulated values: {}",
-                          cume_stack.value[i])
+          logging.debug("Widening %s in block %s\n   Accumulated values: %s",
+                        curr_block.entry_stack.value[i].identifier,
+                        curr_block.ident(),
+                        cume_stack.value[i])
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
-    if settings.clamp_large_stacks:
+    if settings.clamp_large_stacks and not stacks_clamped:
       # As variables can grow in size, stacks can grow in depth.
       # If a stack is getting unmanageably deep, we may choose to freeze its
       # maximum depth at some point.
@@ -159,8 +169,11 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       if visited[curr_block]:
         unmod_stack_changed_count += 1
 
+      # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes, if they are large enough.
+        logging.debug("Clamping stacks sizes after %s unmodified iterations.",
+                        unmod_stack_changed_count)
+        stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
           if new_size >= settings.clamp_stack_minimum:
