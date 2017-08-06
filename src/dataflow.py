@@ -10,7 +10,7 @@ import lattice
 import memtypes
 from memtypes import VariableStack
 import settings
-import logger
+import logging
 
 
 def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
@@ -21,6 +21,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
+  
+  logging.info("Beginning dataflow analysis loop.")
 
   anal_results = {}
   if settings.collect_analytics:
@@ -45,6 +47,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
+        logging.info("Bailed out after %s seconds", elapsed)
         if settings.collect_analytics:
           anal_results["bailout"] = True
           anal_results["bail_time"] = elapsed
@@ -53,29 +56,34 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   if settings.collect_analytics:
       anal_results["num_clones"] = i
 
+  logging.info("Dataflow iterations: %s", i)
+  logging.info("Finalising graph.")
+
   # Perform a final analysis step, generating throws from invalid jumps
   cfg.hook_up_def_site_jumps()
 
-  # Save the settings in order to restore them after final stack analysis
+  # Save the settings in order to restore them after final stack analysis.
   settings.save()
+  
+  # Apply final analysis step settings.
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
 
-  # Perform the final analysis
+  # Perform the final analysis.
   stack_analysis(cfg)
 
   # Collect analytics about how frequently blocks were duplicated during
   # the analysis.
   dupe_counts = {}
   if settings.collect_analytics:
-    # Find out which blocks were duplicated how many times,
+    # Find out which blocks were duplicated how many times.
     for b in cfg.blocks:
       entry = hex(b.entry)
       if entry not in dupe_counts:
         dupe_counts[entry] = 0
       else:
         dupe_counts[entry] += 1
-  
+ 
   # Perform final graph manipulations, and merging any blocks that were split.
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during previous dataflow steps.
@@ -89,10 +97,12 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     removed = cfg.remove_unreachable_code()
     if settings.collect_analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
+    logging.info("Removed %s unreachable blocks.", len(removed))
 
-  # Restore settings
+  # Restore settings.
   settings.restore()
 
+  logging.info("Produced control flow graph with %s basic blocks.", len(cfg))
   if settings.collect_analytics:
     # accrue general graph data
     # per-block scheme: (indegree, outdegree, multiplicity)
@@ -102,7 +112,17 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
       block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
     anal_results["blocks"] = block_dict
-    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs() if sig is not None]
+    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
+                             if sig is not None]
+    logging.info("Detected %s public function signatures.",
+                 len(anal_results["funcs"]))
+    
+    if len(block_dict) > 0:
+      avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
+      if avg_clone > 0:
+        logging.info("Procedure cloning occurred during analysis; "
+                     "blocks were cloned on average of %.2f times each.",
+                     avg_clone)
 
   return anal_results
 
@@ -140,6 +160,9 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
 
+  # True if stack sizes have been clamped
+  stacks_clamped = False
+
   # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
@@ -176,15 +199,14 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
         v = cume_stack.value[i]
 
         if len(v) > settings.widen_threshold and not v.is_unconstrained:
-          logger.log_high("Widening {} in block {}",
-                          curr_block.entry_stack.value[i].identifier,
-                          curr_block.ident())
-          logger.log_high("  Accumulated values: {}",
-                          cume_stack.value[i])
+          logging.debug("Widening %s in block %s\n   Accumulated values: %s",
+                        curr_block.entry_stack.value[i].identifier,
+                        curr_block.ident(),
+                        cume_stack.value[i])
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
-    if settings.clamp_large_stacks:
+    if settings.clamp_large_stacks and not stacks_clamped:
       # As variables can grow in size, stacks can grow in depth.
       # If a stack is getting unmanageably deep, we may choose to freeze its
       # maximum depth at some point.
@@ -196,8 +218,11 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       if visited[curr_block]:
         unmod_stack_changed_count += 1
 
+      # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes, if they are large enough.
+        logging.debug("Clamping stacks sizes after %s unmodified iterations.",
+                        unmod_stack_changed_count)
+        stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
           if new_size >= settings.clamp_stack_minimum:
