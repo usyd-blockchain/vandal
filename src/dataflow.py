@@ -56,7 +56,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   if settings.collect_analytics:
       anal_results["num_clones"] = i
 
-  logging.info("Dataflow iterations: %s", i)
+  logging.info("Completed %s dataflow iterations.", i)
   logging.info("Finalising graph.")
 
   # Perform a final analysis step, generating throws from invalid jumps
@@ -102,6 +102,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   # Restore settings.
   settings.restore()
 
+  # Compute and log final analytics data.
   logging.info("Produced control flow graph with %s basic blocks.", len(cfg))
   if settings.collect_analytics:
     # accrue general graph data
@@ -114,9 +115,10 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     anal_results["blocks"] = block_dict
     anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
                              if sig is not None]
+    logging.info("Graph has %s edges.",
+                 sum([v[0] for v in block_dict.values()]))
     logging.info("Detected %s public function signatures.",
                  len(anal_results["funcs"]))
-    
     if len(block_dict) > 0:
       avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
       if avg_clone > 0:
