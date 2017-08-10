@@ -1,5 +1,9 @@
 """settings.py: dataflow analysis settings.
 
+The user can change these settings in bin/config.ini, where the default
+defaults settings are stored, or by providing command line flags to 
+override them.
+
 max_iterations:
   The maximum number of times to perform the graph analysis step.
   A negative value means no maximum. No limit by default.
@@ -67,7 +71,7 @@ widen_threshold:
 set_valued_ops:
   If True, apply arithmetic operations to variables with multiple values;
   otherwise, only apply them to variables whose value is definite.
-  True by default.
+  Disable to gain speed at the cost of precision. True by default.
 
 analytics:
   If true, dataflow analysis will return a dict of information about
@@ -78,27 +82,27 @@ structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
 """
 
-# The settings
+# The settings - these are None until initialised by import_config
 
-max_iterations         = -1
-bailout_seconds        = -1
-remove_unreachable     = False
-die_on_empty_pop       = False
-skip_stack_on_overflow = True
-reinit_stacks          = True
-hook_up_stack_vars     = True
-hook_up_jumps          = True
-mutate_jumps           = False
-generate_throws        = False
-final_mutate_jumps     = False
-final_generate_throws  = True
-mutate_blockwise       = True
-clamp_large_stacks     = True
-clamp_stack_minimum    = 20
-widen_variables        = True
-widen_threshold        = 10
-set_valued_ops         = True
-analytics              = False
+max_iterations         = None
+bailout_seconds        = None
+remove_unreachable     = None
+die_on_empty_pop       = None
+skip_stack_on_overflow = None
+reinit_stacks          = None
+hook_up_stack_vars     = None
+hook_up_jumps          = None
+mutate_jumps           = None
+generate_throws        = None
+final_mutate_jumps     = None
+final_generate_throws  = None
+mutate_blockwise       = None
+clamp_large_stacks     = None
+clamp_stack_minimum    = None
+widen_variables        = None
+widen_threshold        = None
+set_valued_ops         = None
+analytics              = None
 
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
@@ -106,6 +110,12 @@ _module_ = __import__("sys").modules[__name__]
 
 # The names of all the settings defined above.
 _names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
+
+# Set up the types of the various settings, so they can be converted
+# correctly when being read from config.
+_types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
+                             "clamp_stack_minimum", "widen_threshold"]
+                    else "bool") for n in _names_}
 
 # A stack for saving and restoring setting configurations.
 _stack_ = []
@@ -122,3 +132,20 @@ def save():
 def restore():
   """Restore the setting configuration from the top of the stack."""
   _get_dict_().update(_stack_.pop())
+
+def import_config(filepath="../bin/config.ini"):
+  """
+  Import settings from the given configuration file.
+  This should be called before running the decompiler.
+  """
+  import configparser
+  config = configparser.ConfigParser()
+  with open(filepath) as f:
+    config.read_file(f)
+
+  defaults = config["DEFAULT"]
+  for name in _names_:
+    if _types_[name] == "int":
+      _get_dict_()[name] = defaults.getint(name)
+    else:
+      _get_dict_()[name] = defaults.getboolean(name)
