@@ -25,7 +25,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   logging.info("Beginning dataflow analysis loop.")
 
   anal_results = {}
-  if settings.collect_analytics:
+  if settings.analytics:
     anal_results["bailout"] = False
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
@@ -48,12 +48,12 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
         logging.info("Bailed out after %s seconds", elapsed)
-        if settings.collect_analytics:
+        if settings.analytics:
           anal_results["bailout"] = True
           anal_results["bail_time"] = elapsed
         break
 
-  if settings.collect_analytics:
+  if settings.analytics:
       anal_results["num_clones"] = i
 
   logging.info("Completed %s dataflow iterations.", i)
@@ -75,7 +75,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   # Collect analytics about how frequently blocks were duplicated during
   # the analysis.
   dupe_counts = {}
-  if settings.collect_analytics:
+  if settings.analytics:
     # Find out which blocks were duplicated how many times.
     for b in cfg.blocks:
       entry = hex(b.entry)
@@ -95,7 +95,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
     removed = cfg.remove_unreachable_code()
-    if settings.collect_analytics:
+    if settings.analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
     logging.info("Removed %s unreachable blocks.", len(removed))
 
@@ -104,7 +104,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Compute and log final analytics data.
   logging.info("Produced control flow graph with %s basic blocks.", len(cfg))
-  if settings.collect_analytics:
+  if settings.analytics:
     # accrue general graph data
     # per-block scheme: (indegree, outdegree, multiplicity)
     anal_results["num_blocks"] = len(cfg)

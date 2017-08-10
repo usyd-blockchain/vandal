@@ -69,7 +69,7 @@ set_valued_ops:
   otherwise, only apply them to variables whose value is definite.
   True by default.
 
-collect_analytics:
+analytics:
   If true, dataflow analysis will return a dict of information about
   the contract, otherwise return an empty dict. False by default.
 
@@ -98,7 +98,7 @@ clamp_stack_minimum    = 20
 widen_variables        = True
 widen_threshold        = 10
 set_valued_ops         = True
-collect_analytics      = False
+analytics              = False
 
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
