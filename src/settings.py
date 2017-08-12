@@ -1,7 +1,8 @@
 """settings.py: dataflow analysis settings.
 
-The user can change these settings in bin/config.ini, where the default
-settings are stored, or by providing command line flags to override them.
+The user can change these settings in bin/config.ini or by providing command
+line flags to override them.
+Default settings are stored in src/default_config.ini.
 
 max_iterations:
   The maximum number of graph analysis iterations.
@@ -131,6 +132,12 @@ _types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
 # A stack for saving and restoring setting configurations.
 _stack_ = []
 
+# Default settings are stored here.
+_DEFAULT_LOC_ = "../src/default_config.ini"
+
+# User settings are located here, and will override default settings.
+_CONFIG_LOC_ = "../bin/config.ini"
+
 # Imports and function definitions appear below the definition of _names_
 # so that they do not appear in that list. Don't move them up.
 import sys, logging
@@ -155,18 +162,22 @@ def set_from_string(setting_name:str, value:str):
   """
   Assign to the named setting the given value, first converting that value
   to the type appropriate for that setting.
+  Names and values are not case sensitive.
   """
-  if setting_name not in _names_:
+  name = setting_name.lower()
+  val = value.lower()
+
+  if name not in _names_:
     logging.error('Unrecognised setting "%s".', setting_name)
     sys.exit(1)
 
-  if _types_[setting_name] == "int":
-    _get_dict_()[setting_name] = int(value)
-  elif _types_[setting_name] == "bool":
-    if value.lower() in {"1", "yes", "true", "on"}:
-      _get_dict_()[setting_name] = True
-    elif value.lower() in {"0", "no", "false", "off"}:
-      _get_dict_()[setting_name] = False
+  if _types_[name] == "int":
+    _get_dict_()[name] = int(val)
+  elif _types_[name] == "bool":
+    if val in {"1", "yes", "true", "on"}:
+      _get_dict_()[name] = True
+    elif val in {"0", "no", "false", "off"}:
+      _get_dict_()[name] = False
     else:
       logging.error('Cannot interpret value "%s" as boolean for setting "%s"',
                     value, setting_name)
@@ -175,14 +186,15 @@ def set_from_string(setting_name:str, value:str):
     logging.error('Unknown type "%s" for setting "%s".', setting_name)
     sys.exit(1)
 
-def import_config(filepath:str="../bin/config.ini"):
+def import_config(filepath:str=_CONFIG_LOC_):
   """
   Import settings from the given configuration file.
   This should be called before running the decompiler.
   """
   import configparser
   config = configparser.ConfigParser()
-  with open(filepath) as f:
-    config.read_file(f)
+  with open(_DEFAULT_LOC_) as default:
+    config.read_file(default)
+  config.read(filepath)
   for name in _names_:
-    set_from_string(name, config["DEFAULT"][name])
+    set_from_string(name, config.get("settings", name))
