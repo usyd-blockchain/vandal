@@ -135,15 +135,16 @@ _stack_ = []
 
 # Imports and definitions appearing below the definition of _names_
 # do not appear in that list, by design. Don't move them up.
-import sys, logging, os
+import sys, logging
+from os.path import dirname, normpath, join
 
-_dir_ = os.path.dirname(__file__)
+_dir_ = dirname(__file__)
 
 # Default settings are stored here.
-_DEFAULT_LOC_ = os.path.join(_dir_, "../src/default_config.ini")
+_DEFAULT_LOC_ = normpath(join(_dir_, "../src/default_config.ini"))
 
 # User settings are located here, and will override default settings.
-_CONFIG_LOC_ = os.path.join(_dir_, "../bin/config.ini")
+_CONFIG_LOC_ = normpath(join(_dir_, "../bin/config.ini"))
 
 
 def _get_dict_():
