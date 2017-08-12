@@ -123,6 +123,7 @@ _module_ = __import__("sys").modules[__name__]
 # The names of all the settings defined above.
 _names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
 
+
 # Set up the types of the various settings, so they can be converted
 # correctly when being read from config.
 _types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
@@ -132,15 +133,18 @@ _types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
 # A stack for saving and restoring setting configurations.
 _stack_ = []
 
+# Imports and definitions appearing below the definition of _names_
+# do not appear in that list, by design. Don't move them up.
+import sys, logging, os
+
+_dir_ = os.path.dirname(__file__)
+
 # Default settings are stored here.
-_DEFAULT_LOC_ = "../src/default_config.ini"
+_DEFAULT_LOC_ = os.path.join(_dir_, "../src/default_config.ini")
 
 # User settings are located here, and will override default settings.
-_CONFIG_LOC_ = "../bin/config.ini"
+_CONFIG_LOC_ = os.path.join(_dir_, "../bin/config.ini")
 
-# Imports and function definitions appear below the definition of _names_
-# so that they do not appear in that list. Don't move them up.
-import sys, logging
 
 def _get_dict_():
   """
