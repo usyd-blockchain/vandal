@@ -141,7 +141,7 @@ class ControlFlowGraph(patterns.Visitable):
     removed = []
     for block in list(self.blocks):
       if block not in reached:
-        self.removed.append(block)
+        removed.append(block)
         self.remove_block(block)
     return removed
 
