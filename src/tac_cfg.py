@@ -4,6 +4,7 @@ objects."""
 import typing as t
 import copy
 import networkx as nx
+import logging
 
 import opcodes
 import cfg
@@ -876,6 +877,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
     # stack items, the program is possibly popping from an empty stack.
     if settings.die_on_empty_pop \
        and (len(self.entry_stack) < self.delta_stack.empty_pops):
+      logging.error("Popped empty stack in %s.", self.ident())
       raise RuntimeError("Popped empty stack in {}.".format(self.ident()))
 
     # If executing this block would overflow the stack, maybe skip it.
