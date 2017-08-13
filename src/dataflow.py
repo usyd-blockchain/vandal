@@ -1,6 +1,7 @@
 """dataflow.py: fixed-point, dataflow, static analyses for CFGs"""
 
 import time
+from typing import Dict, Any
 
 import cfg
 import evm_cfg
@@ -11,7 +12,8 @@ from memtypes import VariableStack
 import settings
 import logging
 
-def analyse_graph(cfg:tac_cfg.TACGraph):
+
+def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   """
   Infer a CFG's structure by performing dataflow analyses to resolve new edges,
   until a fixed-point, the max time or max iteration count is reached.
@@ -22,6 +24,9 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   
   logging.info("Beginning dataflow analysis loop.")
 
+  anal_results = {}
+  if settings.analytics:
+    anal_results["bailout"] = False
   bail_time = settings.bailout_seconds
   start_clock = time.clock()
   i = 0
@@ -42,16 +47,19 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
     elapsed = time.clock() - start_clock
     if bail_time >= 0:
       if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
-        logging.info("Bailed out after %s seconds.", elapsed)
+        logging.info("Bailed out after %s seconds", elapsed)
+        if settings.analytics:
+          anal_results["bailout"] = True
+          anal_results["bail_time"] = elapsed
         break
+
+  if settings.analytics:
+      anal_results["num_clones"] = i
 
   logging.info("Completed %s dataflow iterations.", i)
   logging.info("Finalising graph.")
 
   # Perform a final analysis step, generating throws from invalid jumps
-  # and merging any blocks that were split.
-  # As well as extract jump destinations directly from def-sites if they were
-  # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
 
   # Save the settings in order to restore them after final stack analysis.
@@ -64,7 +72,21 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
   # Perform the final analysis.
   stack_analysis(cfg)
 
-  # Perform final graph manipulations.
+  # Collect analytics about how frequently blocks were duplicated during
+  # the analysis.
+  dupe_counts = {}
+  if settings.analytics:
+    # Find out which blocks were duplicated how many times.
+    for b in cfg.blocks:
+      entry = hex(b.entry)
+      if entry not in dupe_counts:
+        dupe_counts[entry] = 0
+      else:
+        dupe_counts[entry] += 1
+ 
+  # Perform final graph manipulations, and merging any blocks that were split.
+  # As well as extract jump destinations directly from def-sites if they were
+  # not inferrable during previous dataflow steps.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -72,11 +94,40 @@ def analyse_graph(cfg:tac_cfg.TACGraph):
 
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.remove_unreachable:
-    logging.info("Culling unreachable blocks.")
-    cfg.remove_unreachable_code()
+    removed = cfg.remove_unreachable_code()
+    if settings.analytics:
+      anal_results["unreachable_blocks"] = [b.ident() for b in removed]
+    logging.info("Removed %s unreachable blocks.", len(removed))
 
   # Restore settings.
   settings.restore()
+
+  # Compute and log final analytics data.
+  logging.info("Produced control flow graph with %s basic blocks.", len(cfg))
+  if settings.analytics:
+    # accrue general graph data
+    # per-block scheme: (indegree, outdegree, multiplicity)
+    anal_results["num_blocks"] = len(cfg)
+    block_dict = {}
+    for b in cfg.blocks:
+      multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
+      block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
+    anal_results["blocks"] = block_dict
+    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
+                             if sig is not None]
+    logging.info("Graph has %s edges.",
+                 sum([v[0] for v in block_dict.values()]))
+    logging.info("Detected %s public function signatures.",
+                 len(anal_results["funcs"]))
+    if len(block_dict) > 0:
+      avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
+      if avg_clone > 0:
+        logging.info("Procedure cloning occurred during analysis; "
+                     "blocks were cloned on average of %.2f times each.",
+                     avg_clone)
+
+  return anal_results
+
 
 def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   """
