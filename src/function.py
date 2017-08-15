@@ -1,4 +1,6 @@
-"""func_extr.py: Classes for identifying and exporting functions in the control flow graph. Tested and developed on Solidity version 0.4.11"""
+"""func_extr.py:
+Classes for identifying and exporting functions in the control flow graph.
+Tested and developed on Solidity version 0.4.11"""
 
 import tac_cfg, memtypes
 import typing as t
@@ -9,7 +11,7 @@ class FunExtract():
   def __init__(self, cfg: tac_cfg.TACGraph):
     self.cfg = cfg  # the tac_cfg that this operates on
     self.functions = []
-    self.invoc_pairs = {} # a mapping of function invocation sites to their return addresses
+    self.invoc_pairs = {} # a mapping from invocation sites to return addresses
 
   def extract(self) -> None:
     """Extracts private and public functions"""
@@ -18,7 +20,8 @@ class FunExtract():
 
   def export(self, mark: bool) -> str:
     """
-    Returns a string representation of all the functions in the graph after extraction has been performed.
+    Returns a string representation of all the functions in the graph
+    after extraction has been performed.
 
     Args:
       mark: if true, mark the function bodies in the control flow graph
@@ -81,7 +84,8 @@ class FunExtract():
           return succ
     return None
 
-  def get_public_function(self, block: tac_cfg.TACBasicBlock) -> t.List[tac_cfg.TACBasicBlock]:
+  def get_public_function(self, block: tac_cfg.TACBasicBlock)
+   -> t.List[tac_cfg.TACBasicBlock]:
     """
     Identifies the function starting with the given block
 
@@ -104,10 +108,12 @@ class FunExtract():
       # jump over function bodies
       for f in self.functions:
         if cur_block in f.body and not jump:
-          cur_block = self.__jump_to_next_loc(cur_block, body, prev_block.exit_stack)
+          cur_block = self.__jump_to_next_loc(cur_block, body,
+                                              prev_block.exit_stack)
         if cur_block in f.body and jump:
           # If we jumped, the previous block is actually from before the jump
-          cur_block = self.__jump_to_next_loc(cur_block, body, pre_jump_block.exit_stack)
+          cur_block = self.__jump_to_next_loc(cur_block, body,
+                                              pre_jump_block.exit_stack)
           jump = False
       # In case we didn't find a new block to jump to
       if cur_block is None:
@@ -119,7 +125,9 @@ class FunExtract():
         if cur_block not in body:
           body.append(cur_block)
         cur_block = self.invoc_pairs[cur_block]
-      # Since an invocation site always has a successor, it can't be an end block for the function
+      # Since an invocation site always has a successor,
+      # it can't be an end block for the function
+
       if len(cur_block.succs) == 0:
         end_block = cur_block
       if cur_block not in body:
@@ -133,17 +141,22 @@ class FunExtract():
     f.end_block = end_block
     return f
 
-  def __jump_to_next_loc(self, block: tac_cfg.TACBasicBlock, body: t.List[tac_cfg.TACBasicBlock],
-                         exit_stack: memtypes.VariableStack) -> tac_cfg.TACBasicBlock:
+  def __jump_to_next_loc(self, block: tac_cfg.TACBasicBlock,
+                         body: t.List[tac_cfg.TACBasicBlock],
+                         exit_stack: memtypes.VariableStack)
+   -> tac_cfg.TACBasicBlock:
     """
-    Helper method to jump over private functions during public function identification. Uses BFS to find the next available
-    block that is not in a function.
+    Helper method to jump over private functions during public function
+    identification. Uses BFS to find the next available block that is not
+    in a function.
 
     Args:
       block: The current block to be tested as being in the function body
       body: The body of the current function being identified.
-      exit_stack: The stack of the previous block, or block before that after a previous jump over a function. If a block
-      is in this exit_stack, then it is the next block in the flow of the function currently being identified.
+      exit_stack: The stack of the previous block, or block before that after
+                  a previous jump over a function. If a block is in this
+                  exit_stack, then it is the next block in the flow of the
+                  function currently being identified.
     """
     queue = [block]
     visited = [block]
@@ -157,9 +170,12 @@ class FunExtract():
         if block in f.body:
           in_func = True
           break
-      # Check that the block is not related to another function, and we haven't visited it yet, and that it is in the exit stack
-      # We can discard blocks in the body of the function being identified since we want to discover new blocks, not old ones
-      if not in_func and block not in self.invoc_pairs.keys() and block.ident() in str(exit_stack) and block not in body:
+      # Check that the block is not related to another function,
+      # and we haven't visited it yet, and that it is in the exit stack
+      # We can discard blocks in the body of the function being identified
+      # since we want to discover new blocks, not old ones
+      if not in_func and block not in self.invoc_pairs.keys() and \
+         block.ident() in str(exit_stack) and block not in body:
         return block
       for succ in block.succs:
           if succ not in visited:
@@ -171,7 +187,7 @@ class FunExtract():
     Extracts private functions
 
      Returns:
-      A list of of Function objects - the private functions identified in the graph
+      A list of of Function objects: the private functions identified in the cfg
     """
     # Get invocation site -> return block mappings
     start_blocks = []
@@ -198,15 +214,18 @@ class FunExtract():
        private_funcs.append(f)
     return private_funcs
 
-  def is_private_func_start(self, block: tac_cfg.TACBasicBlock) -> t.Dict[tac_cfg.TACBasicBlock, tac_cfg.TACBasicBlock]:
+  def is_private_func_start(self, block: tac_cfg.TACBasicBlock)
+   -> t.Dict[tac_cfg.TACBasicBlock, tac_cfg.TACBasicBlock]:
     """
-    Determines the invocation and return points of the function beginning with the given block, if it exists.
+    Determines the invocation and return points of the function beginning
+    with the given block, if it exists.
 
     Args:
       block: a BasicBlock to be tested as the possible beginning of a function
 
     Returns:
-      A mapping of invocation sites to return blocks of the function, if the given block is the start of a function.
+      A mapping of invocation sites to return blocks of the function,
+      if the given block is the start of a function.
       None if the block is not the beginning of a function.
     """
     # if there are multiple paths converging, this is a possible function start
@@ -240,25 +259,31 @@ class FunExtract():
     # We have our start
     return func_mapping
 
-  def find_func_body(self, block: tac_cfg.TACBasicBlock, return_blocks: t.List[tac_cfg.TACBasicBlock], invoc_pairs: t.List[tac_cfg.TACBasicBlock]) -> 'Function':
+  def find_func_body(self, block: tac_cfg.TACBasicBlock,
+                     return_blocks: t.List[tac_cfg.TACBasicBlock],
+                     invoc_pairs: t.List[tac_cfg.TACBasicBlock]) -> 'Function':
     """
-    Assuming the block is a definite function start, identifies all paths from start to end using BFS
+    Assuming the block is a definite function start, identifies all paths
+    from start to end using BFS
 
     Args:
       block: the start block of a function
       return_blocks: the list of return blocks of the function
-      invoc_pairs: a mapping of all other invocation and return point pairs to allow jumping over other functions
+      invoc_pairs: a mapping of all other invocation and return point pairs
+                   to allow jumping over other functions
 
     Returns:
       A function object representing the function starting with the given block
     """
-    # Traverse down levels with BFS until we hit a block that has the return addresses specified above
+    # Traverse down levels with BFS until we hit a block that has the return
+    # addresses specified above
     body = []
     queue = [block]
     end = False
     while len(queue) > 0:
       cur_block = queue.pop(0)
-      for entry in invoc_pairs:  # When we call a function, we just jump to the return address
+      # When we call a function, we just jump to the return address
+      for entry in invoc_pairs:
         if cur_block in entry:
           body.append(cur_block)
           cur_block = entry[cur_block]
@@ -287,7 +312,8 @@ class FunExtract():
 
     return None
 
-  def reachable(self, block: tac_cfg.TACBasicBlock, dests: t.List[tac_cfg.TACBasicBlock]) -> bool:
+  def reachable(self, block: tac_cfg.TACBasicBlock,
+                dests: t.List[tac_cfg.TACBasicBlock]) -> bool:
     """
     Determines if a block can reach any of the given destination blocks
 
@@ -312,7 +338,8 @@ class FunExtract():
 
 def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
   """
-  Marks every block in the path with the given number.  Used for marking function bodies.
+  Marks every block in the path with the given number.
+  Used for marking function bodies.
   """
   for block in path:
     block.ident_suffix += "_F" + str(num)
