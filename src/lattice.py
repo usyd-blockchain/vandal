@@ -156,6 +156,10 @@ class BoundedLatticeElement(LatticeElement):
     """Return the Bottom lattice element."""
     return cls(cls._bottom_val())
 
+  def widen_to_top(self):
+    """Set this element's value to Top without changing anything else."""
+    self.value = self._top_val()
+
 
 class IntLatticeElement(BoundedLatticeElement):
   """

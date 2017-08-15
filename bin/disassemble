@@ -7,13 +7,13 @@ import sys
 import argparse
 import fileinput
 import traceback
+import logging
 
 # Prepend ../src to $PATH so the project modules can be imported below
 src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import logger
 import opcodes
 import blockparse
 
@@ -54,7 +54,13 @@ parser.add_argument("-o",
 parser.add_argument("-v",
                     "--verbose",
                     action="store_true",
-                    help="produce more verbose debug output.")
+                    help="emit verbose debug output to stderr.")
+
+parser.add_argument("-vv",
+                    "--prolix",
+                    action="store_true",
+                    help="emit debug output to stderr at higher verbosity "
+                         "level.")
 
 parser.add_argument("infile",
                     nargs="*",
@@ -66,9 +72,13 @@ parser.add_argument("infile",
 # Do the argparsing
 args = parser.parse_args()
 
-# Set global LOG_LEVEL to HIGH if --verbose flag given
-if args.verbose:
-  logger.LOG_LEVEL = logger.Verbosity.HIGH
+# Set up logger, with appropriate log level depending on verbosity.
+log_level = logging.WARNING
+if args.prolix:
+  log_level = logging.DEBUG
+elif args.verbose:
+  log_level = logging.INFO
+logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 if args.prettify:
   from termcolor import colored
@@ -98,12 +108,12 @@ def format_value(value):
   value = "0x{:02x}".format(value)
   if args.prettify:
     value = colored(value, VAL_COL)
-  return " => " + value
+  return value
 
 try:
   for i, infile in enumerate(args.infile):
     if hasattr(infile, 'name'):
-      logger.log("Processing {}".format(infile.name))
+      logging.info("Processing %s", infile.name)
 
     # for multiple infiles, comment above each output with the
     # path of the infile
@@ -111,7 +121,7 @@ try:
       fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
       if args.prettify:
         fname_comment = colored(fname_comment, COMMENT_COL,
-            attrs=['dark'])
+                                attrs=['dark'])
       print(fname_comment, file=args.outfile)
 
     # join the bytecode all into one string
@@ -137,21 +147,19 @@ try:
 
 # ValueError happens with invalid hexadecimal
 except ValueError as e:
-  logger.log(traceback.format_exc(), logger.Verbosity.LOW)
-  logger.warning("ERROR: " + str(e))
+  logging.exception("Problem while disassembling.")
   sys.exit(1)
 
 # LookupError happens with invalid opcodes
 except LookupError as e:
-  logger.log_high(traceback.format_exc())
   if args.strict:
-    logger.warning(str(e))
+    logging.exception("Invalid opcode during strict disassembly.")
     sys.exit(1)
+  else:
+    logging.debug(traceback.format_exc())
 
 # Catch a Control-C and exit with UNIX failure status 1
 except KeyboardInterrupt:
-  logger.log_high(traceback.format_exc())
-  logger.warning("\nInterrupted by user")
+  logging.info(traceback.format_exc())
+  logging.error("\nInterrupted by user")
   sys.exit(1)
-
-sys.exit(logger.exitcode)

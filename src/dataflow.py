@@ -1,6 +1,7 @@
 """dataflow.py: fixed-point, dataflow, static analyses for CFGs"""
 
 import time
+from typing import Dict, Any
 
 import cfg
 import evm_cfg
@@ -8,32 +9,31 @@ import tac_cfg
 import lattice
 import memtypes
 from memtypes import VariableStack
+import settings
+import logging
 
 
-def analyse_graph(cfg:tac_cfg.TACGraph,
-                  max_iterations:int=-1, bailout_seconds:int=-1,
-                  remove_unreachable:bool=False):
+def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   """
   Infer a CFG's structure by performing dataflow analyses to resolve new edges,
-  until a fixed-point, max_iterations, or max_seconds is reached.
+  until a fixed-point, the max time or max iteration count is reached.
 
   Args:
       cfg: the graph to analyse; will be modified in-place.
-      max_iterations: the maximum number of times to perform the analysis step.
-                      A negative value means no maximum.
-      bailout_seconds: break out of the analysis loop if the time spent exceeds
-                       this value. Not a hard cap as subsequent analysis steps
-                       are required, and at least one iteration will always
-                       be performed. A negative value means no maximum.
-      remove_unreachable: upon completion of the analysis, if there are blocks
-                          unreachable from the contract root, remove them.
   """
+  
+  logging.info("Beginning dataflow analysis loop.")
 
+  anal_results = {}
+  if settings.analytics:
+    anal_results["bailout"] = False
+  bail_time = settings.bailout_seconds
   start_clock = time.clock()
   i = 0
-  # Perform the stack analysis until we reach a fixed-point or a max is exceeded
-  # We alternately infer new edges that can be inferred
-  while i != max_iterations:
+
+  # Perform the stack analysis until we reach a fixed-point or a max is
+  # exceeded. We alternately infer new edges that can be inferred.
+  while i != settings.max_iterations:
     loop_start_clock = time.clock()
     i += 1
     modified = stack_analysis(cfg)
@@ -45,32 +45,91 @@ def analyse_graph(cfg:tac_cfg.TACGraph,
     # or we have already exceeded our time budget, break out.
     loop_time = time.clock() - loop_start_clock
     elapsed = time.clock() - start_clock
-    if bailout_seconds >= 0:
-      if elapsed > bailout_seconds or 2*loop_time > bailout_seconds - elapsed:
+    if bail_time >= 0:
+      if elapsed > bail_time or 2*loop_time > bail_time - elapsed:
+        logging.info("Bailed out after %s seconds", elapsed)
+        if settings.analytics:
+          anal_results["bailout"] = True
+          anal_results["bail_time"] = elapsed
         break
 
+  if settings.analytics:
+      anal_results["num_clones"] = i
+
+  logging.info("Completed %s dataflow iterations.", i)
+  logging.info("Finalising graph.")
+
   # Perform a final analysis step, generating throws from invalid jumps
-  # and merging any blocks that were split.
-  # As well as extract jump destinations directly from def-sites if they were
-  # not inferrable during the dataflow steps.
   cfg.hook_up_def_site_jumps()
-  stack_analysis(cfg, mutate_jumps=True, generate_throws=True)
+
+  # Save the settings in order to restore them after final stack analysis.
+  settings.save()
+  
+  # Apply final analysis step settings.
+  settings.mutate_jumps = settings.final_mutate_jumps
+  settings.generate_throws = settings.final_generate_throws
+
+  # Perform the final analysis.
+  stack_analysis(cfg)
+
+  # Collect analytics about how frequently blocks were duplicated during
+  # the analysis.
+  dupe_counts = {}
+  if settings.analytics:
+    # Find out which blocks were duplicated how many times.
+    for b in cfg.blocks:
+      entry = hex(b.entry)
+      if entry not in dupe_counts:
+        dupe_counts[entry] = 0
+      else:
+        dupe_counts[entry] += 1
+ 
+  # Perform final graph manipulations, and merging any blocks that were split.
+  # As well as extract jump destinations directly from def-sites if they were
+  # not inferrable during previous dataflow steps.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
   cfg.make_stack_names_unique()
 
   # Clean up any unreachable blocks in the graph if necessary.
-  if remove_unreachable:
-    cfg.remove_unreachable_code()
+  if settings.remove_unreachable:
+    removed = cfg.remove_unreachable_code()
+    if settings.analytics:
+      anal_results["unreachable_blocks"] = [b.ident() for b in removed]
+    logging.info("Removed %s unreachable blocks.", len(removed))
+
+  # Restore settings.
+  settings.restore()
+
+  # Compute and log final analytics data.
+  logging.info("Produced control flow graph with %s basic blocks.", len(cfg))
+  if settings.analytics:
+    # accrue general graph data
+    # per-block scheme: (indegree, outdegree, multiplicity)
+    anal_results["num_blocks"] = len(cfg)
+    block_dict = {}
+    for b in cfg.blocks:
+      multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
+      block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
+    anal_results["blocks"] = block_dict
+    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
+                             if sig is not None]
+    logging.info("Graph has %s edges.",
+                 sum([v[0] for v in block_dict.values()]))
+    logging.info("Detected %s public function signatures.",
+                 len(anal_results["funcs"]))
+    if len(block_dict) > 0:
+      avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
+      if avg_clone > 0:
+        logging.info("Procedure cloning occurred during analysis; "
+                     "blocks were cloned on average of %.2f times each.",
+                     avg_clone)
+
+  return anal_results
 
 
-def stack_analysis(cfg:tac_cfg.TACGraph,
-                   die_on_empty_pop:bool=False, reinit_stacks:bool=True,
-                   hook_up_stack_vars:bool=True, hook_up_jumps:bool=True,
-                   mutate_jumps:bool=False, generate_throws:bool=False,
-                   mutate_blockwise:bool=True, clamp_large_stacks:bool=True,
-                   widen_large_variables:bool=True) -> bool:
+def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
   """
   Determine all possible stack states at block exits. The stack size should be
   the maximum possible size, and the variables on the stack should obtain the
@@ -79,25 +138,6 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
 
   Args:
     cfg: the graph to analyse.
-    die_on_empty_pop: raise an exception if an empty stack is popped.
-    reinit_stacks: reinitialise all blocks' exit stacks to be empty.
-    hook_up_stack_vars: after completing the analysis, propagate entry stack
-                        values into blocks.
-    hook_up_jumps: Connect any new edges that can be inferred after performing
-                   the analysis
-    mutate_jumps: JUMPIs with known conditions become JUMPs (or are deleted)
-    generate_throws: JUMP and JUMPI instructions with invalid destinations
-                     become THROW and THROWIs
-    mutate_blockwise: hook up stack vars and/or hook up jumps after each block
-                      rather than after the whole analysis is complete.
-    clamp_large_stacks: if stacks start growing without bound, reduce the stack
-                        size in order to hasten convergence.
-    widen_large_variables: if any stack variable's number of possible values
-                           exceeds a given threshold, widen its value to Top.
-
-  If we have already reached complete information about our stack CFG structure
-  and stack states, we can use die_on_empty_pop and reinit_stacks to discover
-  places where empty stack exceptions will be thrown.
 
   Returns:
     True iff the graph was modified.
@@ -107,7 +147,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   graph_modified = False
 
   # Initialise all entry and exit stacks to be empty.
-  if reinit_stacks:
+  if settings.reinit_stacks:
     for block in cfg.blocks:
       block.symbolic_overflow = False
       block.entry_stack = VariableStack()
@@ -122,11 +162,18 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
   unmod_stack_changed_count = 0
   graph_size = len(cfg.blocks)
 
+  # True if stack sizes have been clamped
+  stacks_clamped = False
+
   # Holds the join of all states this entry stack has ever been in.
   cumulative_entry_stacks = {block.ident(): VariableStack()
                              for block in cfg.blocks}
-  # Widen if the size of a given variable exceeds this threshold
-  widen_threshold = 20
+
+  # We won't mutate any jumps or generate any throws until the graph has stabilised, because variables will not yet
+  # have attained their final values until that stage.
+  settings.save()
+  settings.mutate_jumps = False
+  settings.generate_throws = False
 
   # Churn until we reach a fixed point.
   while queue:
@@ -138,38 +185,8 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
     if not curr_block.build_entry_stack() and visited[curr_block]:
       continue
 
-    # If a symbolic overflow occurred, the exit stack did not change,
-    # and we can similarly skip the rest of the processing.
-    if curr_block.build_exit_stack(die_on_empty_pop=die_on_empty_pop):
-      continue
-
-    if mutate_blockwise:
-      # Hook up edges from the changed stack after each block has been handled,
-      # rather than all at once at the end. The graph evolves as we go.
-
-      if hook_up_stack_vars:
-        curr_block.hook_up_stack_vars()
-        curr_block.apply_operations()
-
-      if hook_up_jumps:
-        old_succs = list(curr_block.succs)
-        modified = curr_block.hook_up_jumps(mutate_jumps=mutate_jumps,
-                                            generate_throws=generate_throws)
-        graph_modified |= modified
-
-        if modified:
-          # Some successors of a modified block may need to be rechecked.
-          queue += [s for s in old_succs if s not in queue]
-
-          if widen_large_variables:
-            cumulative_entry_stacks = {block.ident(): VariableStack()
-                                       for block in cfg.blocks}
-          if clamp_large_stacks:
-            unmod_stack_changed_count = 0
-            for succ in curr_block.succs:
-              visited[succ] = False
-
-    if widen_large_variables:
+    # Perform any widening operations that need to be applied before calculating the exit stack.
+    if settings.widen_variables:
       # If a variable's possible value set might be practically unbounded,
       # it must be widened in order for our analysis not to take forever.
       # Additionally, the widening threshold should be set low enough that
@@ -183,14 +200,15 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
       for i in range(len(cume_stack)):
         v = cume_stack.value[i]
 
-        if len(v) > widen_threshold:
-          print("Widening {} in block {}"
-                .format(curr_block.entry_stack.value[i], curr_block.ident()))
-          print("  Accumulated values: {}".format(cume_stack.value[i]))
+        if len(v) > settings.widen_threshold and not v.is_unconstrained:
+          logging.debug("Widening %s in block %s\n   Accumulated values: %s",
+                        curr_block.entry_stack.value[i].identifier,
+                        curr_block.ident(),
+                        cume_stack.value[i])
           cume_stack.value[i] = memtypes.Variable.top()
           curr_block.entry_stack.value[i].value = cume_stack.value[i].value
 
-    if clamp_large_stacks:
+    if settings.clamp_large_stacks and not stacks_clamped:
       # As variables can grow in size, stacks can grow in depth.
       # If a stack is getting unmanageably deep, we may choose to freeze its
       # maximum depth at some point.
@@ -202,24 +220,62 @@ def stack_analysis(cfg:tac_cfg.TACGraph,
       if visited[curr_block]:
         unmod_stack_changed_count += 1
 
+      # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
-        # clamp all stacks at their current sizes
+        logging.debug("Clamping stacks sizes after %s unmodified iterations.",
+                        unmod_stack_changed_count)
+        stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
-          b.entry_stack.set_max_size(new_size)
-          b.exit_stack.set_max_size(new_size)
+          if new_size >= settings.clamp_stack_minimum:
+            b.entry_stack.set_max_size(new_size)
+            b.exit_stack.set_max_size(new_size)
 
+    # Build the exit stack.
+    # If a symbolic overflow occurred, the exit stack did not change,
+    # and we can skip the rest of the processing (as with entry stack).
+    if curr_block.build_exit_stack():
+      continue
+
+    if settings.mutate_blockwise:
+      # Hook up edges from the changed stack after each block has been handled,
+      # rather than all at once at the end. The graph evolves as we go.
+
+      if settings.hook_up_stack_vars:
+        curr_block.hook_up_stack_vars()
+        curr_block.apply_operations(settings.set_valued_ops)
+
+      if settings.hook_up_jumps:
+        old_succs = list(curr_block.succs)
+        modified = curr_block.hook_up_jumps()
+        graph_modified |= modified
+
+        if modified:
+          # Some successors of a modified block may need to be rechecked.
+          queue += [s for s in old_succs if s not in queue]
+
+          if settings.widen_variables:
+            cumulative_entry_stacks = {block.ident(): VariableStack()
+                                       for block in cfg.blocks}
+          if settings.clamp_large_stacks:
+            unmod_stack_changed_count = 0
+            for succ in curr_block.succs:
+              visited[succ] = False
+
+    # Add all the successors of this block to the queue to be processed, since its exit stack changed.
     queue += [s for s in curr_block.succs if s not in queue]
     visited[curr_block] = True
 
+  # Reached a fixed point in the dataflow analysis, restore settings so we can mutate jumps and gen throws.
+  settings.restore()
+
   # Recondition the graph if desired, to hook up new relationships
   # possible to determine after having performed stack analysis.
-  if hook_up_stack_vars:
+  if settings.hook_up_stack_vars:
     cfg.hook_up_stack_vars()
     cfg.apply_operations()
-  if hook_up_jumps:
-    graph_modified |= cfg.hook_up_jumps(mutate_jumps=mutate_jumps,
-                      generate_throws=generate_throws)
+  if settings.hook_up_jumps:
+    graph_modified |= cfg.hook_up_jumps()
     graph_modified |= cfg.add_missing_split_edges()
 
   return graph_modified

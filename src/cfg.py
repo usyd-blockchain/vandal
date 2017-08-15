@@ -2,7 +2,6 @@
 
 import abc
 import typing as T
-
 import patterns
 
 
@@ -123,7 +122,7 @@ class ControlFlowGraph(patterns.Visitable):
     return reached
 
   def remove_unreachable_code(self, origin_addresses:T.Iterable[int]=[0]) \
-  -> None:
+  -> T.Iterable['BasicBlock']:
     """
     Remove all blocks not reachable from the program entry point.
 
@@ -133,19 +132,24 @@ class ControlFlowGraph(patterns.Visitable):
     Args:
         origin_addresses: default value: [0], entry addresses, blocks from which
                           are unreachable to be deleted.
+
+    Returns:
+        An iterable of the blocks which were removed.
     """
 
     reached = self.transitive_closure(origin_addresses)
+    removed = []
     for block in list(self.blocks):
       if block not in reached:
+        removed.append(block)
         self.remove_block(block)
+    return removed
 
   def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
     """
     Returns:
       a list of the CFG's edges, with each edge in the form
-        ( pred, succ )
-      where pred and succ are object references.
+      `(pred, succ)` where pred and succ are object references.
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 

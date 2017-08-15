@@ -10,10 +10,10 @@ Modules
    blockparse
    cfg
    dataflow
+   settings
    evm_cfg
    exporter
    lattice
-   logger
    memtypes
    opcodes
    patterns
