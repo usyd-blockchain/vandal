@@ -6,6 +6,7 @@ from typing import Dict, Any
 import cfg
 import evm_cfg
 import tac_cfg
+import function
 import lattice
 import memtypes
 from memtypes import VariableStack
@@ -113,7 +114,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
       block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
     anal_results["blocks"] = block_dict
-    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
+    anal_results["funcs"] = [sig for sig in function.public_function_sigs(cfg)
                              if sig is not None]
     logging.info("Graph has %s edges.",
                  sum([v[0] for v in block_dict.values()]))

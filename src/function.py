@@ -2,7 +2,7 @@
 Classes for identifying and exporting functions in the control flow graph.
 Tested and developed on Solidity version 0.4.11"""
 
-import tac_cfg, memtypes
+import tac_cfg, memtypes, opcodes
 import typing as t
 
 class FunctionExtractor():
@@ -360,3 +360,58 @@ class Function:
     self.start_block = None
     self.end_block = None
     self.mapping = {}  # a mapping of preds to succs of the function body.
+
+
+def public_function_sigs(cfg: tac_cfg.TACGraph) -> t.Iterable[str]:
+  """
+  Return an approximate list of the solidity public functions
+  exposed by the given contract.
+  Call this after having already called prop_vars_between_blocks() on cfg.
+
+  Args:
+    cfg: the control flow graph of a solidity function whose signatures to
+         extract.
+
+  Returns:
+    A list of the extracted signatures.
+  """
+
+  # Find the function signature variable holding call data 0,
+  # at the earliest query to that location in the program.
+  load_list = []
+  load_block = None
+
+  for block in sorted(cfg.blocks, key=lambda b: b.entry):
+    load_list = [op for op in block.tac_ops
+                 if op.opcode == opcodes.CALLDATALOAD
+                 and op.args[0].value.const_value == 0]
+    if len(load_list) != 0:
+      load_block = block
+      break
+
+  if len(load_list) == 0:
+    return []
+  sig_var = load_list[0].lhs
+
+  # Follow the signature until it's transformed into its final shape.
+  for o in load_block.tac_ops:
+    if not isinstance(o, tac_cfg.TACAssignOp) or \
+       id(sig_var) not in [id(a.value) for a in o.args]:
+      continue
+    if o.opcode == opcodes.EQ:
+      break
+    sig_var = o.lhs
+
+  # Find all the places the function signature is compared to a constant
+  func_sigs = []
+
+  for b in cfg.blocks:
+    for o in b.tac_ops:
+      if not isinstance(o, tac_cfg.TACAssignOp) or\
+         id(sig_var) not in [id(a.value) for a in o.args]:
+        continue
+      if o.opcode == opcodes.EQ:
+        sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
+        func_sigs.append(hex(sig.const_value))
+
+  return func_sigs
