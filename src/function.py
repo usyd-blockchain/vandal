@@ -5,7 +5,7 @@ Tested and developed on Solidity version 0.4.11"""
 import tac_cfg, memtypes
 import typing as t
 
-class FunExtract():
+class FunctionExtractor():
   """A class for extracting functions from an already generated TAC cfg."""
 
   def __init__(self, cfg: tac_cfg.TACGraph):
@@ -84,8 +84,7 @@ class FunExtract():
           return succ
     return None
 
-  def get_public_function(self, block: tac_cfg.TACBasicBlock)
-   -> t.List[tac_cfg.TACBasicBlock]:
+  def get_public_function(self, block: tac_cfg.TACBasicBlock) -> t.List[tac_cfg.TACBasicBlock]:
     """
     Identifies the function starting with the given block
 
@@ -143,8 +142,7 @@ class FunExtract():
 
   def __jump_to_next_loc(self, block: tac_cfg.TACBasicBlock,
                          body: t.List[tac_cfg.TACBasicBlock],
-                         exit_stack: memtypes.VariableStack)
-   -> tac_cfg.TACBasicBlock:
+                         exit_stack: memtypes.VariableStack) -> tac_cfg.TACBasicBlock:
     """
     Helper method to jump over private functions during public function
     identification. Uses BFS to find the next available block that is not
@@ -214,8 +212,7 @@ class FunExtract():
        private_funcs.append(f)
     return private_funcs
 
-  def is_private_func_start(self, block: tac_cfg.TACBasicBlock)
-   -> t.Dict[tac_cfg.TACBasicBlock, tac_cfg.TACBasicBlock]:
+  def is_private_func_start(self, block: tac_cfg.TACBasicBlock) -> t.Dict[tac_cfg.TACBasicBlock, tac_cfg.TACBasicBlock]:
     """
     Determines the invocation and return points of the function beginning
     with the given block, if it exists.
