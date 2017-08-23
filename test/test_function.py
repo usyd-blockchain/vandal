@@ -1,5 +1,6 @@
 import pytest
-import func_extr
+import settings
+import function
 import tac_cfg
 import dataflow
 import os
@@ -19,10 +20,11 @@ def funcs(request):
   """
   Returns: a FunExtract object extracted from a file
   """
+  settings.import_config()
   f = open(dir_path + request.param[0], 'r')
   cfg = tac_cfg.TACGraph.from_bytecode(f.read(), False)
-  dataflow.analyse_graph(cfg, -1, -1)
-  funcs = func_extr.FunExtract(cfg)
+  dataflow.analyse_graph(cfg)
+  funcs = function.FunctionExtractor(cfg)
   funcs.extract()
   return (funcs, request.param[1], request.param[2], request.param[3])
 
@@ -31,7 +33,7 @@ def funcs(request):
 class TestFunctionExtraction:
 
   def test_function_construction(self):
-    func = func_extr.Function()
+    func = function.Function()
     assert func.body == []
     assert func.mapping == {}
     assert func.end_block == None
@@ -63,33 +65,33 @@ class TestFunctionExtraction:
     fun_extr = funcs[0]
     calldataload_block = fun_extr.find_calldataload()
     # CALLDATALOAD block will be 0x0 or one of its successors
-    start_block = fun_extr.tac.get_block_by_ident("0x0")
+    start_block = fun_extr.cfg.get_block_by_ident("0x0")
     poss_blocks = [start_block]
     for b in start_block.succs:
       poss_blocks.append(b)
     assert calldataload_block in poss_blocks
 
   def test_find_private_func_start(self, funcs):
-    func_extr = funcs[0]
+    fun_extr = funcs[0]
     start_blocks = funcs[1]
     for b in start_blocks:
-      block = func_extr.tac.get_block_by_ident(b)
+      block = fun_extr.cfg.get_block_by_ident(b)
       # Public function starts have one predecessor
       if len(block.preds) > 1:
-        assert func_extr.is_private_func_start(block) is not None
+        assert fun_extr.is_private_func_start(block) is not None
       else:
-        assert func_extr.is_private_func_start(block) is None
+        assert fun_extr.is_private_func_start(block) is None
     # 0x0 Can never be a private function start
-    assert func_extr.is_private_func_start(func_extr.tac.get_block_by_ident("0x0")) is None
+    assert fun_extr.is_private_func_start(fun_extr.cfg.get_block_by_ident("0x0")) is None
 
   def test_reachable(self, funcs):
-    func_extr = funcs[0]
+    fun_extr = funcs[0]
     # Check 0x0 can reach every block and no block can reach 0x0
-    start_block = func_extr.tac.get_block_by_ident("0x0")
-    for block in func_extr.tac.blocks:
+    start_block = fun_extr.cfg.get_block_by_ident("0x0")
+    for block in fun_extr.cfg.blocks:
       # check not part of uncompleted graph
       if len(block.preds) != 0 and len(block.succs) != 0:
-        assert func_extr.reachable(start_block, [block])
+        assert fun_extr.reachable(start_block, [block])
       if block != start_block:
-        assert func_extr.reachable(block, [start_block]) == False
+        assert fun_extr.reachable(block, [start_block]) == False
 
