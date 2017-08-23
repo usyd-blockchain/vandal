@@ -9,7 +9,6 @@ import logging
 import opcodes
 import cfg
 import evm_cfg
-import tac_cfg
 import memtypes as mem
 import blockparse
 import patterns
@@ -73,6 +72,8 @@ class TACGraph(cfg.ControlFlowGraph):
     Args:
       dasm: a sequence of disasm lines, as output from the
             ethereum `dasm` disassembler.
+      strict: if true, throw an exception when invalid disassembly
+              is encountered.
     """
     return cls(blockparse.EVMDasmParser(dasm).parse(strict))
 
@@ -84,6 +85,8 @@ class TACGraph(cfg.ControlFlowGraph):
     Args:
       bytecode: a sequence of EVM bytecode, either in a hexadecimal
         string format or a byte array.
+      strict: if true, throw an exception when invalid bytecode is
+              encountered.
     """
     bytecode = ''.join([l.strip() for l in bytecode if len(l.strip()) > 0])
     return cls(blockparse.EVMBytecodeParser(bytecode).parse(strict))
@@ -182,7 +185,7 @@ class TACGraph(cfg.ControlFlowGraph):
       for d in [d for d in doms if d not in idents]:
         del doms[d]
 
-    # TODO: ask bernhard whether to remove non-terminal END-postdominators
+    # TODO: determine whether to remove non-terminal END-postdominators
     #       and turn terminal ones into self-postdominators
 
     return doms
@@ -427,7 +430,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     # copy the path
     path_copies = [[copy.deepcopy(b) for b in path]
-                    for _ in range(len(path_preds))]
+                   for _ in range(len(path_preds))]
 
     # Copy the nodes properly in the split node succs mapping.
     for i, b in enumerate(path):

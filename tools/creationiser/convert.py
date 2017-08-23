@@ -3,14 +3,17 @@
 
 import sys
 
+
 def hexify(number):
   """Produce hex string of the given number with leading '0x' removed."""
   return hex(number)[2:]
+
 
 def lenhexbytify(string):
   """Length of input string as a hex string with a leading zero if length string length is odd."""
   out_str = hexify(len(string) // 2)
   return ("0" if len(out_str)%2 else "") + out_str
+
 
 if len(sys.argv) > 1:
   print("No args please; reads runtime bytecode from stdin, writes creation bytecode to stdout.")

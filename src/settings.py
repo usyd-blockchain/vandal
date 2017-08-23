@@ -12,8 +12,8 @@ max_iterations:
 bailout_seconds:
   Begin to terminate the analysis loop if it's looking to take more time
   than specified. Bailing out early may mean the analysis is not able
-  to reach a fixed-point, so the results may be less precise. 
-  This is not a hard cap, as subsequent analysis steps are required, 
+  to reach a fixed-point, so the results may be less precise.
+  This is not a hard cap, as subsequent analysis steps are required,
   and at least one iteration will always be performed.
   A negative value means no cap on the running time.
   No cap by default.
@@ -41,7 +41,7 @@ hook_up_jumps:
   True by default.
 
 mutate_jumps:
-  JUMPIs with known conditions become JUMPs (or are deleted). 
+  JUMPIs with known conditions become JUMPs (or are deleted).
   For example, a JUMPI with a known-true condition becomes a JUMP.
   False by default.
 
@@ -86,7 +86,7 @@ set_valued_ops:
 
 analytics:
   If true, dataflow analysis will return a dict of information about
-  the contract, otherwise return an empty dict. 
+  the contract, otherwise return an empty dict.
   Disabling this might yield a slight speed improvement. False by default.
 
 Note: If we have already reached complete information about our stack CFG
@@ -123,7 +123,6 @@ _module_ = __import__("sys").modules[__name__]
 # The names of all the settings defined above.
 _names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
 
-
 # Set up the types of the various settings, so they can be converted
 # correctly when being read from config.
 _types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
@@ -154,14 +153,17 @@ def _get_dict_():
   """
   return _module_.__dict__
 
+
 def save():
   """Push the current setting configuration to the stack."""
   sd = _get_dict_()
   _stack_.append({n: sd[n] for n in _names_})
 
+
 def restore():
   """Restore the setting configuration from the top of the stack."""
   _get_dict_().update(_stack_.pop())
+
 
 def set_from_string(setting_name:str, value:str):
   """
@@ -190,6 +192,7 @@ def set_from_string(setting_name:str, value:str):
   else:
     logging.error('Unknown type "%s" for setting "%s".', setting_name)
     sys.exit(1)
+
 
 def import_config(filepath:str=_CONFIG_LOC_):
   """

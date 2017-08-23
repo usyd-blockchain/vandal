@@ -2,10 +2,8 @@
 
 # Standard lib imports
 from os.path import abspath, dirname, join
-import io
 import sys
 import argparse
-import fileinput
 import traceback
 import logging
 
@@ -69,7 +67,7 @@ parser.add_argument("infile",
                     help="file from which decompiler input should be read "
                          "(stdin by default).")
 
-# Do the argparsing
+# Parse the arguments.
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
@@ -83,11 +81,13 @@ logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 if args.prettify:
   from termcolor import colored
 
+
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
   if args.prettify:
     pc = colored(pc, PC_COL)
   return pc
+
 
 def format_opcode(opcode):
   op = "{:<6}".format(opcode.name)
@@ -102,6 +102,7 @@ def format_opcode(opcode):
       op = colored(op, OP_COL)
   return op
 
+
 def format_value(value):
   if value is None:
     return str()
@@ -110,13 +111,14 @@ def format_value(value):
     value = colored(value, VAL_COL)
   return value
 
+
 try:
   for i, infile in enumerate(args.infile):
     if hasattr(infile, 'name'):
       logging.info("Processing %s", infile.name)
 
-    # for multiple infiles, comment above each output with the
-    # path of the infile
+    # for multiple input files, comment above each output with the
+    # path of its file
     if hasattr(args.infile, '__len__') and len(args.infile) > 1:
       fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
       if args.prettify:
@@ -141,7 +143,7 @@ try:
       if args.prettify:
         print("", file=args.outfile)
 
-    # for multiple infiles, separate output of each file with a newline
+    # for multiple input files, separate output of each file with a newline
     if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
       print("", file=args.outfile)
 

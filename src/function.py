@@ -5,6 +5,7 @@ Tested and developed on Solidity version 0.4.11"""
 import tac_cfg, memtypes, opcodes
 import typing as t
 
+
 class FunctionExtractor():
   """A class for extracting functions from an already generated TAC cfg."""
 
@@ -97,8 +98,8 @@ class FunctionExtractor():
     body = []
     queue = [block]
     end_block = None
-    cur_block = None # A placeholder for prev_block
-    jump = False # Keeps track of whether we have just jumped or not
+    cur_block = None  # A placeholder for prev_block
+    jump = False  # Keeps track of whether we have just jumped or not
     pre_jump_block = block
     while len(queue) > 0:
       prev_block = cur_block
@@ -197,9 +198,9 @@ class FunctionExtractor():
         pair_list.append(invoc_pairs)
 
     # Store invocation site - return pairs for later usage
-    for dict in pair_list:
-      for key in dict.keys():
-        self.invoc_pairs[key] = dict[key]
+    for d in pair_list:
+      for key in d.keys():
+        self.invoc_pairs[key] = d[key]
 
     # Find the Function body itself
     private_funcs = list()
@@ -235,11 +236,11 @@ class FunctionExtractor():
     for pre in preds:
       if pre not in block.succs:
         # Check for at least 2 push opcodes and net stack gain
-        pushCount = 0
+        push_count = 0
         for evm_op in pre.evm_ops:
           if evm_op.opcode.is_push():
-            pushCount += 1
-        if pushCount <= 1:
+            push_count += 1
+        if push_count <= 1:
           return None
         if len(pre.delta_stack) == 0:
           return None
@@ -278,18 +279,18 @@ class FunctionExtractor():
     queue = [block]
     end = False
     while len(queue) > 0:
-      cur_block = queue.pop(0)
+      curr_block = queue.pop(0)
       # When we call a function, we just jump to the return address
       for entry in invoc_pairs:
-        if cur_block in entry:
-          body.append(cur_block)
-          cur_block = entry[cur_block]
-      cur_succs = [b for b in cur_block.succs]
-      if ((set(return_blocks)).issubset(set(cur_succs))):
+        if curr_block in entry:
+          body.append(curr_block)
+          curr_block = entry[curr_block]
+      cur_succs = [b for b in curr_block.succs]
+      if set(return_blocks).issubset(set(cur_succs)):
         end = True
-      if cur_block not in body and self.reachable(cur_block, return_blocks):
-        body.append(cur_block)
-        for b in cur_block.succs:
+      if curr_block not in body and self.reachable(curr_block, return_blocks):
+        body.append(curr_block)
+        for b in curr_block.succs:
           if b not in return_blocks:
             queue.append(b)
 
@@ -333,6 +334,7 @@ class FunctionExtractor():
           queue.append(b)
     return False
 
+
 def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
   """
   Marks every block in the path with the given number.
@@ -340,6 +342,7 @@ def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
   """
   for block in path:
     block.ident_suffix += "_F" + str(num)
+
 
 class Function:
   """
@@ -353,7 +356,6 @@ class Function:
       exit_block = "Exit block: None identified"
     body = "Body: " + ", ".join(b.ident() for b in self.body)
     return "\n".join([entry_block, exit_block, body])
-
 
   def __init__(self):
     self.body = []

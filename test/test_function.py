@@ -7,6 +7,7 @@ import os
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
+
 # Format: filename, start blocks, end blocks
 @pytest.fixture(scope="module",
                 params=[
@@ -15,7 +16,6 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
   ('/hex/recursion.hex', ["0x93", "0x2a", "0x28", "0x4c"], ["0x28", "0xb1", "0x3a"], 5),
   ('/hex/mutual_recursion.hex', ["0xa2", "0xc5", "0x2a", "0x4c", "0x28"], ["0x28", "0x3a", "0xc0"], 6)
 ])
-
 def funcs(request):
   """
   Returns: a FunExtract object extracted from a file
@@ -27,6 +27,7 @@ def funcs(request):
   funcs = function.FunctionExtractor(cfg)
   funcs.extract()
   return (funcs, request.param[1], request.param[2], request.param[3])
+
 
 ### TESTS ###
 

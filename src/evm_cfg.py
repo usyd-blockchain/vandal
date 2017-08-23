@@ -5,6 +5,7 @@ import typing as t
 import cfg
 import opcodes
 
+
 class EVMBasicBlock(cfg.BasicBlock):
   """
   Represents a single basic block in the control flow graph (CFG), including
@@ -135,7 +136,7 @@ def blocks_from_ops(ops:t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
 
   # details for block currently being processed
   entry, exit = (0, len(ops) - 1) if len(ops) > 0 \
-                else (None, None)
+                    else (None, None)
   current = EVMBasicBlock(entry, exit)
 
   # Linear scan of all EVMOps to create initial EVMBasicBlocks

@@ -48,6 +48,7 @@ parser.add_argument('outfile',
 
 args = parser.parse_args()
 
+
 def print_progress(progress:int, item:str=""):
   """
   print_progress prints or updates a progress bar with a progress between 0
@@ -61,6 +62,7 @@ def print_progress(progress:int, item:str=""):
   if(progress == 100):
     sys.stdout.write('\n')
   sys.stdout.flush()
+
 
 def count_opcodes(bytecode:t.Union[str, bytes]) -> collections.Counter:
   """

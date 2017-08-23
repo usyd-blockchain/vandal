@@ -22,7 +22,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
-  
+
   logging.info("Beginning dataflow analysis loop.")
 
   anal_results = {}
@@ -65,7 +65,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Save the settings in order to restore them after final stack analysis.
   settings.save()
-  
+
   # Apply final analysis step settings.
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
@@ -84,7 +84,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
         dupe_counts[entry] = 0
       else:
         dupe_counts[entry] += 1
- 
+
   # Perform final graph manipulations, and merging any blocks that were split.
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during previous dataflow steps.
@@ -224,7 +224,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
         logging.debug("Clamping stacks sizes after %s unmodified iterations.",
-                        unmod_stack_changed_count)
+                      unmod_stack_changed_count)
         stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
@@ -321,7 +321,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   start_block = evm_cfg.EVMBasicBlock()
   exit_info[start_block] = lattice.IntLatticeElement(0)
 
-  # We will initialise entry stack size of all blocks with no predecesors
+  # We will initialise entry stack size of all blocks with no predecessors
   # to zero in order to reason about the stack within a connected component.
   init_blocks = ({cfg.root} if cfg.root is not None else {}) | \
                  {block for block in cfg.blocks if len(block.preds) == 0}
@@ -350,4 +350,4 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   for block in init_blocks:
     block.preds.pop()
 
-  return (entry_info, exit_info)
+  return entry_info, exit_info
