@@ -111,6 +111,11 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       logging.info("Marking functions.")
       cfg.function_extractor.mark_functions()
 
+    if settings.analytics:
+      anal_results["funcs"] = [f.signature for f in
+                               cfg.function_extractor.public_functions]
+      anal_results["n_private_funcs"] = len(cfg.function_extractor.private_functions)
+
   # Restore settings.
   settings.restore()
 
@@ -125,8 +130,6 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
       block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
     anal_results["blocks"] = block_dict
-    #anal_results["funcs"] = [sig for sig in function.public_function_sigs(cfg)
-    #                         if sig is not None]
     logging.info("Graph has %s edges.",
                  sum([v[0] for v in block_dict.values()]))
     if len(block_dict) > 0:
