@@ -45,6 +45,18 @@ class FunctionExtractor:
     self.private_functions = []
     self.invoc_pairs = {}  # a mapping from invocation sites to return addresses
 
+  def __str__(self) -> str:
+    """
+    Returns a string representation of all the functions in the graph
+    after extraction has been performed.
+
+    Returns:
+      A string summary of all the functions in the control flow graph
+    """
+
+    return "\n".join(["Function {}:\n{}\n".format(str(i), str(func))
+                      for i, func in enumerate(self.functions)])
+
   @staticmethod
   def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
     """
@@ -67,18 +79,6 @@ class FunctionExtractor:
     """Mark extracted function bodies with unique identifier suffixes."""
     for i, func in enumerate(self.functions):
       self.mark_body(func.body, i)
-
-  def export(self) -> str:
-    """
-    Returns a string representation of all the functions in the graph
-    after extraction has been performed.
-
-    Returns:
-      A string summary of all the functions in the control flow graph
-    """
-
-    return "\n".join(["Function {}:\n{}\n".format(str(i), str(func))
-                      for i, func in enumerate(self.functions)])
 
   def extract_public_functions(self) -> t.Iterable[Function]:
     """
