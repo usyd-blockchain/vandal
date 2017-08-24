@@ -99,6 +99,18 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
     logging.info("Removed %s unreachable blocks.", len(removed))
 
+  # Perform function analysis
+  if settings.extract_functions or settings.mark_functions:
+    logging.info("Extracting functions")
+    cfg.extract_functions()
+    logging.info("Detected %s public and %s private function(s).",
+                 len(cfg.function_extractor.public_functions),
+                 len(cfg.function_extractor.private_functions))
+
+    if settings.mark_functions:
+      logging.info("Marking functions.")
+      cfg.function_extractor.mark_functions()
+
   # Restore settings.
   settings.restore()
 

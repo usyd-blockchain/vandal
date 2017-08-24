@@ -7,7 +7,6 @@ import typing as t
 import tac_cfg
 import memtypes
 import opcodes
-import settings
 
 
 class Function:
@@ -16,14 +15,18 @@ class Function:
   """
 
   def __init__(self):
-    self.signature = ""
     self.body = []
     self.start_block = None
     self.end_block = None
     self.mapping = {}  # a mapping of preds to succs of the function body.
+    self.signature = ""
+    self.is_private = False
 
   def __str__(self):
-    sig = "Signature: " + self.signature
+    if self.is_private:
+      sig = "Private function"
+    else:
+      sig = "Public function signature: " + self.signature
     entry_block = "Entry block: " + self.start_block.ident()
     if self.end_block is not None:
       exit_block = "Exit block: " + self.end_block.ident()
@@ -37,9 +40,9 @@ class FunctionExtractor:
   """A class for extracting functions from an already generated TAC cfg."""
 
   def __init__(self, cfg: tac_cfg.TACGraph):
-    # TODO: Distinguish public from private functions
     self.cfg = cfg  # the tac_cfg that this operates on
-    self.functions = []
+    self.public_functions = []
+    self.private_functions = []
     self.invoc_pairs = {}  # a mapping from invocation sites to return addresses
 
   @staticmethod
@@ -51,31 +54,31 @@ class FunctionExtractor:
     for block in path:
       block.ident_suffix += "_F" + str(num)
 
+  @property
+  def functions(self):
+    return self.public_functions + self.private_functions
+
   def extract(self) -> None:
     """Extracts private and public functions"""
-    # TODO: Distinguish public from private functions
-    self.functions.extend(self.extract_private_functions())
-    self.functions.extend(self.extract_public_functions())
+    self.private_functions.extend(self.extract_private_functions())
+    self.public_functions.extend(self.extract_public_functions())
+
+  def mark_functions(self) -> None:
+    """Mark extracted function bodies with unique identifier suffixes."""
+    for i, func in enumerate(self.functions):
+      self.mark_body(func.body, i)
 
   def export(self) -> str:
     """
     Returns a string representation of all the functions in the graph
     after extraction has been performed.
 
-    Args:
-      mark: if true, mark the function bodies in the control flow graph
-
     Returns:
       A string summary of all the functions in the control flow graph
     """
-    ret_str = ""
-    for i, func in enumerate(self.functions):
-      ret_str += "Function " + str(i) + ":\n"
-      ret_str += str(func) + "\n"
-    if settings.mark_functions:
-      for i, func in enumerate(self.functions):
-        self.mark_body(func.body, i)
-    return ret_str
+
+    return "\n".join(["Function {}:\n{}\n".format(str(i), str(func))
+                      for i, func in enumerate(self.functions)])
 
   def extract_public_functions(self) -> t.Iterable[Function]:
     """
@@ -182,6 +185,7 @@ class FunctionExtractor:
     # Assuming that there will only be one end_block
     f.end_block = end_block
     f.signature = signature
+    f.is_private = False
     return f
 
   def __jump_to_next_loc(self, block: tac_cfg.TACBasicBlock,
@@ -250,6 +254,7 @@ class FunctionExtractor:
     for i, block in enumerate(start_blocks):
       return_blocks = list(pair_list[i].values())
       f = self.find_func_body(block, return_blocks, pair_list)
+      f.is_private = True
       if not f or len(f.body) == 1:  # Can't have a function with 1 block in EVM
         continue
       if f is not None:
