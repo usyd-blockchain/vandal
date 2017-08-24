@@ -2,10 +2,12 @@
 Classes for identifying and exporting functions in the control flow graph.
 Tested and developed on Solidity version 0.4.11"""
 
+import typing as t
+
 import tac_cfg
 import memtypes
 import opcodes
-import typing as t
+import settings
 
 
 class Function:
@@ -40,13 +42,22 @@ class FunctionExtractor:
     self.functions = []
     self.invoc_pairs = {}  # a mapping from invocation sites to return addresses
 
+  @staticmethod
+  def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
+    """
+    Marks every block in the path with the given number.
+    Used for marking function bodies.
+    """
+    for block in path:
+      block.ident_suffix += "_F" + str(num)
+
   def extract(self) -> None:
     """Extracts private and public functions"""
     # TODO: Distinguish public from private functions
     self.functions.extend(self.extract_private_functions())
     self.functions.extend(self.extract_public_functions())
 
-  def export(self, mark: bool) -> str:
+  def export(self) -> str:
     """
     Returns a string representation of all the functions in the graph
     after extraction has been performed.
@@ -61,9 +72,9 @@ class FunctionExtractor:
     for i, func in enumerate(self.functions):
       ret_str += "Function " + str(i) + ":\n"
       ret_str += str(func) + "\n"
-    if mark:
+    if settings.mark_functions:
       for i, func in enumerate(self.functions):
-       mark_body(func.body, i)
+        self.mark_body(func.body, i)
     return ret_str
 
   def extract_public_functions(self) -> t.Iterable[Function]:
@@ -365,13 +376,3 @@ class FunctionExtractor:
         if b not in traversed:
           queue.append(b)
     return False
-
-
-def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
-  #TODO: make this a static method
-  """
-  Marks every block in the path with the given number.
-  Used for marking function bodies.
-  """
-  for block in path:
-    block.ident_suffix += "_F" + str(num)

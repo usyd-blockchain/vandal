@@ -6,7 +6,6 @@ from typing import Dict, Any
 import cfg
 import evm_cfg
 import tac_cfg
-import function
 import lattice
 import memtypes
 from memtypes import VariableStack
@@ -87,7 +86,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Perform final graph manipulations, and merging any blocks that were split.
   # As well as extract jump destinations directly from def-sites if they were
-  # not inferrable during previous dataflow steps.
+  # not inferable during previous dataflow steps.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -118,8 +117,6 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
     #                         if sig is not None]
     logging.info("Graph has %s edges.",
                  sum([v[0] for v in block_dict.values()]))
-    #logging.info("Detected %s public function signatures.",
-    #             len(anal_results["funcs"]))
     if len(block_dict) > 0:
       avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
       if avg_clone > 0:

@@ -115,6 +115,8 @@ widen_variables        = None
 widen_threshold        = None
 set_valued_ops         = None
 analytics              = None
+extract_functions      = None
+mark_functions         = None
 
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
