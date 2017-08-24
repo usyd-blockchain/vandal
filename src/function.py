@@ -6,18 +6,41 @@ import tac_cfg, memtypes, opcodes
 import typing as t
 
 
-class FunctionExtractor():
+class Function:
+  """
+  A representation of a function with associated metadata
+  """
+
+  def __init__(self):
+    self.signature = ""
+    self.body = []
+    self.start_block = None
+    self.end_block = None
+    self.mapping = {}  # a mapping of preds to succs of the function body.
+
+  def __str__(self):
+    sig = "Signature: " + self.signature
+    entry_block = "Entry block: " + self.start_block.ident()
+    if self.end_block is not None:
+      exit_block = "Exit block: " + self.end_block.ident()
+    else:
+      exit_block = "Exit block: None identified"
+    body = "Body: " + ", ".join(b.ident() for b in self.body)
+    return "\n".join([sig, entry_block, exit_block, body])
+
+
+class FunctionExtractor:
   """A class for extracting functions from an already generated TAC cfg."""
 
   def __init__(self, cfg: tac_cfg.TACGraph):
     self.cfg = cfg  # the tac_cfg that this operates on
     self.functions = []
-    self.invoc_pairs = {} # a mapping from invocation sites to return addresses
+    self.invoc_pairs = {}  # a mapping from invocation sites to return addresses
 
   def extract(self) -> None:
     """Extracts private and public functions"""
-    self.functions.extend(self.extract_private_funcs())
-    self.functions.extend(self.extract_public_funcs())
+    self.functions.extend(self.extract_private_functions())
+    self.functions.extend(self.extract_public_functions())
 
   def export(self, mark: bool) -> str:
     """
@@ -34,66 +57,71 @@ class FunctionExtractor():
     for i, func in enumerate(self.functions):
       ret_str += "Function " + str(i) + ":\n"
       ret_str += str(func) + "\n"
-
     if mark:
       for i, func in enumerate(self.functions):
        mark_body(func.body, i)
     return ret_str
 
-  def extract_public_funcs(self) -> t.List['Function']:
-    """Identifies public functions
+  def extract_public_functions(self) -> t.Iterable[Function]:
+    """
+    Return a list of the solidity public functions exposed by a contract.
+    Call this after having already called prop_vars_between_blocks() on cfg.
 
     Returns:
-      A list of of Function objects - public functions identified in the graph
+      A list of the extracted functions.
     """
-    # We follow the JUMPI chain down from the first CALLDATALOAD
-    queue = [self.find_calldataload()]
-    starts = [] # A list of all the starting blocks of public functions
-    while len(queue) > 0:
-      curblock = queue.pop(0)
-      for succ in curblock.succs:
-        found = False
-        for op in reversed(succ.evm_ops):
-          # If PUSH4 used means successor is checking for function signature
-          if op.opcode.name == "PUSH4":
-            queue.append(succ)
-            found = True
-            break
-        if not found:
-          starts.append(succ)
 
-    public_funcs = list()
-    for block in starts:
-      f = self.get_public_function(block)
-      public_funcs.append(f)
+    # Find the function signature variable holding call data 0,
+    # at the earliest query to that location in the program.
+    load_list = []
+    load_block = None
 
-    return public_funcs
+    for block in sorted(self.cfg.blocks, key=lambda b: b.entry):
+      load_list = [op for op in block.tac_ops
+                   if op.opcode == opcodes.CALLDATALOAD
+                   and op.args[0].value.const_value == 0]
+      if len(load_list) != 0:
+        load_block = block
+        break
 
-  def find_calldataload(self) -> tac_cfg.TACBasicBlock:
-    """
-    Returns:
-      The block with the first CALLDATALOAD opcode in the graph
-    """
-    # CALLDATALOAD is either in first block or one of its successors
-    block = self.cfg.get_block_by_ident("0x0")
-    for op in block.evm_ops:
-      if op.opcode.name == "CALLDATALOAD":
-        return block
-    for succ in block.succs:
-      for op in succ.evm_ops:
-        if op.opcode.name == "CALLDATALOAD":
-          return succ
-    return None
+    if len(load_list) == 0:
+      return []
+    sig_var = load_list[0].lhs
 
-  def get_public_function(self, block: tac_cfg.TACBasicBlock) -> t.List[tac_cfg.TACBasicBlock]:
+    # Follow the signature until it's transformed into its final shape.
+    for o in load_block.tac_ops:
+      if not isinstance(o, tac_cfg.TACAssignOp) or \
+         id(sig_var) not in [id(a.value) for a in o.args]:
+        continue
+      if o.opcode == opcodes.EQ:
+        break
+      sig_var = o.lhs
+
+    # Find all the places the function signature is compared to a constant
+    func_sigs = []
+
+    for b in self.cfg.blocks:
+      for o in b.tac_ops:
+        if not isinstance(o, tac_cfg.TACAssignOp) or\
+           id(sig_var) not in [id(a.value) for a in o.args]:
+          continue
+        if o.opcode == opcodes.EQ:
+          sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
+          func_sigs.append((b, hex(sig.const_value)))
+
+    return [self.get_public_function(s[0], signature=s[1]) for s in func_sigs]
+
+  def get_public_function(self, block:tac_cfg.TACBasicBlock,
+                          signature:str = "") -> Function:
     """
     Identifies the function starting with the given block
 
     Args:
-      block: A BasicBlock to be used as the starting block for the function
+      block: A BasicBlock to be used as the starting block for the function.
+      signature: The solidity hashed function signature associated with the function to be extracted.
 
     Returns:
-      A list of BasicBlocks that consist of the body of the function
+      A Function object containing the blocks composing the function body.
     """
     body = []
     queue = [block]
@@ -139,6 +167,7 @@ class FunctionExtractor():
     f.start_block = block
     # Assuming that there will only be one end_block
     f.end_block = end_block
+    f.signature = signature
     return f
 
   def __jump_to_next_loc(self, block: tac_cfg.TACBasicBlock,
@@ -181,7 +210,7 @@ class FunctionExtractor():
             queue.append(succ)
     return None
 
-  def extract_private_funcs(self) -> t.List[tac_cfg.TACBasicBlock]:
+  def extract_private_functions(self) -> t.List[tac_cfg.TACBasicBlock]:
     """
     Extracts private functions
 
@@ -265,10 +294,10 @@ class FunctionExtractor():
     from start to end using BFS
 
     Args:
-      block: the start block of a function
-      return_blocks: the list of return blocks of the function
+      block: the start block of a function.
+      return_blocks: the list of return blocks of the function.
       invoc_pairs: a mapping of all other invocation and return point pairs
-                   to allow jumping over other functions
+                   to allow jumping over other functions.
 
     Returns:
       A function object representing the function starting with the given block
@@ -342,78 +371,3 @@ def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
   """
   for block in path:
     block.ident_suffix += "_F" + str(num)
-
-
-class Function:
-  """
-  A representation of a function with associated metadata
-  """
-  def __str__(self):
-    entry_block = "Entry block: " + self.start_block.ident()
-    if self.end_block is not None:
-      exit_block = "Exit block: " + self.end_block.ident()
-    else:
-      exit_block = "Exit block: None identified"
-    body = "Body: " + ", ".join(b.ident() for b in self.body)
-    return "\n".join([entry_block, exit_block, body])
-
-  def __init__(self):
-    self.body = []
-    self.start_block = None
-    self.end_block = None
-    self.mapping = {}  # a mapping of preds to succs of the function body.
-
-
-def public_function_sigs(cfg: tac_cfg.TACGraph) -> t.Iterable[str]:
-  """
-  Return an approximate list of the solidity public functions
-  exposed by the given contract.
-  Call this after having already called prop_vars_between_blocks() on cfg.
-
-  Args:
-    cfg: the control flow graph of a solidity function whose signatures to
-         extract.
-
-  Returns:
-    A list of the extracted signatures.
-  """
-
-  # Find the function signature variable holding call data 0,
-  # at the earliest query to that location in the program.
-  load_list = []
-  load_block = None
-
-  for block in sorted(cfg.blocks, key=lambda b: b.entry):
-    load_list = [op for op in block.tac_ops
-                 if op.opcode == opcodes.CALLDATALOAD
-                 and op.args[0].value.const_value == 0]
-    if len(load_list) != 0:
-      load_block = block
-      break
-
-  if len(load_list) == 0:
-    return []
-  sig_var = load_list[0].lhs
-
-  # Follow the signature until it's transformed into its final shape.
-  for o in load_block.tac_ops:
-    if not isinstance(o, tac_cfg.TACAssignOp) or \
-       id(sig_var) not in [id(a.value) for a in o.args]:
-      continue
-    if o.opcode == opcodes.EQ:
-      break
-    sig_var = o.lhs
-
-  # Find all the places the function signature is compared to a constant
-  func_sigs = []
-
-  for b in cfg.blocks:
-    for o in b.tac_ops:
-      if not isinstance(o, tac_cfg.TACAssignOp) or\
-         id(sig_var) not in [id(a.value) for a in o.args]:
-        continue
-      if o.opcode == opcodes.EQ:
-        sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
-        func_sigs.append(hex(sig.const_value))
-
-  return func_sigs

@@ -114,12 +114,12 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
       block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
     anal_results["blocks"] = block_dict
-    anal_results["funcs"] = [sig for sig in function.public_function_sigs(cfg)
-                             if sig is not None]
+    #anal_results["funcs"] = [sig for sig in function.public_function_sigs(cfg)
+    #                         if sig is not None]
     logging.info("Graph has %s edges.",
                  sum([v[0] for v in block_dict.values()]))
-    logging.info("Detected %s public function signatures.",
-                 len(anal_results["funcs"]))
+    #logging.info("Detected %s public function signatures.",
+    #             len(anal_results["funcs"]))
     if len(block_dict) > 0:
       avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
       if avg_clone > 0:
