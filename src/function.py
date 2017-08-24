@@ -1,8 +1,10 @@
-"""func_extr.py:
+"""function.py:
 Classes for identifying and exporting functions in the control flow graph.
 Tested and developed on Solidity version 0.4.11"""
 
-import tac_cfg, memtypes, opcodes
+import tac_cfg
+import memtypes
+import opcodes
 import typing as t
 
 
@@ -33,12 +35,14 @@ class FunctionExtractor:
   """A class for extracting functions from an already generated TAC cfg."""
 
   def __init__(self, cfg: tac_cfg.TACGraph):
+    # TODO: Distinguish public from private functions
     self.cfg = cfg  # the tac_cfg that this operates on
     self.functions = []
     self.invoc_pairs = {}  # a mapping from invocation sites to return addresses
 
   def extract(self) -> None:
     """Extracts private and public functions"""
+    # TODO: Distinguish public from private functions
     self.functions.extend(self.extract_private_functions())
     self.functions.extend(self.extract_public_functions())
 
@@ -64,8 +68,7 @@ class FunctionExtractor:
 
   def extract_public_functions(self) -> t.Iterable[Function]:
     """
-    Return a list of the solidity public functions exposed by a contract.
-    Call this after having already called prop_vars_between_blocks() on cfg.
+    Return a list of the solidity public functions exposed by the contract of this cfg.
 
     Returns:
       A list of the extracted functions.
@@ -365,6 +368,7 @@ class FunctionExtractor:
 
 
 def mark_body(path: t.List[tac_cfg.TACBasicBlock], num: int) -> None:
+  #TODO: make this a static method
   """
   Marks every block in the path with the given number.
   Used for marking function bodies.

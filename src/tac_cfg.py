@@ -60,6 +60,12 @@ class TACGraph(cfg.ControlFlowGraph):
     block at the time it was split. At merge time these edges can be restored.
     """
 
+    self.function_extractor = None
+    """
+    A FunctionExtractor object, which encapsulates solidity functions
+    and extraction logic.
+    """
+
     # Propagate constants and add CFG edges.
     self.apply_operations()
     self.hook_up_jumps()
@@ -664,6 +670,16 @@ class TACGraph(cfg.ControlFlowGraph):
           continue
         for i in range(len(group)):
           group[i].name += str(i)
+
+  def extract_functions(self):
+    """
+    Attempt to extract solidity functions from this contract.
+    Call this after having already called prop_vars_between_blocks() on cfg.
+    """
+    import function
+    fe = function.FunctionExtractor(self)
+    fe.extract()
+    self.function_extractor = fe
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
