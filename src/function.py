@@ -311,7 +311,7 @@ class FunctionExtractor:
         for val in list(pre.delta_stack):
           ref_block = self.cfg.get_block_by_ident(str(val))
           # Ensure that the block pointed to by the block exists and is reachable
-          if ref_block is not None and self.reachable(pre, [ref_block]):
+          if ref_block is not None and self.cfg.reaches(pre, [ref_block]):
             func_mapping[pre] = ref_block
             func_succs.append(ref_block)
             break
@@ -352,7 +352,7 @@ class FunctionExtractor:
       cur_succs = [b for b in curr_block.succs]
       if set(return_blocks).issubset(set(cur_succs)):
         end = True
-      if curr_block not in body and self.reachable(curr_block, return_blocks):
+      if curr_block not in body and self.cfg.reaches(curr_block, return_blocks):
         body.append(curr_block)
         for b in curr_block.succs:
           if b not in return_blocks:
@@ -373,27 +373,3 @@ class FunctionExtractor:
       return f
 
     return None
-
-  def reachable(self, block: tac_cfg.TACBasicBlock,
-                dests: t.List[tac_cfg.TACBasicBlock]) -> bool:
-    """
-    Determines if a block can reach any of the given destination blocks
-
-    Args:
-      block: Any block that is part of the tac_cfg the class was initialised with
-      dests: A list of dests to check reachability with
-    """
-    if block in dests:
-      return True
-    queue = [block]
-    traversed = []
-    while queue:
-      cur_block = queue.pop()
-      traversed.append(cur_block)
-      for b in dests:
-        if b in cur_block.succs:
-          return True
-      for b in cur_block.succs:
-        if b not in traversed:
-          queue.append(b)
-    return False

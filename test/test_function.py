@@ -74,13 +74,13 @@ class TestFunctionExtraction:
     # 0x0 Can never be a private function start
     assert fun_extr.is_private_func_start(fun_extr.cfg.get_block_by_ident("0x0")) is None
 
-  def test_reachable(self, funcs):
+  def test_reaches(self, funcs):
     fun_extr = funcs[0]
     # Check 0x0 can reach every block and no block can reach 0x0
     start_block = fun_extr.cfg.get_block_by_ident("0x0")
     for block in fun_extr.cfg.blocks:
       # check not part of uncompleted graph
       if len(block.preds) != 0 and len(block.succs) != 0:
-        assert fun_extr.reachable(start_block, [block])
+        assert fun_extr.cfg.reaches(start_block, [block])
       if block != start_block:
-        assert fun_extr.reachable(block, [start_block]) == False
+        assert fun_extr.cfg.reaches(block, [start_block]) is False
