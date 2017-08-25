@@ -24,12 +24,12 @@ def funcs(request):
   f = open(dir_path + request.param[0], 'r')
   cfg = tac_cfg.TACGraph.from_bytecode(f.read(), False)
   dataflow.analyse_graph(cfg)
-  funcs = function.FunctionExtractor(cfg)
-  funcs.extract()
-  return (funcs, request.param[1], request.param[2], request.param[3])
+  fun_extractor = function.FunctionExtractor(cfg)
+  fun_extractor.extract()
+  return fun_extractor, request.param[1], request.param[2], request.param[3]
 
 
-### TESTS ###
+# TESTS
 
 class TestFunctionExtraction:
 
@@ -37,8 +37,8 @@ class TestFunctionExtraction:
     func = function.Function()
     assert func.body == []
     assert func.mapping == {}
-    assert func.end_block == None
-    assert func.start_block == None
+    assert func.end_block is None
+    assert func.start_block is None
 
   # Tests on Function Identification as a whole
 
@@ -53,7 +53,6 @@ class TestFunctionExtraction:
     for f in fun_extr.functions:
       assert f.start_block.ident() in start_blocks
 
-
   def test_function_end_blocks(self, funcs):
     fun_extr = funcs[0]
     end_blocks = funcs[2]
@@ -61,16 +60,6 @@ class TestFunctionExtraction:
       assert f.end_block.ident() in end_blocks
 
   # Tests on helper functions within the func_extr module
-
-  def test_find_CALLDATALOAD(self, funcs):
-    fun_extr = funcs[0]
-    calldataload_block = fun_extr.find_calldataload()
-    # CALLDATALOAD block will be 0x0 or one of its successors
-    start_block = fun_extr.cfg.get_block_by_ident("0x0")
-    poss_blocks = [start_block]
-    for b in start_block.succs:
-      poss_blocks.append(b)
-    assert calldataload_block in poss_blocks
 
   def test_find_private_func_start(self, funcs):
     fun_extr = funcs[0]
@@ -95,4 +84,3 @@ class TestFunctionExtraction:
         assert fun_extr.reachable(start_block, [block])
       if block != start_block:
         assert fun_extr.reachable(block, [start_block]) == False
-

@@ -11,7 +11,7 @@ import opcodes
 
 class Function:
   """
-  A representation of a function with associated metadata
+  A representation of a Solidity function with associated metadata.
   """
 
   def __init__(self):
@@ -40,7 +40,7 @@ class Function:
 
 
 class FunctionExtractor:
-  """A class for extracting functions from an already generated TAC cfg."""
+  """A class for extracting Solidity functions from an already generated TAC cfg."""
 
   def __init__(self, cfg: tac_cfg.TACGraph):
     self.cfg = cfg  # the tac_cfg that this operates on
