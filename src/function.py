@@ -26,7 +26,10 @@ class Function:
     if self.is_private:
       sig = "Private function"
     else:
-      sig = "Public function signature: " + self.signature
+      if self.signature:
+        sig = "Public function signature: " + self.signature
+      else:
+        sig = "Public fallback function"
     entry_block = "Entry block: " + self.start_block.ident()
     if self.end_block is not None:
       exit_block = "Exit block: " + self.end_block.ident()
@@ -116,6 +119,7 @@ class FunctionExtractor:
 
     # Find all the places the function signature is compared to a constant
     func_sigs = []
+    fallthroughs = []
 
     for b in self.cfg.blocks:
       for o in b.tac_ops:
@@ -124,7 +128,19 @@ class FunctionExtractor:
           continue
         if o.opcode == opcodes.EQ:
           sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
-          func_sigs.append((b, hex(sig.const_value)))
+
+          # Append the non-fallthrough successor to the function sig list
+          for succ in [s for s in b.succs if s != b.fallthrough]:
+            func_sigs.append((succ, hex(sig.const_value)))
+
+          # Save the fallthrough location so the last one can be added as
+          # the fallback function
+          if b.fallthrough is not None:
+            fallthroughs.append(b.fallthrough)
+
+    # Add the fallback function
+    if fallthroughs:
+      func_sigs.append((fallthroughs[-1], ""))
 
     return [self.get_public_function(s[0], signature=s[1]) for s in func_sigs]
 

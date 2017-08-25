@@ -44,7 +44,7 @@ class TestFunctionExtraction:
 
   def test_function_body_length(self, funcs):
     fun_extr = funcs[0]
-    functions = fun_extr.export(False)
+    functions = str(fun_extr)
     assert len(functions.split("Function")) == funcs[3]
 
   def test_function_start_blocks(self, funcs):

@@ -778,6 +778,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
                               [copy.copy(op) for op in self.evm_ops],
                               copy.deepcopy(self.delta_stack, memodict))
 
+    new_block.fallthrough = self.fallthrough
     new_block.has_unresolved_jump = self.has_unresolved_jump
     new_block.symbolic_overflow = self.symbolic_overflow
     new_block.entry_stack = copy.deepcopy(self.entry_stack, memodict)
@@ -1010,6 +1011,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     old_succs = list(self.succs)
     new_succs = {d for dl in list(jumpdests.values())+[fallthrough] for d in dl}
+    if fallthrough:
+      self.fallthrough = fallthrough[0]
 
     for s in old_succs:
       if s not in new_succs and s.entry in jumpdests:

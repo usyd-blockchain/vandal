@@ -28,6 +28,14 @@ class EVMBasicBlock(cfg.BasicBlock):
     self.evm_ops = evm_ops if evm_ops is not None else []
     """List of EVMOps contained within this EVMBasicBlock"""
 
+    self.fallthrough = None
+    """
+    The block that this one falls through to on the false branch
+    of a JUMPI, if it exists. This should already appear in self.succs;
+    this just distinguishes which one is the false branch.
+    """
+    # TODO: maybe not vital, but this should interact properly with procedure cloning
+
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
     super_str = super().__str__()
