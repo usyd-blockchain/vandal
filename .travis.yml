@@ -44,7 +44,7 @@ script:
   - bin/disassemble -p examples/basic.hex
   - bin/disassemble examples/dao_hack.hex | bin/decompile -n -v -a
   - bash -c '[ ! -f basic.tac ]'
-  - bin/decompile -n -v -a examples/basic.dasm basic.tac
+  - bin/decompile -a examples/basic.dasm basic.tac
   - bash -c '[ -s basic.tac ]'
 
 notifications:
