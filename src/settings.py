@@ -85,9 +85,15 @@ set_valued_ops:
   Disable to gain speed at the cost of precision. True by default.
 
 analytics:
-  If true, dataflow analysis will return a dict of information about
+  If True, dataflow analysis will return a dict of information about
   the contract, otherwise return an empty dict.
   Disabling this might yield a slight speed improvement. False by default.
+
+extract_functions:
+  If True, attempt to extract solidity functions.
+
+mark_functions:
+  If true, tag block names with the function(s) they belong to.
 
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
