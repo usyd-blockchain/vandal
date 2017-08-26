@@ -16,6 +16,7 @@ sys.path.insert(0, src_path)
 # Local project imports
 import opcodes
 import blockparse
+import settings
 
 # Colour scheme for prettified output
 # See: https://pypi.python.org/pypi/termcolor
@@ -82,6 +83,10 @@ logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 
 if args.prettify:
   from termcolor import colored
+
+# Initialise data flow settings.
+settings.import_config(settings._CONFIG_LOC_)
+settings.strict = args.strict
 
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
