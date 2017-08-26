@@ -2,10 +2,8 @@
 
 # Standard lib imports
 from os.path import abspath, dirname, join
-import io
 import sys
 import argparse
-import fileinput
 import traceback
 import logging
 
@@ -88,11 +86,13 @@ if args.prettify:
 settings.import_config(settings._CONFIG_LOC_)
 settings.strict = args.strict
 
+
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
   if args.prettify:
     pc = colored(pc, PC_COL)
   return pc
+
 
 def format_opcode(opcode):
   op = "{:<6}".format(opcode.name)
@@ -107,6 +107,7 @@ def format_opcode(opcode):
       op = colored(op, OP_COL)
   return op
 
+
 def format_value(value):
   if value is None:
     return str()
@@ -114,6 +115,7 @@ def format_value(value):
   if args.prettify:
     value = colored(value, VAL_COL)
   return value
+
 
 try:
   for i, infile in enumerate(args.infile):
