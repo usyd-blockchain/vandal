@@ -40,7 +40,7 @@ script:
   - bash -c '[ -s tsv/imdom.facts ]'
   - bash -c '[ -s tsv/pdom.facts ]'
   - bash -c '[ -s tsv/impdom.facts ]'
-  - bin/disassemble  examples/basic.hex
+  - bin/disassemble examples/basic.hex
   - bin/disassemble -p examples/basic.hex
   - bin/disassemble examples/dao_hack.hex | bin/decompile -n -v -a
   - bash -c '[ ! -f basic.tac ]'
