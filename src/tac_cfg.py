@@ -9,7 +9,6 @@ import logging
 import opcodes
 import cfg
 import evm_cfg
-import tac_cfg
 import memtypes as mem
 import blockparse
 import patterns
@@ -59,6 +58,12 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     A mapping from addresses to addresses storing all successors of a
     block at the time it was split. At merge time these edges can be restored.
+    """
+
+    self.function_extractor = None
+    """
+    A FunctionExtractor object, which encapsulates solidity functions
+    and extraction logic.
     """
 
     # Propagate constants and add CFG edges.
@@ -182,7 +187,7 @@ class TACGraph(cfg.ControlFlowGraph):
       for d in [d for d in doms if d not in idents]:
         del doms[d]
 
-    # TODO: ask bernhard whether to remove non-terminal END-postdominators
+    # TODO: determine whether to remove non-terminal END-postdominators
     #       and turn terminal ones into self-postdominators
 
     return doms
@@ -427,7 +432,7 @@ class TACGraph(cfg.ControlFlowGraph):
     """
     # copy the path
     path_copies = [[copy.deepcopy(b) for b in path]
-                    for _ in range(len(path_preds))]
+                   for _ in range(len(path_preds))]
 
     # Copy the nodes properly in the split node succs mapping.
     for i, b in enumerate(path):
@@ -662,52 +667,15 @@ class TACGraph(cfg.ControlFlowGraph):
         for i in range(len(group)):
           group[i].name += str(i)
 
-  def public_function_sigs(self) -> t.Iterable[str]:
+  def extract_functions(self):
     """
-    Return an approximate list of the solidity public functions
-    exposed by this contract.
-    Call this after having already called prop_vars_between_blocks().
+    Attempt to extract solidity functions from this contract.
+    Call this after having already called prop_vars_between_blocks() on cfg.
     """
-
-    # Find the function signature variable holding call data 0,
-    # at the earliest query to that location in the program.
-    load_list = []
-    load_block = None
-
-    for block in sorted(self.blocks, key=lambda b: b.entry):
-      load_list = [op for op in block.tac_ops
-                   if op.opcode == opcodes.CALLDATALOAD
-                   and op.args[0].value.const_value == 0]
-      if len(load_list) != 0:
-        load_block = block
-        break
-
-    if len(load_list) == 0:
-      return []
-    sig_var = load_list[0].lhs
-
-    # Follow the signature until it's transformed into its final shape.
-    for o in load_block.tac_ops:
-      if not isinstance(o, tac_cfg.TACAssignOp) or \
-         id(sig_var) not in [id(a.value) for a in o.args]:
-        continue
-      if o.opcode == opcodes.EQ:
-        break
-      sig_var = o.lhs
-
-    # Find all the places the function signature is compared to a constant
-    func_sigs = []
-
-    for b in self.blocks:
-      for o in b.tac_ops:
-        if not isinstance(o, tac_cfg.TACAssignOp) or\
-           id(sig_var) not in [id(a.value) for a in o.args]:
-          continue
-        if o.opcode == opcodes.EQ:
-          sig = [a.value for a in o.args if id(a.value) != id(sig_var)][0]
-          func_sigs.append(hex(sig.const_value))
-
-    return func_sigs
+    import function
+    fe = function.FunctionExtractor(self)
+    fe.extract()
+    self.function_extractor = fe
 
 
 class TACBasicBlock(evm_cfg.EVMBasicBlock):
@@ -806,6 +774,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
                               [copy.copy(op) for op in self.evm_ops],
                               copy.deepcopy(self.delta_stack, memodict))
 
+    new_block.fallthrough = self.fallthrough
     new_block.has_unresolved_jump = self.has_unresolved_jump
     new_block.symbolic_overflow = self.symbolic_overflow
     new_block.entry_stack = copy.deepcopy(self.entry_stack, memodict)
@@ -1038,6 +1007,8 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
 
     old_succs = list(self.succs)
     new_succs = {d for dl in list(jumpdests.values())+[fallthrough] for d in dl}
+    if fallthrough:
+      self.fallthrough = fallthrough[0]
 
     for s in old_succs:
       if s not in new_succs and s.entry in jumpdests:

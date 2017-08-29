@@ -3,6 +3,7 @@
 import abc
 import inspect
 
+
 class Visitable(abc.ABC):
   """
   Provides an interface for an object which can accept a :obj:`Visitor`.

@@ -68,7 +68,7 @@ parser.add_argument("infile",
                     help="file from which decompiler input should be read "
                          "(stdin by default).")
 
-# Do the argparsing
+# Parse the arguments.
 args = parser.parse_args()
 
 # Set up logger, with appropriate log level depending on verbosity.
@@ -82,10 +82,9 @@ logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 if args.prettify:
   from termcolor import colored
 
-# Initialise data flow settings.
+# Initialise settings.
 settings.import_config(settings._CONFIG_LOC_)
 settings.strict = args.strict
-
 
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
@@ -122,8 +121,8 @@ try:
     if hasattr(infile, 'name'):
       logging.info("Processing %s", infile.name)
 
-    # for multiple infiles, comment above each output with the
-    # path of the infile
+    # for multiple input files, comment above each output with the
+    # path of its file
     if hasattr(args.infile, '__len__') and len(args.infile) > 1:
       fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
       if args.prettify:
@@ -148,7 +147,7 @@ try:
       if args.prettify:
         print("", file=args.outfile)
 
-    # for multiple infiles, separate output of each file with a newline
+    # for multiple input files, separate output of each file with a newline
     if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
       print("", file=args.outfile)
 
