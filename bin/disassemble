@@ -14,6 +14,7 @@ sys.path.insert(0, src_path)
 # Local project imports
 import opcodes
 import blockparse
+import settings
 
 # Colour scheme for prettified output
 # See: https://pypi.python.org/pypi/termcolor
@@ -81,6 +82,9 @@ logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
 if args.prettify:
   from termcolor import colored
 
+# Initialise settings.
+settings.import_config(settings._CONFIG_LOC_)
+settings.strict = args.strict
 
 def format_pc(pc):
   pc = "0x{:02x}".format(pc)
@@ -130,7 +134,7 @@ try:
     bytecode = ''.join(l.strip() for l in infile if len(l.strip()) > 0)
 
     # parse bytecode and create basic blocks
-    blocks = blockparse.EVMBytecodeParser(bytecode).parse(strict=args.strict)
+    blocks = blockparse.EVMBytecodeParser(bytecode).parse()
 
     # Print disassembly from each block
     for b in blocks:
@@ -154,8 +158,8 @@ except ValueError as e:
 
 # LookupError happens with invalid opcodes
 except LookupError as e:
-  if args.strict:
-    logging.exception("Invalid opcode during strict disassembly.")
+  if settings.strict:
+    logging.exception("Invalid opcode during disassembly (strict).")
     sys.exit(1)
   else:
     logging.debug(traceback.format_exc())

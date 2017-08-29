@@ -22,7 +22,7 @@ def funcs(request):
   """
   settings.import_config()
   f = open(dir_path + request.param[0], 'r')
-  cfg = tac_cfg.TACGraph.from_bytecode(f.read(), False)
+  cfg = tac_cfg.TACGraph.from_bytecode(f.read())
   dataflow.analyse_graph(cfg)
   fun_extractor = function.FunctionExtractor(cfg)
   fun_extractor.extract()

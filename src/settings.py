@@ -95,13 +95,16 @@ extract_functions:
 mark_functions:
   If true, tag block names with the function(s) they belong to.
 
+strict:
+  If true, then unrecognised opcodes and invalid disassembly
+  will not be skipped, but will result in an error.
+
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
 """
 
 # The settings - these are None until initialised by import_config
-
 max_iterations         = None
 bailout_seconds        = None
 remove_unreachable     = None
@@ -123,7 +126,7 @@ set_valued_ops         = None
 analytics              = None
 extract_functions      = None
 mark_functions         = None
-
+strict                 = None
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
 _module_ = __import__("sys").modules[__name__]
