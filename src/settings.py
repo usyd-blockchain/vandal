@@ -12,8 +12,8 @@ max_iterations:
 bailout_seconds:
   Begin to terminate the analysis loop if it's looking to take more time
   than specified. Bailing out early may mean the analysis is not able
-  to reach a fixed-point, so the results may be less precise. 
-  This is not a hard cap, as subsequent analysis steps are required, 
+  to reach a fixed-point, so the results may be less precise.
+  This is not a hard cap, as subsequent analysis steps are required,
   and at least one iteration will always be performed.
   A negative value means no cap on the running time.
   No cap by default.
@@ -41,7 +41,7 @@ hook_up_jumps:
   True by default.
 
 mutate_jumps:
-  JUMPIs with known conditions become JUMPs (or are deleted). 
+  JUMPIs with known conditions become JUMPs (or are deleted).
   For example, a JUMPI with a known-true condition becomes a JUMP.
   False by default.
 
@@ -86,8 +86,12 @@ set_valued_ops:
 
 analytics:
   If true, dataflow analysis will return a dict of information about
-  the contract, otherwise return an empty dict. 
+  the contract, otherwise return an empty dict.
   Disabling this might yield a slight speed improvement. False by default.
+
+strict:
+  If true, then unrecognised opcodes and invalid disassembly
+  will not be skipped, but will result in an error.
 
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
@@ -115,6 +119,7 @@ widen_variables        = None
 widen_threshold        = None
 set_valued_ops         = None
 analytics              = None
+strict                 = None
 
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
