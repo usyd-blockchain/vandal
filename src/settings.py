@@ -12,8 +12,8 @@ max_iterations:
 bailout_seconds:
   Begin to terminate the analysis loop if it's looking to take more time
   than specified. Bailing out early may mean the analysis is not able
-  to reach a fixed-point, so the results may be less precise. 
-  This is not a hard cap, as subsequent analysis steps are required, 
+  to reach a fixed-point, so the results may be less precise.
+  This is not a hard cap, as subsequent analysis steps are required,
   and at least one iteration will always be performed.
   A negative value means no cap on the running time.
   No cap by default.
@@ -21,6 +21,10 @@ bailout_seconds:
 remove_unreachable:
   Upon completion of the analysis, if there are blocks unreachable from the
   contract root, remove them. False by default.
+
+merge_unreachable:
+  Upon completion of the analysis, if there are blocks unreachable from the
+  contract root, merge them. True by default.
 
 die_on_empty_pop:
   Raise an exception if an empty stack is popped. False by default.
@@ -41,7 +45,7 @@ hook_up_jumps:
   True by default.
 
 mutate_jumps:
-  JUMPIs with known conditions become JUMPs (or are deleted). 
+  JUMPIs with known conditions become JUMPs (or are deleted).
   For example, a JUMPI with a known-true condition becomes a JUMP.
   False by default.
 
@@ -86,7 +90,7 @@ set_valued_ops:
 
 analytics:
   If true, dataflow analysis will return a dict of information about
-  the contract, otherwise return an empty dict. 
+  the contract, otherwise return an empty dict.
   Disabling this might yield a slight speed improvement. False by default.
 
 Note: If we have already reached complete information about our stack CFG
@@ -99,6 +103,7 @@ to discover places where empty stack exceptions will be thrown.
 max_iterations         = None
 bailout_seconds        = None
 remove_unreachable     = None
+merge_unreachable      = None
 die_on_empty_pop       = None
 skip_stack_on_overflow = None
 reinit_stacks          = None

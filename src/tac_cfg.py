@@ -638,7 +638,7 @@ class TACGraph(cfg.ControlFlowGraph):
     return merged
 
   def merge_unreachable_blocks(self, origin_addresses:t.Iterable[int]=[0]) \
-  -> t.Iterable['TACBasicBlock']:
+  -> t.Iterable[t.Iterable['TACBasicBlock']]:
     """
     Merge all unreachable blocks with contiguous addresses into a single
     block. Will only merge blocks if they have no intervening edges.
@@ -687,7 +687,7 @@ class TACGraph(cfg.ControlFlowGraph):
         block = self.merge_contiguous(block, n)
       merged.append(block)
 
-    return merged
+    return groups
 
   def prop_vars_between_blocks(self) -> None:
     """

@@ -21,7 +21,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   Args:
       cfg: the graph to analyse; will be modified in-place.
   """
-  
+
   logging.info("Beginning dataflow analysis loop.")
 
   anal_results = {}
@@ -64,7 +64,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Save the settings in order to restore them after final stack analysis.
   settings.save()
-  
+
   # Apply final analysis step settings.
   settings.mutate_jumps = settings.final_mutate_jumps
   settings.generate_throws = settings.final_generate_throws
@@ -83,7 +83,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
         dupe_counts[entry] = 0
       else:
         dupe_counts[entry] += 1
- 
+
   # Perform final graph manipulations, and merging any blocks that were split.
   # As well as extract jump destinations directly from def-sites if they were
   # not inferrable during previous dataflow steps.
@@ -93,8 +93,12 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   cfg.make_stack_names_unique()
 
   # Clean up any unreachable blocks in the graph if necessary.
+  if settings.merge_unreachable:
+    merge_groups = cfg.merge_unreachable_blocks()
+    logging.info("Merged %s unreachable blocks into %s.",
+                 sum([len(g) for g in merge_groups]), len(merge_groups))
   if settings.remove_unreachable:
-    removed = cfg.remove_unreachable_code()
+    removed = cfg.remove_unreachable_blocks()
     if settings.analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
     logging.info("Removed %s unreachable blocks.", len(removed))
