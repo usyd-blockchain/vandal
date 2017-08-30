@@ -95,8 +95,9 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   # Clean up any unreachable blocks in the graph if necessary.
   if settings.merge_unreachable:
     merge_groups = cfg.merge_unreachable_blocks()
-    logging.info("Merged %s unreachable blocks into %s.",
-                 sum([len(g) for g in merge_groups]), len(merge_groups))
+    if len(merge_groups) > 0:
+      logging.info("Merged %s unreachable blocks into %s.",
+                   sum([len(g) for g in merge_groups]), len(merge_groups))
   if settings.remove_unreachable:
     removed = cfg.remove_unreachable_blocks()
     if settings.analytics:
