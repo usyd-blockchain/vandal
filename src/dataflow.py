@@ -86,7 +86,7 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
 
   # Perform final graph manipulations, and merging any blocks that were split.
   # As well as extract jump destinations directly from def-sites if they were
-  # not inferrable during previous dataflow steps.
+  # not inferable during previous dataflow steps.
   cfg.merge_duplicate_blocks(ignore_preds=True, ignore_succs=True)
   cfg.hook_up_def_site_jumps()
   cfg.prop_vars_between_blocks()
@@ -103,6 +103,23 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
     logging.info("Removed %s unreachable blocks.", len(removed))
 
+  # Perform function analysis
+  if settings.extract_functions or settings.mark_functions:
+    logging.info("Extracting functions")
+    cfg.extract_functions()
+    logging.info("Detected %s public and %s private function(s).",
+                 len(cfg.function_extractor.public_functions),
+                 len(cfg.function_extractor.private_functions))
+
+    if settings.mark_functions:
+      logging.info("Marking functions.")
+      cfg.function_extractor.mark_functions()
+
+    if settings.analytics:
+      anal_results["funcs"] = [f.signature for f in
+                               cfg.function_extractor.public_functions]
+      anal_results["n_private_funcs"] = len(cfg.function_extractor.private_functions)
+
   # Restore settings.
   settings.restore()
 
@@ -117,12 +134,8 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
       multiplicity = dupe_counts[b.ident()] if b.ident() in dupe_counts else 0
       block_dict[b.ident()] = (len(b.preds), len(b.succs), multiplicity)
     anal_results["blocks"] = block_dict
-    anal_results["funcs"] = [sig for sig in cfg.public_function_sigs()
-                             if sig is not None]
     logging.info("Graph has %s edges.",
                  sum([v[0] for v in block_dict.values()]))
-    logging.info("Detected %s public function signatures.",
-                 len(anal_results["funcs"]))
     if len(block_dict) > 0:
       avg_clone = sum([v[2] for v in block_dict.values()])/len(block_dict)
       if avg_clone > 0:
@@ -227,7 +240,7 @@ def stack_analysis(cfg:tac_cfg.TACGraph) -> bool:
       # clamp all stacks at their current sizes, if they are large enough.
       if unmod_stack_changed_count > graph_size:
         logging.debug("Clamping stacks sizes after %s unmodified iterations.",
-                        unmod_stack_changed_count)
+                      unmod_stack_changed_count)
         stacks_clamped = True
         for b in cfg.blocks:
           new_size = max(len(b.entry_stack), len(b.exit_stack))
@@ -324,7 +337,7 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   start_block = evm_cfg.EVMBasicBlock()
   exit_info[start_block] = lattice.IntLatticeElement(0)
 
-  # We will initialise entry stack size of all blocks with no predecesors
+  # We will initialise entry stack size of all blocks with no predecessors
   # to zero in order to reason about the stack within a connected component.
   init_blocks = ({cfg.root} if cfg.root is not None else {}) | \
                  {block for block in cfg.blocks if len(block.preds) == 0}
@@ -353,4 +366,4 @@ def stack_size_analysis(cfg:cfg.ControlFlowGraph):
   for block in init_blocks:
     block.preds.pop()
 
-  return (entry_info, exit_info)
+  return entry_info, exit_info

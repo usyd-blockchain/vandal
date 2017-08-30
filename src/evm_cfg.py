@@ -5,6 +5,7 @@ import typing as t
 import cfg
 import opcodes
 
+
 class EVMBasicBlock(cfg.BasicBlock):
   """
   Represents a single basic block in the control flow graph (CFG), including
@@ -26,6 +27,14 @@ class EVMBasicBlock(cfg.BasicBlock):
 
     self.evm_ops = evm_ops if evm_ops is not None else []
     """List of EVMOps contained within this EVMBasicBlock"""
+
+    self.fallthrough = None
+    """
+    The block that this one falls through to on the false branch
+    of a JUMPI, if it exists. This should already appear in self.succs;
+    this just distinguishes which one is the false branch.
+    """
+    # TODO: maybe not vital, but this should interact properly with procedure cloning
 
   def __str__(self):
     """Returns a string representation of this block and all ops in it."""
@@ -135,7 +144,7 @@ def blocks_from_ops(ops:t.Iterable[EVMOp]) -> t.Iterable[EVMBasicBlock]:
 
   # details for block currently being processed
   entry, exit = (0, len(ops) - 1) if len(ops) > 0 \
-                else (None, None)
+                    else (None, None)
   current = EVMBasicBlock(entry, exit)
 
   # Linear scan of all EVMOps to create initial EVMBasicBlocks

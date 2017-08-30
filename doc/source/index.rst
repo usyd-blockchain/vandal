@@ -18,6 +18,7 @@ Modules
    opcodes
    patterns
    tac_cfg
+   function
 
 
 Indices and tables

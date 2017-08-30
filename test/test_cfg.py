@@ -3,6 +3,7 @@ import pytest
 import patterns
 import cfg
 
+
 @pytest.fixture(params=[
   (10, 53),
   (12213, 72728),
@@ -23,6 +24,7 @@ def basicblock(request):
   """
   return SubBlock(*request.param), request.param
 
+
 @pytest.fixture
 def graph():
   """
@@ -37,6 +39,7 @@ def graph():
       super().__init__()
   return SubCFG()
 
+
 @pytest.fixture(params=[
   (-12312313, -1),
   (99932478932874293434, -128918723982173),
@@ -49,6 +52,7 @@ def graph():
 def negative_pairs(request):
   """Returns: a pair (a, b) where at least one of a, b is a negative integer"""
   return request.param
+
 
 @pytest.fixture(params = [
   [
@@ -84,12 +88,14 @@ def blocks_edges(request):
   """Returns: a list of [blocks[], edges[]]"""
   return request.param
 
+
 class SubBlock(cfg.BasicBlock):
   """
   Simple implementation of BasicBlock ABC for testing its implemented methods
   """
   def __init__(self, entry, exit):
     super().__init__(entry, exit)
+
 
 #### Tests: ####
 

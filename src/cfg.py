@@ -2,7 +2,6 @@
 
 import abc
 import typing as t
-import logging
 
 import patterns
 
@@ -94,6 +93,29 @@ class ControlFlowGraph(patterns.Visitable):
     for block in self.blocks:
       for successor in block.succs:
         successor.preds.append(block)
+
+  def reaches(self, block: 'BasicBlock', dests: t.Iterable['BasicBlock']) -> bool:
+    """
+    Determines if a block can reach any of the given destination blocks
+
+    Args:
+      block: Any block that is part of the tac_cfg the class was initialised with
+      dests: A list of dests to check reachability with
+    """
+    if block in dests:
+      return True
+    queue = [block]
+    traversed = []
+    while queue:
+      curr_block = queue.pop()
+      traversed.append(curr_block)
+      for b in dests:
+        if b in curr_block.succs:
+          return True
+      for b in curr_block.succs:
+        if b not in traversed:
+          queue.append(b)
+    return False
 
   def transitive_closure(self, origin_addresses:t.Iterable[int]) \
   -> t.Iterable['BasicBlock']:

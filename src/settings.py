@@ -89,9 +89,19 @@ set_valued_ops:
   Disable to gain speed at the cost of precision. True by default.
 
 analytics:
-  If true, dataflow analysis will return a dict of information about
+  If True, dataflow analysis will return a dict of information about
   the contract, otherwise return an empty dict.
   Disabling this might yield a slight speed improvement. False by default.
+
+extract_functions:
+  If True, attempt to extract solidity functions.
+
+mark_functions:
+  If true, tag block names with the function(s) they belong to.
+
+strict:
+  If true, then unrecognised opcodes and invalid disassembly
+  will not be skipped, but will result in an error.
 
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
@@ -99,7 +109,6 @@ to discover places where empty stack exceptions will be thrown.
 """
 
 # The settings - these are None until initialised by import_config
-
 max_iterations         = None
 bailout_seconds        = None
 remove_unreachable     = None
@@ -120,14 +129,15 @@ widen_variables        = None
 widen_threshold        = None
 set_valued_ops         = None
 analytics              = None
-
+extract_functions      = None
+mark_functions         = None
+strict                 = None
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
 _module_ = __import__("sys").modules[__name__]
 
 # The names of all the settings defined above.
 _names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
-
 
 # Set up the types of the various settings, so they can be converted
 # correctly when being read from config.
@@ -159,14 +169,17 @@ def _get_dict_():
   """
   return _module_.__dict__
 
+
 def save():
   """Push the current setting configuration to the stack."""
   sd = _get_dict_()
   _stack_.append({n: sd[n] for n in _names_})
 
+
 def restore():
   """Restore the setting configuration from the top of the stack."""
   _get_dict_().update(_stack_.pop())
+
 
 def set_from_string(setting_name:str, value:str):
   """
@@ -195,6 +208,7 @@ def set_from_string(setting_name:str, value:str):
   else:
     logging.error('Unknown type "%s" for setting "%s".', setting_name)
     sys.exit(1)
+
 
 def import_config(filepath:str=_CONFIG_LOC_):
   """

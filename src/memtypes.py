@@ -541,7 +541,7 @@ class VariableStack(LatticeElement):
     """
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
-                                  fillvalue=Variable.bottom())
+                        fillvalue=Variable.bottom())
     max_size = a.max_size if a.max_size < b.max_size else b.max_size
     return cls(dropwhile(lambda x: x.is_bottom,
                          [Variable.meet(*p) for p in pairs][::-1]),
@@ -555,7 +555,7 @@ class VariableStack(LatticeElement):
     """
 
     pairs = zip_longest(reversed(a.value), reversed(b.value),
-                                  fillvalue=Variable.bottom())
+                        fillvalue=Variable.bottom())
     max_size = a.max_size if a.max_size > b.max_size else b.max_size
     return cls([Variable.join(*p) for p in pairs][::-1], max_size)
 
