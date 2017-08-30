@@ -1,7 +1,9 @@
 """cfg.py: Base classes for representing Control Flow Graphs (CFGs)"""
 
 import abc
-import typing as T
+import typing as t
+import logging
+
 import patterns
 
 
@@ -67,7 +69,7 @@ class ControlFlowGraph(patterns.Visitable):
     if head not in tail.preds:
       tail.preds.append(head)
 
-  def get_blocks_by_pc(self, pc:int) -> T.List['BasicBlock']:
+  def get_blocks_by_pc(self, pc:int) -> t.List['BasicBlock']:
     """Return the blocks whose spans include the given program counter value."""
     blocks = []
     for block in self.blocks:
@@ -93,8 +95,8 @@ class ControlFlowGraph(patterns.Visitable):
       for successor in block.succs:
         successor.preds.append(block)
 
-  def transitive_closure(self, origin_addresses:T.Iterable[int]) \
-  -> T.Iterable['BasicBlock']:
+  def transitive_closure(self, origin_addresses:t.Iterable[int]) \
+  -> t.Iterable['BasicBlock']:
     """
     Return a list of blocks reachable from the input addresses.
 
@@ -121,8 +123,8 @@ class ControlFlowGraph(patterns.Visitable):
 
     return reached
 
-  def remove_unreachable_code(self, origin_addresses:T.Iterable[int]=[0]) \
-  -> T.Iterable['BasicBlock']:
+  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) \
+  -> t.Iterable['BasicBlock']:
     """
     Remove all blocks not reachable from the program entry point.
 
@@ -145,7 +147,7 @@ class ControlFlowGraph(patterns.Visitable):
         self.remove_block(block)
     return removed
 
-  def edge_list(self) -> T.Iterable[T.Tuple['BasicBlock', 'BasicBlock']]:
+  def edge_list(self) -> t.Iterable[t.Tuple['BasicBlock', 'BasicBlock']]:
     """
     Returns:
       a list of the CFG's edges, with each edge in the form
@@ -153,7 +155,7 @@ class ControlFlowGraph(patterns.Visitable):
     """
     return [(p, s) for p in self.blocks for s in p.succs]
 
-  def sorted_traversal(self, key=lambda b: b.entry, reverse=False) -> T.Generator['BasicBlock', None, None]:
+  def sorted_traversal(self, key=lambda b: b.entry, reverse=False) -> t.Generator['BasicBlock', None, None]:
     """
     Generator for a sorted shallow copy of BasicBlocks contained in this graph.
 
@@ -172,7 +174,7 @@ class ControlFlowGraph(patterns.Visitable):
     yield from sorted(self.blocks, key=key, reverse=reverse)
 
   def accept(self, visitor:patterns.Visitor,
-             generator:T.Generator['BasicBlock', None, None]=None):
+             generator:t.Generator['BasicBlock', None, None]=None):
     """
     Visitor design pattern: accepts a Visitor instance and visits every node
     in the CFG in an arbitrary order.

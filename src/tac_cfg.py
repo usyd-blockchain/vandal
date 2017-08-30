@@ -593,6 +593,102 @@ class TACGraph(cfg.ControlFlowGraph):
         block.apply_operations()
         block.hook_up_jumps()
 
+  def merge_contiguous(self, pred:'TACBasicBlock', succ:'TACBasicBlock') -> 'TACBasicBlock':
+    """
+    Merge two blocks in the cfg if they are contiguous.
+    Pred should have a lower address than succ, and they should have
+    zero out- and in-degree respectively.
+
+    Args:
+        pred: earlier block to merge
+        succ: later block to merge
+
+    Returns:
+        The resulting merged block.
+    """
+
+    # Do not merge the blocks if they cannot be merged.
+    if succ.entry != (pred.exit + 1) or len(pred.succs) != 0 or len(succ.preds) != 0:
+      err_str = "Attempted to merge unmergeable blocks {} and {}.".format(pred.ident(), succ.ident())
+      logging.error(err_str)
+      raise RuntimeError(err_str)
+
+    # Construct the merged block.
+    tac_ops = pred.tac_ops + succ.tac_ops
+    evm_ops = pred.evm_ops + succ.evm_ops
+    delta_stack = pred.delta_stack.copy()
+    delta_stack.pop_many(pred.delta_stack.empty_pops)
+    delta_stack.push_many(reversed(succ.delta_stack.value))
+    merged = TACBasicBlock(pred.entry, succ.exit,
+                           tac_ops, evm_ops,
+                           delta_stack, self)
+    merged.entry_stack = pred.entry_stack.copy()
+    merged.has_unresolved_jump = succ.has_unresolved_jump
+    merged.ident_suffix = pred.ident_suffix + pred.ident_suffix
+
+    # Update the CFG edges.
+    self.add_block(merged)
+    for b in pred.preds:
+      self.add_edge(b, merged)
+    for b in succ.succs:
+      self.add_edge(merged, b)
+    self.remove_block(pred)
+    self.remove_block(succ)
+
+    return merged
+
+  def merge_unreachable_blocks(self, origin_addresses:t.Iterable[int]=[0]) \
+  -> t.Iterable['TACBasicBlock']:
+    """
+    Merge all unreachable blocks with contiguous addresses into a single
+    block. Will only merge blocks if they have no intervening edges.
+    Assumes that blocks have unique entry and exit addresses.
+
+    Args:
+        origin_addresses: default value: [0], entry addresses, blocks
+                          from which are unreachable to be merged.
+
+    Returns:
+        An iterable of the blocks which were merged.
+    """
+    reached = self.transitive_closure(origin_addresses)
+
+    # Sort the unreached ones for more-efficient merging.
+    unreached = sorted([b for b in self.blocks if b not in reached], key=lambda b: b.entry)
+    if len(unreached) == 0:
+      return
+
+    # Collect the contiguous runs of blocks.
+    groups = []
+    group = [unreached[0]]
+    for b in unreached[1:]:
+      # Add the next block to the merge list only if
+      # it is contiguous and has no incident edges.
+      prev = group[-1]
+      if b.entry == (prev.exit + 1) and len(prev.succs) == 0 and len(b.preds) == 0:
+        group.append(b)
+        continue
+
+      # Singleton groups don't need to be merged
+      if len(group) > 1:
+        groups.append(group)
+
+      # Start the next group
+      group = [b]
+
+    if len(group) > 1:
+      groups.append(group)
+
+    # Merge the blocks in each run.
+    merged = []
+    for g in groups:
+      block = g[0]
+      for n in g[1:]:
+        block = self.merge_contiguous(block, n)
+      merged.append(block)
+
+    return merged
+
   def prop_vars_between_blocks(self) -> None:
     """
     If some entry stack variable is defined in exactly one place, fetch the
