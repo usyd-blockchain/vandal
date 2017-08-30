@@ -654,14 +654,14 @@ class TACGraph(cfg.ControlFlowGraph):
                           from which are unreachable to be merged.
 
     Returns:
-        An iterable of the blocks which were merged.
+        An iterable of the groups of blocks which were merged.
     """
     reached = self.transitive_closure(origin_addresses)
 
     # Sort the unreached ones for more-efficient merging.
     unreached = sorted([b for b in self.blocks if b not in reached], key=lambda b: b.entry)
     if len(unreached) == 0:
-      return
+      return []
 
     # Collect the contiguous runs of blocks.
     groups = []
