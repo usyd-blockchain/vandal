@@ -2,6 +2,7 @@
 
 import abc
 import typing as t
+
 import patterns
 
 
@@ -144,7 +145,7 @@ class ControlFlowGraph(patterns.Visitable):
 
     return reached
 
-  def remove_unreachable_code(self, origin_addresses:t.Iterable[int]=[0]) \
+  def remove_unreachable_blocks(self, origin_addresses:t.Iterable[int]=[0]) \
   -> t.Iterable['BasicBlock']:
     """
     Remove all blocks not reachable from the program entry point.
