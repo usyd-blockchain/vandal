@@ -93,8 +93,13 @@ def analyse_graph(cfg:tac_cfg.TACGraph) -> Dict[str, Any]:
   cfg.make_stack_names_unique()
 
   # Clean up any unreachable blocks in the graph if necessary.
+  if settings.merge_unreachable:
+    merge_groups = cfg.merge_unreachable_blocks()
+    if len(merge_groups) > 0:
+      logging.info("Merged %s unreachable blocks into %s.",
+                   sum([len(g) for g in merge_groups]), len(merge_groups))
   if settings.remove_unreachable:
-    removed = cfg.remove_unreachable_code()
+    removed = cfg.remove_unreachable_blocks()
     if settings.analytics:
       anal_results["unreachable_blocks"] = [b.ident() for b in removed]
     logging.info("Removed %s unreachable blocks.", len(removed))

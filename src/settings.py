@@ -22,6 +22,10 @@ remove_unreachable:
   Upon completion of the analysis, if there are blocks unreachable from the
   contract root, remove them. False by default.
 
+merge_unreachable:
+  Upon completion of the analysis, if there are blocks unreachable from the
+  contract root, merge them. True by default.
+
 die_on_empty_pop:
   Raise an exception if an empty stack is popped. False by default.
 
@@ -108,6 +112,7 @@ to discover places where empty stack exceptions will be thrown.
 max_iterations         = None
 bailout_seconds        = None
 remove_unreachable     = None
+merge_unreachable      = None
 die_on_empty_pop       = None
 skip_stack_on_overflow = None
 reinit_stacks          = None
