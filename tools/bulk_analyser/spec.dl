@@ -1,3 +1,32 @@
+// BSD 3-Clause License
+//
+// Copyright (c) 2016, 2017, The University of Sydney. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 .type Statement
 .type Variable
 .type Opcode
@@ -148,13 +177,13 @@ twoDistinctArgs3(stmt, op1, op2) :- op(stmt, opcode), ternArith(opcode),
 // statement is a ternary operator and has three distinct argument variables
 .decl distinctArgs3(stmt:Statement, op1:Variable, op2:Variable, op3:Variable)
 distinctArgs3(stmt, op1, op2, op3) :- op(stmt, opcode), ternArith(opcode),
-                                      use(op1, stmt), use(op2, stmt), use(op3, stmt), 
+                                      use(op1, stmt), use(op2, stmt), use(op3, stmt),
                                       op1 != op2, op1 != op3, op2 != op3.
 // Note: distinctArgs3 => twoDistinctArgs3 but not vice versa.
 
 .decl manipulable(var:Variable)
 // A variable with a known value is "manipulable" in the sense that we can predict its value.
-manipulable(var) :- value(var, _). 
+manipulable(var) :- value(var, _).
 
 // We will also consider address values which have been masked out to be manipulable, as they are zero in their meaningful portion.
 manipulable(var) :- manipulableAddress(var).
@@ -170,16 +199,16 @@ manipulable(var) :- def(var, stmt), op(stmt, "CALLDATALOAD"), use(addressVar, st
 manipulable(var) :- def(var, stmt), op(stmt, opcode), unaryArith(opcode), use(operand, stmt), manipulable(operand).
 
 // binary operators
-manipulable(var) :- def(var, stmt), op(stmt, opcode), binArith(opcode), 
+manipulable(var) :- def(var, stmt), op(stmt, opcode), binArith(opcode),
                     distinctArgs2(stmt, op1, op2), manipulable(op1), manipulable(op2).
 manipulable(var) :- def(var, stmt), op(stmt, opcode), binArith(opcode),
                     use(operand, stmt), manipulable(operand), !distinctArgs2(stmt, _, _).
 // ternary operators
-manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode), 
+manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
                     distinctArgs3(stmt, op1, op2, op3), manipulable(op1), manipulable(op2), manipulable(op3).
-manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode), 
+manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
                     twoDistinctArgs3(stmt, op1, op2), manipulable(op1), manipulable(op2), !distinctArgs3(stmt, _, _, _).
-manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode), 
+manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
                     use(operand, stmt), manipulable(operand), !twoDistinctArgs3(stmt, _, _).
 
 // A variable whose value is masked out in the lower 20 bytes is considered constant for addressing purposes
@@ -219,7 +248,7 @@ possAccessManipState(var, storeStmt) :- stateReadResult(var, stateReadStmt),
 //entryReachesMinusLocStores(stmt, loc) :- edgeNotIncidentOnLocStores(u, stmt, loc), entryReachesMinusLocStores(u, loc).
 
 
-// locOverWrittenBefore(loc, stmt) :- reaches(e, s), entry(e), storeAtLoc(s, loc), 
+// locOverWrittenBefore(loc, stmt) :- reaches(e, s), entry(e), storeAtLoc(s, loc),
 
 
 // A manipulable value which is non-constant, i.e. input-dependent.
@@ -271,26 +300,26 @@ gassy(stmt, var) :- use(var, stmt), depends(var, gasVar), gasResult(gasVar, _).
 reentrantCall(stmt) :- op(stmt, "CALL"), !protectedByLoc(stmt, _), gassy(stmt, gasVar), op_CALL(stmt, gasVar, _, _, _, _, _, _).
 
 
-// ORIGIN 
+// ORIGIN
 
 // Dependency from the origin opcode to an actual use of it.
 .decl originUsed(stmt:Statement)
 .output originUsed
-originUsed(stmt) :- originResult(originVar, stmt), depends(useVar, originVar), 
+originUsed(stmt) :- originResult(originVar, stmt), depends(useVar, originVar),
 		    usedInStateOrCond(useVar, stmt).
 
 // UNCHECKED SEND
 
 .decl checkedCallThrows(callStmt:Statement)
 .output checkedCallThrows
-checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
+checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
 			       controlsWith(_, throwStmt, cond), isThrow(throwStmt).
-checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
+checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
 			       use(cond, throwStmt), isThrow(throwStmt).
 
 .decl checkedCallStateUpdate(callStmt:Statement)
 .output checkedCallStateUpdate
-checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar), 
+checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
 			            controlsWith(_, storeStmt, cond), op(storeStmt, "SSTORE").
 checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(stateVar, resVar),
 				    use(stateVar, storeStmt), op(storeStmt, "SSTORE").
