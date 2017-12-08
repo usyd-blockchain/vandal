@@ -1,4 +1,4 @@
-== Running creation bytecode on a private blockchain ==
+## Running creation bytecode on a private blockchain
 
 1. convert runtime to creation bytecode using converter.py;
 2. create the contract itself:
