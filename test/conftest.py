@@ -26,14 +26,14 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-from os.path import dirname, join, abspath
-import sys
+import fileinput
 import glob
+import sys
+from os.path import dirname, join, abspath
 
 import pytest
 
-src_path = join(dirname(abspath(__file__)), "../src")
+src_path = join(dirname(abspath(__file__)), "..")
 sys.path.insert(0, src_path)
 
 DISASM_TEST_PROGS = "disasm/*.dasm"
@@ -42,12 +42,11 @@ DISASM_TEST_PROGS = join(dirname(abspath(__file__)), DISASM_TEST_PROGS)
 
 @pytest.fixture(params=list(glob.glob(DISASM_TEST_PROGS)))
 def cfg(request):
-  from tac_cfg import TACGraph
-  import blockparse
-  import optimise
-  with open(request.param) as f:
-    disasm = f.read()
-  cfg = TACGraph.from_dasm(fileinput.input())
-  optimise.fold_constants(cfg)
-  cfg.hook_up_jumps()
-  yield cfg
+    from src.tac_cfg import TACGraph
+    import src.optimise as optimise  # TODO: Fix this
+    with open(request.param) as f:
+        disasm = f.read()
+    cfg = TACGraph.from_dasm(fileinput.input())
+    optimise.fold_constants(cfg)
+    cfg.hook_up_jumps()
+    yield cfg

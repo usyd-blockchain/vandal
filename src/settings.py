@@ -138,29 +138,29 @@ to discover places where empty stack exceptions will be thrown.
 """
 
 # The settings - these are None until initialised by import_config
-max_iterations         = None
-bailout_seconds        = None
-remove_unreachable     = None
-merge_unreachable      = None
-die_on_empty_pop       = None
+max_iterations = None
+bailout_seconds = None
+remove_unreachable = None
+merge_unreachable = None
+die_on_empty_pop = None
 skip_stack_on_overflow = None
-reinit_stacks          = None
-hook_up_stack_vars     = None
-hook_up_jumps          = None
-mutate_jumps           = None
-generate_throws        = None
-final_mutate_jumps     = None
-final_generate_throws  = None
-mutate_blockwise       = None
-clamp_large_stacks     = None
-clamp_stack_minimum    = None
-widen_variables        = None
-widen_threshold        = None
-set_valued_ops         = None
-analytics              = None
-extract_functions      = None
-mark_functions         = None
-strict                 = None
+reinit_stacks = None
+hook_up_stack_vars = None
+hook_up_jumps = None
+mutate_jumps = None
+generate_throws = None
+final_mutate_jumps = None
+final_generate_throws = None
+mutate_blockwise = None
+clamp_large_stacks = None
+clamp_stack_minimum = None
+widen_variables = None
+widen_threshold = None
+set_valued_ops = None
+analytics = None
+extract_functions = None
+mark_functions = None
+strict = None
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
 _module_ = __import__("sys").modules[__name__]
@@ -171,15 +171,16 @@ _names_ = [s for s in dir(_module_) if not (s.startswith("_"))]
 # Set up the types of the various settings, so they can be converted
 # correctly when being read from config.
 _types_ = {n: ("int" if n in ["max_iterations", "bailout_seconds",
-                             "clamp_stack_minimum", "widen_threshold"]
-                    else "bool") for n in _names_}
+                              "clamp_stack_minimum", "widen_threshold"]
+else "bool") for n in _names_}
 
 # A stack for saving and restoring setting configurations.
 _stack_ = []
 
 # Imports and definitions appearing below the definition of _names_
 # do not appear in that list, by design. Don't move them up.
-import sys, logging
+import logging
+import sys
 from os.path import dirname, normpath, join
 
 _dir_ = dirname(__file__)
@@ -192,62 +193,62 @@ _CONFIG_LOC_ = normpath(join(_dir_, "../bin/config.ini"))
 
 
 def _get_dict_():
-  """
-  Return the current module's dictionary of members so the settings can be
-  dynamically accessed by name.
-  """
-  return _module_.__dict__
+    """
+    Return the current module's dictionary of members so the settings can be
+    dynamically accessed by name.
+    """
+    return _module_.__dict__
 
 
 def save():
-  """Push the current setting configuration to the stack."""
-  sd = _get_dict_()
-  _stack_.append({n: sd[n] for n in _names_})
+    """Push the current setting configuration to the stack."""
+    sd = _get_dict_()
+    _stack_.append({n: sd[n] for n in _names_})
 
 
 def restore():
-  """Restore the setting configuration from the top of the stack."""
-  _get_dict_().update(_stack_.pop())
+    """Restore the setting configuration from the top of the stack."""
+    _get_dict_().update(_stack_.pop())
 
 
-def set_from_string(setting_name:str, value:str):
-  """
-  Assign to the named setting the given value, first converting that value
-  to the type appropriate for that setting.
-  Names and values are not case sensitive.
-  """
-  name = setting_name.lower()
-  val = value.lower()
+def set_from_string(setting_name: str, value: str):
+    """
+    Assign to the named setting the given value, first converting that value
+    to the type appropriate for that setting.
+    Names and values are not case sensitive.
+    """
+    name = setting_name.lower()
+    val = value.lower()
 
-  if name not in _names_:
-    logging.error('Unrecognised setting "%s".', setting_name)
-    sys.exit(1)
+    if name not in _names_:
+        logging.error('Unrecognised setting "%s".', setting_name)
+        sys.exit(1)
 
-  if _types_[name] == "int":
-    _get_dict_()[name] = int(val)
-  elif _types_[name] == "bool":
-    if val in {"1", "yes", "true", "on"}:
-      _get_dict_()[name] = True
-    elif val in {"0", "no", "false", "off"}:
-      _get_dict_()[name] = False
+    if _types_[name] == "int":
+        _get_dict_()[name] = int(val)
+    elif _types_[name] == "bool":
+        if val in {"1", "yes", "true", "on"}:
+            _get_dict_()[name] = True
+        elif val in {"0", "no", "false", "off"}:
+            _get_dict_()[name] = False
+        else:
+            logging.error('Cannot interpret value "%s" as boolean for setting "%s"',
+                          value, setting_name)
+            sys.exit(1)
     else:
-      logging.error('Cannot interpret value "%s" as boolean for setting "%s"',
-                    value, setting_name)
-      sys.exit(1)
-  else:
-    logging.error('Unknown type "%s" for setting "%s".', setting_name)
-    sys.exit(1)
+        logging.error('Unknown type "%s" for setting "%s".', setting_name)
+        sys.exit(1)
 
 
-def import_config(filepath:str=_CONFIG_LOC_):
-  """
-  Import settings from the given configuration file.
-  This should be called before running the decompiler.
-  """
-  import configparser
-  config = configparser.ConfigParser()
-  with open(_DEFAULT_LOC_) as default:
-    config.read_file(default)
-  config.read(filepath)
-  for name in _names_:
-    set_from_string(name, config.get("settings", name))
+def import_config(filepath: str = _CONFIG_LOC_):
+    """
+    Import settings from the given configuration file.
+    This should be called before running the decompiler.
+    """
+    import configparser
+    config = configparser.ConfigParser()
+    with open(_DEFAULT_LOC_) as default:
+        config.read_file(default)
+    config.read(filepath)
+    for name in _names_:
+        set_from_string(name, config.get("settings", name))
