@@ -36,6 +36,7 @@ pytest:
 	pytest
 
 batstest:
+	./test/bats/generate.sh
 	./test/bats/bats/bin/bats test/bats
 
 test tests:
@@ -44,4 +45,5 @@ test tests:
 
 clean:
 	make -C doc clean
+	rm -f ./test/bats/*.generated.bats
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
