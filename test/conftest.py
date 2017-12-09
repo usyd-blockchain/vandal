@@ -33,7 +33,7 @@ from os.path import dirname, join, abspath
 
 import pytest
 
-src_path = join(dirname(abspath(__file__)), "../src")
+src_path = join(dirname(abspath(__file__)), "..")
 sys.path.insert(0, src_path)
 
 DISASM_TEST_PROGS = "disasm/*.dasm"
