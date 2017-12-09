@@ -39,9 +39,7 @@ batstest:
 	./test/bats/generate.sh
 	./test/bats/bats/bin/bats test/bats
 
-test tests:
-	pytest
-	./test/bats/bats/bin/bats test/bats
+test tests: pytest batstest
 
 clean:
 	make -C doc clean
