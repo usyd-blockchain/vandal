@@ -36,11 +36,11 @@ pytest:
 	pytest
 
 batstest:
-	bats test/bats
+	./test/bats/bats/bin/bats test/bats
 
 test tests:
 	pytest
-	bats test/bats
+	./test/bats/bats/bin/bats test/bats
 
 clean:
 	make -C doc clean
