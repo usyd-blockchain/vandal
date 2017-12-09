@@ -15,7 +15,7 @@ install:
 script:
   - make pytest
   - make doc
-  - test/bats/bats/bin/bats --tap test/bats
+  - make batstest
 
   - bin/disassemble examples/dao_hack.hex
   - bin/disassemble -p examples/dao_hack.hex
