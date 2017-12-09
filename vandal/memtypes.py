@@ -35,7 +35,7 @@ import copy
 import typing as t
 from itertools import zip_longest, dropwhile
 
-from src.lattice import LatticeElement, SubsetLatticeElement as ssle
+from vandal.lattice import LatticeElement, SubsetLatticeElement as ssle
 
 VAR_DEFAULT_NAME = "Var"
 """The fallback name when creating a fresh variable."""

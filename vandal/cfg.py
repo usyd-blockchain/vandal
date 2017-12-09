@@ -32,7 +32,7 @@
 import abc
 import typing as t
 
-import src.patterns as patterns
+import vandal.patterns as patterns
 
 
 class ControlFlowGraph(patterns.Visitable):

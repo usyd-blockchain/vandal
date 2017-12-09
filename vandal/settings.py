@@ -181,15 +181,17 @@ _stack_ = []
 # do not appear in that list, by design. Don't move them up.
 import logging
 import sys
-from os.path import dirname, normpath, join
+from os.path import join
+from pkg_resources import resource_filename
 
-_dir_ = dirname(__file__)
+
+c_file = lambda *paths: resource_filename(sys.modules[__name__].__name__.partition('.')[0], join('config', *paths))
 
 # Default settings are stored here.
-_DEFAULT_LOC_ = normpath(join(_dir_, "../src/default_config.ini"))
+_DEFAULT_LOC_ = c_file("default_config.ini")
 
 # User settings are located here, and will override default settings.
-_CONFIG_LOC_ = normpath(join(_dir_, "../bin/config.ini"))
+_CONFIG_LOC_ = c_file("config.ini")
 
 
 def _get_dict_():

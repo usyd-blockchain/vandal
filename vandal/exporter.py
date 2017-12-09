@@ -34,11 +34,11 @@ import csv
 import logging
 import os
 
-import src.cfg as cfg
-import src.function as function
-import src.opcodes as opcodes
-import src.patterns as patterns
-import src.tac_cfg as tac_cfg
+import vandal.cfg as cfg
+import vandal.function as function
+import vandal.opcodes as opcodes
+import vandal.patterns as patterns
+import vandal.tac_cfg as tac_cfg
 
 
 class Exporter(abc.ABC):

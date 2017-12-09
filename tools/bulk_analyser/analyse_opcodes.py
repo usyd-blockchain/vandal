@@ -48,8 +48,8 @@ src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
 # decompiler project imports
-import src.blockparse as blockparse
-import src.opcodes as opcodes
+import vandal.blockparse as blockparse
+import vandal.opcodes as opcodes
 
 DEFAULT_CONTRACT_DIR = 'contracts'
 """Directory to fetch contract files from by default."""

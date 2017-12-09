@@ -36,14 +36,14 @@ import typing as t
 
 import networkx as nx
 
-import src.blockparse as blockparse
-import src.cfg as cfg
-import src.evm_cfg as evm_cfg
-import src.memtypes as mem
-import src.opcodes as opcodes
-import src.patterns as patterns
-import src.settings as settings
-from src.lattice import SubsetLatticeElement as ssle
+import vandal.blockparse as blockparse
+import vandal.cfg as cfg
+import vandal.evm_cfg as evm_cfg
+import vandal.memtypes as mem
+import vandal.opcodes as opcodes
+import vandal.patterns as patterns
+import vandal.settings as settings
+from vandal.lattice import SubsetLatticeElement as ssle
 
 POSTDOM_END_NODE = "END"
 """The name of the synthetic end node added for post-dominator calculations."""
@@ -797,7 +797,7 @@ class TACGraph(cfg.ControlFlowGraph):
         Attempt to extract solidity functions from this contract.
         Call this after having already called prop_vars_between_blocks() on cfg.
         """
-        import src.function as function
+        import vandal.function as function
         fe = function.FunctionExtractor(self)
         fe.extract()
         self.function_extractor = fe

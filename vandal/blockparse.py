@@ -33,10 +33,10 @@ import abc
 import logging
 import typing as t
 
-import src.cfg as cfg
-import src.evm_cfg as evm_cfg
-import src.opcodes as opcodes
-import src.settings as settings
+import vandal.cfg as cfg
+import vandal.evm_cfg as evm_cfg
+import vandal.opcodes as opcodes
+import vandal.settings as settings
 
 ENDIANNESS = "big"
 """

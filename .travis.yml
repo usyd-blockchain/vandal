@@ -13,19 +13,19 @@ install:
 
 script:
   - make clean test doc
-  - bin/decompile --help
-  - bin/decompile -n -v -a examples/dao_hack.dasm
-  - bin/decompile -n -v -a examples/mem_leak.dasm
-  - bin/decompile -n -v -a examples/withdraw_dao.dasm
-  - bin/decompile -n -v examples/dao_hack.hex
-  - bin/decompile -n -v examples/mem_leak.hex
-  - bin/decompile -n -v examples/withdraw_dao.hex
-  - bin/decompile -n -v -b examples/dao_hack.hex
-  - bin/decompile -n -v -b examples/mem_leak.hex
-  - bin/decompile -n -v -b examples/withdraw_dao.hex
+  - bin/decompile.py --help
+  - bin/decompile.py -n -v -a examples/dao_hack.dasm
+  - bin/decompile.py -n -v -a examples/mem_leak.dasm
+  - bin/decompile.py -n -v -a examples/withdraw_dao.dasm
+  - bin/decompile.py -n -v examples/dao_hack.hex
+  - bin/decompile.py -n -v examples/mem_leak.hex
+  - bin/decompile.py -n -v examples/withdraw_dao.hex
+  - bin/decompile.py -n -v -b examples/dao_hack.hex
+  - bin/decompile.py -n -v -b examples/mem_leak.hex
+  - bin/decompile.py -n -v -b examples/withdraw_dao.hex
   - bash -c '[ ! -f graph.pdf ]'
   - bash -c '[ ! -d tsv ]'
-  - bin/decompile -n -v -g graph.pdf -t tsv -d -b examples/dao_hack.hex
+  - bin/decompile.py -n -v -g graph.pdf -t tsv -d -b examples/dao_hack.hex
   - bash -c '[ -s graph.pdf ]'
   - bash -c '[ -d tsv ]'
   - bash -c '[ -s tsv/block.facts ]'
@@ -40,11 +40,11 @@ script:
   - bash -c '[ -s tsv/imdom.facts ]'
   - bash -c '[ -s tsv/pdom.facts ]'
   - bash -c '[ -s tsv/impdom.facts ]'
-  - bin/disassemble examples/basic.hex
-  - bin/disassemble -p examples/basic.hex
-  - bin/disassemble examples/dao_hack.hex | bin/decompile -n -v -a
+  - bin/disassemble.py examples/basic.hex
+  - bin/disassemble.py -p examples/basic.hex
+  - bin/disassemble.py examples/dao_hack.hex | bin/decompile.py -n -v -a
   - bash -c '[ ! -f basic.tac ]'
-  - bin/decompile -a examples/basic.dasm basic.tac
+  - bin/decompile.py -a examples/basic.dasm basic.tac
   - bash -c '[ -s basic.tac ]'
 
 notifications:

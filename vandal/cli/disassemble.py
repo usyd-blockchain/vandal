@@ -41,9 +41,9 @@ src_path = join(dirname(abspath(__file__)), "../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import src.opcodes as opcodes
-import src.blockparse as blockparse
-import src.settings as settings
+import vandal.opcodes as opcodes
+import vandal.blockparse as blockparse
+import vandal.settings as settings
 
 # Colour scheme for prettified output
 # See: https://pypi.python.org/pypi/termcolor

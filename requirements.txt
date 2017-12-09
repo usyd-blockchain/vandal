@@ -16,3 +16,6 @@ pytest==3.0.2
 
 # termcolor for ANSI colours in terminal output
 termcolor==1.1.0
+
+# YAML support for logging &etc. config files
+pyyaml

@@ -33,13 +33,13 @@ import logging
 import time
 from typing import Dict, Any
 
-import src.cfg as cfg
-import src.evm_cfg as evm_cfg
-import src.lattice as lattice
-import src.memtypes as memtypes
-import src.settings as settings
-import src.tac_cfg as tac_cfg
-from src.memtypes import VariableStack
+import vandal.cfg as cfg
+import vandal.evm_cfg as evm_cfg
+import vandal.lattice as lattice
+import vandal.memtypes as memtypes
+import vandal.settings as settings
+import vandal.tac_cfg as tac_cfg
+from vandal.memtypes import VariableStack
 
 
 def analyse_graph(cfg: tac_cfg.TACGraph) -> Dict[str, Any]:

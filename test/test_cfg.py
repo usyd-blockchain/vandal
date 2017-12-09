@@ -29,8 +29,8 @@
 
 import pytest
 
-import src.cfg as cfg
-import src.patterns as patterns
+import vandal.cfg as cfg
+import vandal.patterns as patterns
 
 
 @pytest.fixture(params=[

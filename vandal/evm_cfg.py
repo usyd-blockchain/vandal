@@ -31,8 +31,8 @@
 
 import typing as t
 
-import src.cfg as cfg
-import src.opcodes as opcodes
+import vandal.cfg as cfg
+import vandal.opcodes as opcodes
 
 
 class EVMBasicBlock(cfg.BasicBlock):

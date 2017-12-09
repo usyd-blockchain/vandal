@@ -42,8 +42,8 @@ DISASM_TEST_PROGS = join(dirname(abspath(__file__)), DISASM_TEST_PROGS)
 
 @pytest.fixture(params=list(glob.glob(DISASM_TEST_PROGS)))
 def cfg(request):
-    from src.tac_cfg import TACGraph
-    import src.optimise as optimise  # TODO: Fix this
+    from vandal.tac_cfg import TACGraph
+    import vandal.optimise as optimise  # TODO: Fix this
     with open(request.param) as f:
         disasm = f.read()
     cfg = TACGraph.from_dasm(fileinput.input())

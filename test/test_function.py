@@ -31,10 +31,10 @@ import os
 
 import pytest
 
-import src.dataflow as dataflow
-import src.function as function
-import src.settings as settings
-import src.tac_cfg as tac_cfg
+import vandal.dataflow as dataflow
+import vandal.function as function
+import vandal.settings as settings
+import vandal.tac_cfg as tac_cfg
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 

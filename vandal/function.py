@@ -33,9 +33,9 @@ Tested and developed on Solidity version 0.4.11"""
 
 import typing as t
 
-import src.memtypes as memtypes
-import src.opcodes as opcodes
-import src.tac_cfg as tac_cfg
+import vandal.memtypes as memtypes
+import vandal.opcodes as opcodes
+import vandal.tac_cfg as tac_cfg
 
 
 class Function:

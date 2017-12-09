@@ -50,11 +50,11 @@ src_path = join(dirname(abspath(__file__)), "../../src")
 sys.path.insert(0, src_path)
 
 # Local project imports
-import src.dataflow as dataflow
-import src.tac_cfg as tac_cfg
-import src.opcodes as opcodes
-import src.exporter as exporter
-import src.settings as settings
+import vandal.dataflow as dataflow
+import vandal.tac_cfg as tac_cfg
+import vandal.opcodes as opcodes
+import vandal.exporter as exporter
+import vandal.settings as settings
 
 ## Constants
 

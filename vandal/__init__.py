@@ -6,7 +6,7 @@ import logging
 from os import path
 from logging.config import dictConfig as _dictConfig
 
-__author__ = 'Samuel Marks'
+__author__ = 'Lexi Brent; Anton Jurisevic; latiosu; Hamish Ivison; Samuel Marks'
 __version__ = '0.0.1'
 
 
