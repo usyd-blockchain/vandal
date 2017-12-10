@@ -30,7 +30,7 @@ cat >> $BATS/$OUTFILE <<EOF
 @test "$M $eg without flags" {
     run $MP $eg
     assert_success
-    assert_output < "$EXPECTED_OUT/${MPB}_$(basename $eg).out"
+    assert_output < "$EXPECTED_OUT/${MPB}_$(basename $eg).output"
 }
 
 EOF
@@ -41,7 +41,7 @@ cat >> $BATS/$OUTFILE <<EOF
 @test "$M $eg with -p/--prettify flag" {
     run $MP -p $eg
     assert_success
-    assert_output < "$EXPECTED_OUT/${MPB}_pretty_$(basename $eg).out"
+    assert_output < "$EXPECTED_OUT/${MPB}_pretty_$(basename $eg).output"
 }
 
 EOF
