@@ -7,18 +7,18 @@ Modules
 .. autosummary::
    :toctree: modules
 
-   blockparse
-   cfg
-   dataflow
-   settings
-   evm_cfg
-   exporter
-   lattice
-   memtypes
-   opcodes
-   patterns
-   tac_cfg
-   function
+   src.blockparse
+   src.cfg
+   src.dataflow
+   src.settings
+   src.evm_cfg
+   src.exporter
+   src.lattice
+   src.memtypes
+   src.opcodes
+   src.patterns
+   src.tac_cfg
+   src.function
 
 
 Indices and tables
