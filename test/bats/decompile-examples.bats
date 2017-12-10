@@ -11,16 +11,16 @@ M="decompile:"
 MP="bin/decompile"
 
 @test "$M check --help success" {
-    $MP --help
+    run $MP --help
 }
 
 # test decompilation of each *.dasm file
 @test "$M decompiles $DASM_INPUT/*.dasm successfully with -a/--disassembly flag" {
     for eg in $DASM_INPUT/*.dasm
     do
-        $MP --disassembly $eg
+        run $MP --disassembly $eg
         assert_success
-        $MP -a $eg
+        run $MP -a $eg
         assert_success
     done
 }
@@ -38,7 +38,7 @@ MP="bin/decompile"
 @test "$M decompiles $HEX_INPUT/*.hex successfully without flags" {
     for eg in $HEX_INPUT/*.hex
     do
-        $MP $eg
+        run $MP $eg
         assert_success
     done
 }
@@ -46,9 +46,9 @@ MP="bin/decompile"
 @test "$M decompiles $HEX_INPUT/*.hex successfully with -b/--bytecode flag" {
     for eg in $HEX_INPUT/*.hex
     do
-        $MP -b $eg
+        run $MP -b $eg
         assert_success
-        $MP --bytecode $eg
+        run $MP --bytecode $eg
         assert_success
     done
 }
@@ -60,7 +60,7 @@ MP="bin/decompile"
     [ ! -f $GRAPH_OUTFILE ]
     [ ! -d $TSV_OUTDIR ]
 
-    $MP -g $GRAPH_OUTFILE -t $TSV_OUTDIR -d -b $HEX_INPUT/dao_hack.hex
+    run $MP -g $GRAPH_OUTFILE -t $TSV_OUTDIR -d -b $HEX_INPUT/dao_hack.hex
 
     [ -s $GRAPH_OUTFILE ]
     [ -d $TSV_OUTDIR ]
