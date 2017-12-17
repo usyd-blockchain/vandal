@@ -59,15 +59,13 @@ def version():
     return VERSION
 
 
-__desc__ = "An EVM bytecode disassembly decompiler that generates "
-"three-address code for program analysis. Use config.ini "
-"to set further configuration options."
+__desc__ = "An EVM bytecode disassembly decompiler that generates three-address code " \
+           "for program analysis. Use config.ini to set further configuration options."
 
 
 # Configure argparse
 def build_decompile_parser(parser=None):
-    parser = argparse.ArgumentParser(
-        description=__desc__) if parser is None else parser
+    parser = argparse.ArgumentParser(description=__desc__) if parser is None else parser
 
     parser.add_argument("-a",
                         "--disassembly",
@@ -176,9 +174,9 @@ def build_decompile_parser(parser=None):
     return parser
 
 
-def main():
+def main(args=None):
     # Parse the arguments.
-    args = build_decompile_parser().parse_args()
+    args = build_decompile_parser().parse_args() if args is None else args
 
     # Set up logger, with appropriate log level depending on verbosity.
     log_level = logging.WARNING

@@ -47,154 +47,161 @@ import vandal.settings as settings
 
 # Colour scheme for prettified output
 # See: https://pypi.python.org/pypi/termcolor
-PC_COL       = "white"
-OP_COL       = "cyan"
-OP_HALT_COL  = "red"
-OP_FLOW_COL  = "magenta"
+PC_COL = "white"
+OP_COL = "cyan"
+OP_HALT_COL = "red"
+OP_FLOW_COL = "magenta"
 OP_JDEST_COL = "green"
-VAL_COL      = "yellow"
-COMMENT_COL  = "white"
+VAL_COL = "yellow"
+COMMENT_COL = "white"
+
+__desc__ = "An EVM bytecode disassembler"
+
 
 # Configure argparse
-parser = argparse.ArgumentParser(description="An EVM bytecode disassembler")
+def build_disassemble_parser(parser=None):
+    parser = argparse.ArgumentParser(description=__desc__)
 
-parser.add_argument("-p",
-                    "--prettify",
-                    action="store_true",
-                    default=False,
-                    help="colourize the disassembly and separate block "
-                         "boundaries with a newline")
+    parser.add_argument("-p",
+                        "--prettify",
+                        action="store_true",
+                        default=False,
+                        help="colourize the disassembly and separate block "
+                             "boundaries with a newline")
 
-parser.add_argument("-s",
-                    "--strict",
-                    action="store_true",
-                    default=False,
-                    help="halt and produce no output when malformed "
-                         "input is given")
+    parser.add_argument("-s",
+                        "--strict",
+                        action="store_true",
+                        default=False,
+                        help="halt and produce no output when malformed "
+                             "input is given")
 
-parser.add_argument("-o",
-                    "--outfile",
-                    type=argparse.FileType("w"),
-                    default=sys.stdout,
-                    help="file to which decompiler output should be written "
-                         "(stdout by default).")
+    parser.add_argument("-o",
+                        "--outfile",
+                        type=argparse.FileType("w"),
+                        default=sys.stdout,
+                        help="file to which decompiler output should be written "
+                             "(stdout by default).")
 
-parser.add_argument("-v",
-                    "--verbose",
-                    action="store_true",
-                    help="emit verbose debug output to stderr.")
+    parser.add_argument("-v",
+                        "--verbose",
+                        action="store_true",
+                        help="emit verbose debug output to stderr.")
 
-parser.add_argument("-vv",
-                    "--prolix",
-                    action="store_true",
-                    help="emit debug output to stderr at higher verbosity "
-                         "level.")
+    parser.add_argument("-vv",
+                        "--prolix",
+                        action="store_true",
+                        help="emit debug output to stderr at higher verbosity "
+                             "level.")
 
-parser.add_argument("infile",
-                    nargs="*",
-                    type=argparse.FileType("r"),
-                    default=sys.stdin,
-                    help="file from which decompiler input should be read "
-                         "(stdin by default).")
-
-# Parse the arguments.
-args = parser.parse_args()
-
-# Set up logger, with appropriate log level depending on verbosity.
-log_level = logging.WARNING
-if args.prolix:
-  log_level = logging.DEBUG
-elif args.verbose:
-  log_level = logging.INFO
-logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-
-if args.prettify:
-  from termcolor import colored
-
-# Initialise settings.
-settings.import_config(settings._CONFIG_LOC_)
-settings.strict = args.strict
-
-def format_pc(pc):
-  pc = "0x{:02x}".format(pc)
-  if args.prettify:
-    pc = colored(pc, PC_COL)
-  return pc
+    parser.add_argument("infile",
+                        nargs="*",
+                        type=argparse.FileType("r"),
+                        default=sys.stdin,
+                        help="file from which decompiler input should be read "
+                             "(stdin by default).")
 
 
-def format_opcode(opcode):
-  op = "{:<6}".format(opcode.name)
-  if args.prettify:
-    if opcode.halts():
-      op = colored(op, OP_HALT_COL)
-    elif opcode.alters_flow():
-      op = colored(op, OP_FLOW_COL)
-    elif opcode == opcodes.JUMPDEST:
-      op = colored(op, OP_JDEST_COL)
-    else:
-      op = colored(op, OP_COL)
-  return op
+def main(args=None):
+    # Parse the arguments.
+    args = build_disassemble_parser().parse_args() if args is None else args
+
+    # Set up logger, with appropriate log level depending on verbosity.
+    log_level = logging.WARNING
+    if args.prolix:
+        log_level = logging.DEBUG
+    elif args.verbose:
+        log_level = logging.INFO
+    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
+
+    if args.prettify:
+        from termcolor import colored
+
+    # Initialise settings.
+    settings.import_config(settings._CONFIG_LOC_)
+    settings.strict = args.strict
+
+    def format_pc(pc):
+        pc = "0x{:02x}".format(pc)
+        if args.prettify:
+            pc = colored(pc, PC_COL)
+        return pc
+
+    def format_opcode(opcode):
+        op = "{:<6}".format(opcode.name)
+        if args.prettify:
+            if opcode.halts():
+                op = colored(op, OP_HALT_COL)
+            elif opcode.alters_flow():
+                op = colored(op, OP_FLOW_COL)
+            elif opcode == opcodes.JUMPDEST:
+                op = colored(op, OP_JDEST_COL)
+            else:
+                op = colored(op, OP_COL)
+        return op
+
+    def format_value(value):
+        if value is None:
+            return str()
+        value = "0x{:02x}".format(value)
+        if args.prettify:
+            value = colored(value, VAL_COL)
+        return value
+
+    try:
+        for i, infile in enumerate(args.infile):
+            if hasattr(infile, 'name'):
+                logging.info("Processing %s", infile.name)
+
+            # for multiple input files, comment above each output with the
+            # path of its file
+            if hasattr(args.infile, '__len__') and len(args.infile) > 1:
+                fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
+                if args.prettify:
+                    fname_comment = colored(fname_comment, COMMENT_COL,
+                                            attrs=['dark'])
+                print(fname_comment, file=args.outfile)
+
+            # join the bytecode all into one string
+            bytecode = ''.join(l.strip() for l in infile if len(l.strip()) > 0)
+
+            # parse bytecode and create basic blocks
+            blocks = blockparse.EVMBytecodeParser(bytecode).parse()
+
+            # Print disassembly from each block
+            for b in blocks:
+                for op in b.evm_ops:
+                    print(format_pc(op.pc),
+                          format_opcode(op.opcode),
+                          format_value(op.value),
+                          file=args.outfile)
+
+                if args.prettify:
+                    print("", file=args.outfile)
+
+            # for multiple input files, separate output of each file with a newline
+            if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
+                print("", file=args.outfile)
+
+    # ValueError happens with invalid hexadecimal
+    except ValueError as e:
+        logging.exception("Problem while disassembling.")
+        sys.exit(1)
+
+    # LookupError happens with invalid opcodes
+    except LookupError as e:
+        if settings.strict:
+            logging.exception("Invalid opcode during disassembly (strict).")
+            sys.exit(1)
+        else:
+            logging.debug(traceback.format_exc())
+
+    # Catch a Control-C and exit with UNIX failure status 1
+    except KeyboardInterrupt:
+        logging.info(traceback.format_exc())
+        logging.error("\nInterrupted by user")
+        sys.exit(1)
 
 
-def format_value(value):
-  if value is None:
-    return str()
-  value = "0x{:02x}".format(value)
-  if args.prettify:
-    value = colored(value, VAL_COL)
-  return value
-
-
-try:
-  for i, infile in enumerate(args.infile):
-    if hasattr(infile, 'name'):
-      logging.info("Processing %s", infile.name)
-
-    # for multiple input files, comment above each output with the
-    # path of its file
-    if hasattr(args.infile, '__len__') and len(args.infile) > 1:
-      fname_comment = "; Disassembly from\n;  {}\n".format(infile.name)
-      if args.prettify:
-        fname_comment = colored(fname_comment, COMMENT_COL,
-                                attrs=['dark'])
-      print(fname_comment, file=args.outfile)
-
-    # join the bytecode all into one string
-    bytecode = ''.join(l.strip() for l in infile if len(l.strip()) > 0)
-
-    # parse bytecode and create basic blocks
-    blocks = blockparse.EVMBytecodeParser(bytecode).parse()
-
-    # Print disassembly from each block
-    for b in blocks:
-      for op in b.evm_ops:
-        print(format_pc(op.pc),
-              format_opcode(op.opcode),
-              format_value(op.value),
-              file=args.outfile)
-
-      if args.prettify:
-        print("", file=args.outfile)
-
-    # for multiple input files, separate output of each file with a newline
-    if hasattr(args.infile, '__len__') and i + 1 < len(args.infile):
-      print("", file=args.outfile)
-
-# ValueError happens with invalid hexadecimal
-except ValueError as e:
-  logging.exception("Problem while disassembling.")
-  sys.exit(1)
-
-# LookupError happens with invalid opcodes
-except LookupError as e:
-  if settings.strict:
-    logging.exception("Invalid opcode during disassembly (strict).")
-    sys.exit(1)
-  else:
-    logging.debug(traceback.format_exc())
-
-# Catch a Control-C and exit with UNIX failure status 1
-except KeyboardInterrupt:
-  logging.info(traceback.format_exc())
-  logging.error("\nInterrupted by user")
-  sys.exit(1)
+if __name__ == '__main__':
+    main()

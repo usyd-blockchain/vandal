@@ -5,6 +5,7 @@ from sys import modules
 
 from vandal.__init__ import __version__
 import vandal.cli.decompile as decompile
+import vandal.cli.disassemble as disassemble
 
 
 def _build_parser():
@@ -20,6 +21,9 @@ def _build_parser():
 
     decompile_sub = subparsers.add_parser('decompile', help=decompile.__desc__)
     decompile.build_decompile_parser(decompile_sub)
+
+    disassemble_sub = subparsers.add_parser('disassemble', help=disassemble.__desc__)
+    disassemble.build_disassemble_parser(disassemble_sub)
 
     parser.add_argument('--version', action='version',
                         version='{} {}'.format(modules[__name__].__package__, __version__))
