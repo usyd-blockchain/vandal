@@ -60,7 +60,7 @@ __desc__ = "An EVM bytecode disassembler"
 
 # Configure argparse
 def build_disassemble_parser(parser=None):
-    parser = argparse.ArgumentParser(description=__desc__)
+    parser = argparse.ArgumentParser(description=__desc__) if parser is None else parser
 
     parser.add_argument("-p",
                         "--prettify",
@@ -100,6 +100,8 @@ def build_disassemble_parser(parser=None):
                         default=sys.stdin,
                         help="file from which decompiler input should be read "
                              "(stdin by default).")
+
+    return parser
 
 
 def main(args=None):
