@@ -264,7 +264,7 @@ class FunctionExtractor:
             # We can discard blocks in the body of the function being identified
             # since we want to discover new blocks, not old ones
             if not in_func and block not in self.invoc_pairs.keys() and \
-                block.ident() in str(exit_stack) and block not in body:
+                block.entry in exit_stack and block not in body:
                 return block
             for succ in block.succs:
                 if succ not in visited:
@@ -336,8 +336,9 @@ class FunctionExtractor:
                     return None
                 if len(pre.delta_stack) == 0:
                     return None
-                for val in list(pre.delta_stack):
-                    ref_block = self.cfg.get_block_by_ident(str(val))
+                for val in pre.delta_stack:
+                    ident = hex(val.const_value) if val.is_const else val.identifier
+                    ref_block = self.cfg.get_block_by_ident(ident)
                     # Ensure that the block pointed to by the block exists and is reachable
                     if ref_block is not None and self.cfg.reaches(pre, [ref_block]):
                         func_mapping[pre] = ref_block

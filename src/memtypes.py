@@ -176,7 +176,9 @@ class Variable(ssle, Location):
         )
 
     def __eq__(self, other):
-        return self.value == other.value
+        if self.is_const:
+            return self.const_value == other
+        return self.value == other
 
     def __hash__(self):
         if self.is_top:
