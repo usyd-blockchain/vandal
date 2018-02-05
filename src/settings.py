@@ -132,6 +132,10 @@ strict:
   If true, then unrecognised opcodes and invalid disassembly
   will not be skipped, but will result in an error.
 
+output_replace_var_values:
+  If true, then variables with constant values will be replaced with
+  their values in the IL output.
+
 Note: If we have already reached complete information about our stack CFG
 structure and stack states, we can use die_on_empty_pop and reinit_stacks
 to discover places where empty stack exceptions will be thrown.
@@ -161,6 +165,7 @@ analytics = None
 extract_functions = None
 mark_functions = None
 strict = None
+output_replace_var_values = None
 
 # A reference to this module for retrieving its members; import sys like this so that it does not appear in _names_.
 _module_ = __import__("sys").modules[__name__]

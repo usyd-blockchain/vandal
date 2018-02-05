@@ -35,6 +35,7 @@ import copy
 import typing as t
 from itertools import zip_longest, dropwhile
 
+import src.settings as settings
 from src.lattice import LatticeElement, SubsetLatticeElement as ssle
 
 VAR_DEFAULT_NAME = "Var"
@@ -158,10 +159,14 @@ class Variable(ssle, Location):
     def __str__(self):
         if self.is_unconstrained:
             return self.identifier
-        if self.is_const:
-            return hex(self.const_value)
-        val_str = ", ".join([hex(val) for val in self.value])
-        return "{{{}}}".format(val_str)
+        elif self.is_const:
+            if settings.output_replace_var_values or self.identifier == "C":
+                return hex(self.const_value)
+            else:
+                return self.identifier
+        else:
+            val_str = ", ".join([hex(val) for val in self.value])
+            return "{{{}}}".format(val_str)
 
     def __repr__(self):
         return "<{0} object {1}, {2}>".format(
