@@ -120,7 +120,7 @@ reaches(p, q) :- edge(p, u), reaches(u, q).
 // I.e. y is used to calculate x, either directly as an input of the operation
 // that defined x, or transitively.
 .decl depends(x:Variable, y:Variable)
-depends(x, x) :- use(x, _).
+depends(x, x) :- use(x, _, _).
 depends(x, x) :- def(x, _).
 depends(x, y) :- def(x, stmt), use(y, stmt, _).
 depends(x, z) :- depends(x, y), depends(y, z).
