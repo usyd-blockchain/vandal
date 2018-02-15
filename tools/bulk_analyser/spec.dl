@@ -40,7 +40,7 @@
 .input edge
 .decl def(var:Variable, stmt:Statement)             // var is defined by stmt
 .input def
-.decl use(var:Variable, stmt:Statement)             // var is used by stmt
+.decl use(var:Variable, stmt:Statement, i:number)   // var is used by stmt as argument i
 .input use
 .decl op(stmt:Statement, op:Opcode)                 // stmt's opcode is op
 .input op
@@ -120,9 +120,9 @@ reaches(p, q) :- edge(p, u), reaches(u, q).
 // I.e. y is used to calculate x, either directly as an input of the operation
 // that defined x, or transitively.
 .decl depends(x:Variable, y:Variable)
-depends(x, x) :- use(x, _).
+depends(x, x) :- use(x, _, _).
 depends(x, x) :- def(x, _).
-depends(x, y) :- def(x, stmt), use(y, stmt).
+depends(x, y) :- def(x, stmt), use(y, stmt, _).
 depends(x, z) :- depends(x, y), depends(y, z).
 
 // x controls whether y is executed.
@@ -133,7 +133,7 @@ controls(x, y) :- pdom(x, y), op(x, "THROWI").
 
 // var is the guard variable of some conditional jump or throw stmt
 .decl conditionVar(var: Variable, stmt:Statement)
-conditionVar(var, stmt) :- op(stmt, "THROWI"), use(var, stmt).
+conditionVar(var, stmt) :- op(stmt, "THROWI"), use(var, stmt, _).
 conditionVar(var, stmt) :- op_JUMPI(stmt, _, var).
 
 // x controls whether y executes by the value in cond
@@ -157,7 +157,7 @@ stateReadResult(var, stmt) :- op(stmt, "SLOAD"), def(var, stmt).
 
 // variable is used to store to state at stmt
 .decl stateWriteUse(var:Variable, stmt:Statement)
-stateWriteUse(var, stmt) :- op(stmt, "SSTORE"), use(var, stmt).
+stateWriteUse(var, stmt) :- op(stmt, "SSTORE"), use(var, stmt, _).
 
 // Disjunction of previous relations.
 .decl usedInStateOrCond(var:Variable, stmt:Statement)
@@ -169,15 +169,15 @@ usedInStateOrCond(var, stmt) :- stateWriteUse(var, stmt).
 // statement is a binary operator and has two distinct argument variables
 .decl distinctArgs2(stmt:Statement, op1:Variable, op2:Variable)
 distinctArgs2(stmt, op1, op2) :- op(stmt, opcode), binArith(opcode),
-                                 use(op1, stmt), use(op2, stmt), op1 != op2.
+                                 use(op1, stmt, _), use(op2, stmt, _), op1 != op2.
 // statement is a ternary operator and has at least two distinct argument variables
 .decl twoDistinctArgs3(stmt:Statement, op1:Variable, op2:Variable)
 twoDistinctArgs3(stmt, op1, op2) :- op(stmt, opcode), ternArith(opcode),
-                                    use(op1, stmt), use(op2, stmt), op1 != op2.
+                                    use(op1, stmt, _), use(op2, stmt, _), op1 != op2.
 // statement is a ternary operator and has three distinct argument variables
 .decl distinctArgs3(stmt:Statement, op1:Variable, op2:Variable, op3:Variable)
 distinctArgs3(stmt, op1, op2, op3) :- op(stmt, opcode), ternArith(opcode),
-                                      use(op1, stmt), use(op2, stmt), use(op3, stmt),
+                                      use(op1, stmt, _), use(op2, stmt, _), use(op3, stmt, _),
                                       op1 != op2, op1 != op3, op2 != op3.
 // Note: distinctArgs3 => twoDistinctArgs3 but not vice versa.
 
@@ -192,28 +192,28 @@ manipulable(var) :- manipulableAddress(var).
 manipulable(var) :- def(var, stmt), op(stmt, opcode), runtimeKnowable(opcode).
 
 // Or if it's a call data load whose address is itself also settable by the transaction source.
-manipulable(var) :- def(var, stmt), op(stmt, "CALLDATALOAD"), use(addressVar, stmt), manipulable(addressVar).
+manipulable(var) :- def(var, stmt), op(stmt, "CALLDATALOAD"), use(addressVar, stmt, _), manipulable(addressVar).
 
 // Transitively, if it's the result of applying an operation to manipulable operands.
 // unary operators
-manipulable(var) :- def(var, stmt), op(stmt, opcode), unaryArith(opcode), use(operand, stmt), manipulable(operand).
+manipulable(var) :- def(var, stmt), op(stmt, opcode), unaryArith(opcode), use(operand, stmt, _), manipulable(operand).
 
 // binary operators
 manipulable(var) :- def(var, stmt), op(stmt, opcode), binArith(opcode),
                     distinctArgs2(stmt, op1, op2), manipulable(op1), manipulable(op2).
 manipulable(var) :- def(var, stmt), op(stmt, opcode), binArith(opcode),
-                    use(operand, stmt), manipulable(operand), !distinctArgs2(stmt, _, _).
+                    use(operand, stmt, _), manipulable(operand), !distinctArgs2(stmt, _, _).
 // ternary operators
 manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
                     distinctArgs3(stmt, op1, op2, op3), manipulable(op1), manipulable(op2), manipulable(op3).
 manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
                     twoDistinctArgs3(stmt, op1, op2), manipulable(op1), manipulable(op2), !distinctArgs3(stmt, _, _, _).
 manipulable(var) :- def(var, stmt), op(stmt, opcode), ternArith(opcode),
-                    use(operand, stmt), manipulable(operand), !twoDistinctArgs3(stmt, _, _).
+                    use(operand, stmt, _), manipulable(operand), !twoDistinctArgs3(stmt, _, _).
 
 // A variable whose value is masked out in the lower 20 bytes is considered constant for addressing purposes
 .decl manipulableAddress(var:Variable)
-manipulableAddress(var) :- def(var, stmt), op(stmt, "AND"), use(mask, stmt),
+manipulableAddress(var) :- def(var, stmt), op(stmt, "AND"), use(mask, stmt, _),
 			   value(mask, "0xffffffffffffffffffffffff0000000000000000000000000000000000000000").
 
 // Finally, if a variable was recovered from some storage location which can be written with a manipulable
@@ -225,7 +225,7 @@ manipulableAddress(var) :- def(var, stmt), op(stmt, "AND"), use(mask, stmt),
 // var is read from a possibly-nonmanipulable-because-inaccessible state location written at storeStmt
 .decl possAccessManipState(var:Variable, storeStmt:Statement)
 possAccessManipState(var, storeStmt) :- stateReadResult(var, stateReadStmt),
-		     	                use(stateLocVar, stateReadStmt),
+		     	                use(stateLocVar, stateReadStmt, _),
 			     	        op_SSTORE(storeStmt, stateLocVar2, stateVal),
                                         value(stateLocVar, stateLoc), value(stateLocVar2, stateLoc),
 					manipulable(stateVal), !inaccessible(storeStmt).
@@ -285,14 +285,14 @@ protectedByLoc(protectedStmt, sLoc) :- controlsWith(controlStmt, protectedStmt, 
                    	    depends(condVar, mutexResVar),
 			    stateReadResult(mutexResVar, readMutexStmt),
 			    op(readMutexStmt, "SLOAD"),
-			    use(readMutexLoc, readMutexStmt),
+			    use(readMutexLoc, readMutexStmt, _),
 			    op_SSTORE(setMutexStmt, setMutexLoc, _),
 			    value(readMutexLoc, sLoc),
 			    value(setMutexLoc, sLoc).
 
 // A statement is considered gassy if it uses some variable that depends on a GAS operation
 .decl gassy(stmt:Statement, var:Variable)
-gassy(stmt, var) :- use(var, stmt), depends(var, gasVar), gasResult(gasVar, _).
+gassy(stmt, var) :- use(var, stmt, _), depends(var, gasVar), gasResult(gasVar, _).
 
 // Could also check whether the gas is higher than some manually-set gas threshold.
 .decl reentrantCall(stmt: Statement)
@@ -315,14 +315,14 @@ originUsed(stmt) :- originResult(originVar, stmt), depends(useVar, originVar),
 checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
 			       controlsWith(_, throwStmt, cond), isThrow(throwStmt).
 checkedCallThrows(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
-			       use(cond, throwStmt), isThrow(throwStmt).
+			       use(cond, throwStmt, _), isThrow(throwStmt).
 
 .decl checkedCallStateUpdate(callStmt:Statement)
 .output checkedCallStateUpdate
 checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(cond, resVar),
 			            controlsWith(_, storeStmt, cond), op(storeStmt, "SSTORE").
 checkedCallStateUpdate(callStmt) :- callResult(resVar, callStmt), depends(stateVar, resVar),
-				    use(stateVar, storeStmt), op(storeStmt, "SSTORE").
+				    use(stateVar, storeStmt, _), op(storeStmt, "SSTORE").
 
 .decl uncheckedCall(u:Statement)
 .output uncheckedCall
