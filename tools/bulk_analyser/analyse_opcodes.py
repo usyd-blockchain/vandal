@@ -44,7 +44,7 @@ import typing as t
 # Add the source directory to the path to ensure the imports work
 from os.path import abspath, dirname, join
 
-src_path = join(dirname(abspath(__file__)), "../../src")
+src_path = join(dirname(abspath(__file__)), "../../")
 sys.path.insert(0, src_path)
 
 # decompiler project imports
