@@ -64,7 +64,7 @@ class Function:
             exit_block = "Exit block: " + self.end_block.ident()
         else:
             exit_block = "Exit block: None identified"
-        body = "Body: " + ", ".join(b.ident() for b in self.body)
+        body = "Body: " + ", ".join(b.ident() for b in sorted(self.body))
         return "\n".join([sig, entry_block, exit_block, body])
 
 
