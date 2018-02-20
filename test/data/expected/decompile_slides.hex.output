@@ -98,7 +98,7 @@ Function 0:
 Public function signature: 0xc03c3003
 Entry block: 0x1a
 Exit block: 0x18
-Body: 0x1a, 0x18
+Body: 0x18, 0x1a
 
 Function 1:
 Public fallback function
