@@ -320,7 +320,8 @@ class BasicBlock(patterns.Visitable):
         """
         if self.entry is None or other.entry is None:
             return False
-        return (self.entry < other.entry and self.ident_suffix < other.ident_suffix)
+        return (self.entry < other.entry) or \
+               (self.entry == other.entry and self.ident_suffix < other.ident_suffix)
 
     def ident(self) -> str:
         """
