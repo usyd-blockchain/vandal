@@ -9,7 +9,7 @@ addons:
     - graphviz
 
 install:
-  - pip install -r requirements.txt
+  - make deps
   - make clean
 
 script:
