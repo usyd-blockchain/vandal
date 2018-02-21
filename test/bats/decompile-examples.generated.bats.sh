@@ -17,6 +17,14 @@ load test_helper
 
 M="$M"
 
+setup() {
+    TEMPFILE=\`mktemp\`
+}
+
+teardown() {
+    rm -f "\$TEMPFILE"
+}
+
 EOF
 
 ### Generate tests ###
@@ -26,7 +34,6 @@ cd $BATS/../../
 # test decompilation of each *.dasm file
 for eg in $DASM_INPUT/*.dasm; do
 cat >> $BATS/$OUTFILE <<EOF
-TEMPFILE=\`mktemp\`
 @test "$M $eg with -a/--disassembly flag" {
     run $MP --disassembly $eg "\$TEMPFILE"
     assert_success
@@ -37,7 +44,6 @@ TEMPFILE=\`mktemp\`
     run $DIFF "$EXPECTED_OUT/${MPB}_$(basename $eg).output" "\$TEMPFILE"
     assert_success
 }
-rm "\$TEMPFILE"
 EOF
 done
 
@@ -55,7 +61,6 @@ done
 # test decompilation of each *.hex example
 for eg in $HEX_INPUT/*.hex; do
 cat >> $BATS/$OUTFILE <<EOF
-TEMPFILE=\`mktemp\`
 @test "$M $eg without flags" {
     run $MP $eg "\$TEMPFILE"
     assert_success
@@ -63,13 +68,11 @@ TEMPFILE=\`mktemp\`
     run $DIFF "$EXPECTED_OUT/${MPB}_$(basename $eg).output" "\$TEMPFILE"
     assert_success
 }
-rm "\$TEMPFILE"
 EOF
 done
 
 for eg in $HEX_INPUT/*.hex; do
 cat >> $BATS/$OUTFILE <<EOF
-TEMPFILE=\`mktemp\`
 @test "$M $eg with -b/--bytecode flag" {
     run $MP -b $eg "\$TEMPFILE"
     assert_success
@@ -80,6 +83,5 @@ TEMPFILE=\`mktemp\`
     run $DIFF "$EXPECTED_OUT/${MPB}_$(basename $eg).output" "\$TEMPFILE"
     assert_success
 }
-rm "\$TEMPFILE"
 EOF
 done
