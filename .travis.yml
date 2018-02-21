@@ -16,12 +16,6 @@ script:
   - make pytest
   - make batstest
 
-  - bin/disassemble examples/dao_hack.hex | bin/decompile -a
-
-  - bash -c '[ ! -f basic.tac ]'
-  - bin/decompile -a examples/basic.dasm basic.tac
-  - bash -c '[ -s basic.tac ]'
-
 notifications:
   slack:
     secure: nTGhXsff6OGZME1QTZ5iGVxUS/4hzBkSQsF0PFPmRpLU1tgJOGh9XylXRnUqhcZXhoKMwfneBZR3gORUdmGHwYsODFq4P98o7K6aiS3TwRDsGczB3X7jFf4kDumTB3P/tJMHczdlQ4pBfQQrzvp09zAv7TOCyUgpCUyTls34L7ZPfgf9xskvXtpdGUg53Emy1FQiM0MvVsoVzXxDj3i1Zk3884SoyBbLyFir+OS+12831b3JASGxcT2BNAJiJ5HChWfDiVX6sigfWi4wB/XXafi5IW3EkVOJa+HP4v4qfBPjvKriWfKC4SGomimfSsk33/PnvcZ/eKrfSPx7HvosX+8koRewLQUnKtLeEQtoNL6eTsXp2bp8TOOd7wqCBKNsklAkJiB44lBgxmItgRdCz5xRBZ2w5K5W6fTdcdzhUevL2Q9fujQh97k+TeTneqaZM3Xorn8pdVH3bSjmpizcgOXCBjc5SkIuCIpxwlJSV+bj8Nvbnaqrr62cOVhc3Awdcss3GdkAi6vrdSwcKmcEmr2Xdh3GXjOnVd2yLXBH4sWrREoVn01XCWSTqY5ZxD733MUX2wMoRtY7/oABLb44rvDXsAZOn4yk9GJc+vDAHHncmNN9mzKWwfOYjYGWF9UnR6FH80GJ0isRqPnpfTnWWeb+pCsNKs+7uTkEjk135mw=

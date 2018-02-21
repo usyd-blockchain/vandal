@@ -9,7 +9,6 @@ source $BATS/environment.bash
 M="decompile:"
 MP="bin/decompile"
 MPB=`basename $MP`
-DIFF="git diff"
 
 cat > $BATS/$OUTFILE <<EOF
 #!/usr/bin/env bats
