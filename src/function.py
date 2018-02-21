@@ -125,7 +125,7 @@ class FunctionExtractor:
         load_list = []
         load_block = None
 
-        for block in sorted(self.cfg.blocks, key=lambda b: b.entry):
+        for block in sorted(self.cfg.blocks):
             load_list = [op for op in block.tac_ops
                          if op.opcode == opcodes.CALLDATALOAD
                          and op.args[0].value.const_value == 0]
@@ -394,8 +394,8 @@ class FunctionExtractor:
             for preds in poss_exit_blocks:
                 exit_blocks = exit_blocks & set(preds)
             # We assume the end_block is the last block in the disasm from all candidates
-            f.end_block = sorted(exit_blocks, key=lambda block: block.ident()).pop()
-            f.succs = return_blocks
+            f.end_block = sorted(exit_blocks).pop()
+            f.succs = sorted(return_blocks)
             f.preds = sorted(block.preds)
             f.body = body
             return f

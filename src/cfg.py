@@ -319,8 +319,8 @@ class BasicBlock(patterns.Visitable):
         Compare BasicBlocks based on their entry program counter values.
         """
         if self.entry is None or other.entry is None:
-            return True
-        return (self.entry < other.entry)
+            return False
+        return (self.entry < other.entry and self.ident_suffix < other.ident_suffix)
 
     def ident(self) -> str:
         """

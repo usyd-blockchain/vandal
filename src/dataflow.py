@@ -306,7 +306,7 @@ def stack_analysis(cfg: tac_cfg.TACGraph) -> bool:
                                                    for block in cfg.blocks}
                     if settings.clamp_large_stacks:
                         unmod_stack_changed_count = 0
-                        for succ in sorted(curr_block.succs):
+                        for succ in curr_block.succs:
                             visited[succ] = False
 
         # Add all the successors of this block to the queue to be processed, since its exit stack changed.
@@ -383,7 +383,7 @@ def stack_size_analysis(cfg: cfg.ControlFlowGraph):
 
         # Calculate the new entry value for the current block.
         new_entry = lattice.IntLatticeElement.meet_all([exit_info[p]
-                                                        for p in sorted(current.preds)])
+                                                        for p in current.preds])
 
         # If the entry value changed, we have to recompute
         # its exit value, and the entry value for its successors, eventually.
