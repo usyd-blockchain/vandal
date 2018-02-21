@@ -293,7 +293,7 @@ def stack_analysis(cfg: tac_cfg.TACGraph) -> bool:
                 curr_block.apply_operations(settings.set_valued_ops)
 
             if settings.hook_up_jumps:
-                old_succs = list(curr_block.succs)
+                old_succs = list(sorted(curr_block.succs))
                 modified = curr_block.hook_up_jumps()
                 graph_modified |= modified
 
@@ -306,11 +306,11 @@ def stack_analysis(cfg: tac_cfg.TACGraph) -> bool:
                                                    for block in cfg.blocks}
                     if settings.clamp_large_stacks:
                         unmod_stack_changed_count = 0
-                        for succ in curr_block.succs:
+                        for succ in sorted(curr_block.succs):
                             visited[succ] = False
 
         # Add all the successors of this block to the queue to be processed, since its exit stack changed.
-        queue += [s for s in curr_block.succs if s not in queue]
+        queue += [s for s in sorted(curr_block.succs) if s not in queue]
         visited[curr_block] = True
 
     # Reached a fixed point in the dataflow analysis, restore settings so we can mutate jumps and gen throws.
@@ -383,14 +383,14 @@ def stack_size_analysis(cfg: cfg.ControlFlowGraph):
 
         # Calculate the new entry value for the current block.
         new_entry = lattice.IntLatticeElement.meet_all([exit_info[p]
-                                                        for p in current.preds])
+                                                        for p in sorted(current.preds)])
 
         # If the entry value changed, we have to recompute
         # its exit value, and the entry value for its successors, eventually.
         if new_entry != entry_info[current]:
             entry_info[current] = new_entry
             exit_info[current] = new_entry + block_deltas[current]
-            queue += current.succs
+            queue += sorted(current.succs)
 
     # Remove the start block that was added.
     for block in init_blocks:
