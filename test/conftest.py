@@ -36,7 +36,7 @@ import pytest
 src_path = join(dirname(abspath(__file__)), "..")
 sys.path.insert(0, src_path)
 
-DISASM_TEST_PROGS = "disasm/*.dasm"
+DISASM_TEST_PROGS = "data/dasm/*.dasm"
 DISASM_TEST_PROGS = join(dirname(abspath(__file__)), DISASM_TEST_PROGS)
 
 
