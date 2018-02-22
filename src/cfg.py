@@ -309,10 +309,19 @@ class BasicBlock(patterns.Visitable):
                           (self.entry, self.exit))
         b_id = self.ident() if self.entry is not None else "Unidentified"
         head = "Block {}\n[{}:{}]".format(b_id, entry, exit)
-        pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in self.preds))
-        succ = "Successors: [{}]".format(", ".join(b.ident() for b in self.succs))
+        pred = "Predecessors: [{}]".format(", ".join(b.ident() for b in sorted(self.preds)))
+        succ = "Successors: [{}]".format(", ".join(b.ident() for b in sorted(self.succs)))
         unresolved = "\nHas unresolved jump." if self.has_unresolved_jump else ""
         return "\n".join([head, self._STR_SEP, pred, succ]) + unresolved
+
+    def __lt__(self, other):
+        """
+        Compare BasicBlocks based on their entry program counter values.
+        """
+        if self.entry is None or other.entry is None:
+            return False
+        return (self.entry < other.entry) or \
+               (self.entry == other.entry and self.ident_suffix < other.ident_suffix)
 
     def ident(self) -> str:
         """
