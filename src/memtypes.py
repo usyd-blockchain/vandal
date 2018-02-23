@@ -160,7 +160,7 @@ class Variable(ssle, Location):
             return self.identifier
         if self.is_const:
             return hex(self.const_value)
-        val_str = ", ".join([hex(val) for val in self.value])
+        val_str = ", ".join(hex(val) for val in sorted(self.value))
         return "{{{}}}".format(val_str)
 
     def __repr__(self):
@@ -171,7 +171,7 @@ class Variable(ssle, Location):
         )
 
     def __eq__(self, other):
-        return self.value == other.value
+        return self.value == other
 
     def __hash__(self):
         if self.is_top:

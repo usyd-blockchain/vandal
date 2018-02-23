@@ -1,0 +1,20 @@
+[37m0x00[0m [36mPUSH1 [0m [33m0x60[0m
+[37m0x02[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x04[0m [36mMSTORE[0m 
+[37m0x05[0m [36mPUSH1 [0m [33m0x0a[0m
+[37m0x07[0m [36mDUP1  [0m 
+[37m0x08[0m [36mPUSH1 [0m [33m0x10[0m
+[37m0x0a[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x0c[0m [36mCODECOPY[0m 
+[37m0x0d[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x0f[0m [31mRETURN[0m 
+
+[37m0x10[0m [36mPUSH1 [0m [33m0x60[0m
+[37m0x12[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x14[0m [36mMSTORE[0m 
+[37m0x15[0m [36mPUSH1 [0m [33m0x08[0m
+[37m0x17[0m [35mJUMP  [0m 
+
+[37m0x18[0m [32mJUMPDEST[0m 
+[37m0x19[0m [31mSTOP  [0m 
+

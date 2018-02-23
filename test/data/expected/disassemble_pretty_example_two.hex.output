@@ -1,0 +1,223 @@
+[37m0x00[0m [36mPUSH1 [0m [33m0x60[0m
+[37m0x02[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x04[0m [36mMSTORE[0m 
+[37m0x05[0m [36mPUSH4 [0m [33m0xffffffff[0m
+[37m0x0a[0m [36mPUSH1 [0m [33m0xe0[0m
+[37m0x0c[0m [36mPUSH1 [0m [33m0x02[0m
+[37m0x0e[0m [36mEXP   [0m 
+[37m0x0f[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x11[0m [36mCALLDATALOAD[0m 
+[37m0x12[0m [36mDIV   [0m 
+[37m0x13[0m [36mAND   [0m 
+[37m0x14[0m [36mPUSH4 [0m [33m0x29d66542[0m
+[37m0x19[0m [36mDUP2  [0m 
+[37m0x1a[0m [36mEQ    [0m 
+[37m0x1b[0m [36mPUSH1 [0m [33m0x2a[0m
+[37m0x1d[0m [35mJUMPI [0m 
+
+[37m0x1e[0m [36mDUP1  [0m 
+[37m0x1f[0m [36mPUSH4 [0m [33m0x6fd49314[0m
+[37m0x24[0m [36mEQ    [0m 
+[37m0x25[0m [36mPUSH1 [0m [33m0x4c[0m
+[37m0x27[0m [35mJUMPI [0m 
+
+[37m0x28[0m [32mJUMPDEST[0m 
+[37m0x29[0m [31mINVALID[0m 
+
+[37m0x2a[0m [32mJUMPDEST[0m 
+[37m0x2b[0m [36mCALLVALUE[0m 
+[37m0x2c[0m [36mISZERO[0m 
+[37m0x2d[0m [36mPUSH1 [0m [33m0x31[0m
+[37m0x2f[0m [35mJUMPI [0m 
+
+[37m0x30[0m [31mINVALID[0m 
+
+[37m0x31[0m [32mJUMPDEST[0m 
+[37m0x32[0m [36mPUSH1 [0m [33m0x3a[0m
+[37m0x34[0m [36mPUSH1 [0m [33m0x04[0m
+[37m0x36[0m [36mCALLDATALOAD[0m 
+[37m0x37[0m [36mPUSH1 [0m [33m0x6e[0m
+[37m0x39[0m [35mJUMP  [0m 
+
+[37m0x3a[0m [32mJUMPDEST[0m 
+[37m0x3b[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x3d[0m [36mDUP1  [0m 
+[37m0x3e[0m [36mMLOAD [0m 
+[37m0x3f[0m [36mSWAP2 [0m 
+[37m0x40[0m [36mDUP3  [0m 
+[37m0x41[0m [36mMSTORE[0m 
+[37m0x42[0m [36mMLOAD [0m 
+[37m0x43[0m [36mSWAP1 [0m 
+[37m0x44[0m [36mDUP2  [0m 
+[37m0x45[0m [36mSWAP1 [0m 
+[37m0x46[0m [36mSUB   [0m 
+[37m0x47[0m [36mPUSH1 [0m [33m0x20[0m
+[37m0x49[0m [36mADD   [0m 
+[37m0x4a[0m [36mSWAP1 [0m 
+[37m0x4b[0m [31mRETURN[0m 
+
+[37m0x4c[0m [32mJUMPDEST[0m 
+[37m0x4d[0m [36mCALLVALUE[0m 
+[37m0x4e[0m [36mISZERO[0m 
+[37m0x4f[0m [36mPUSH1 [0m [33m0x53[0m
+[37m0x51[0m [35mJUMPI [0m 
+
+[37m0x52[0m [31mINVALID[0m 
+
+[37m0x53[0m [32mJUMPDEST[0m 
+[37m0x54[0m [36mPUSH1 [0m [33m0x3a[0m
+[37m0x56[0m [36mPUSH1 [0m [33m0x04[0m
+[37m0x58[0m [36mCALLDATALOAD[0m 
+[37m0x59[0m [36mPUSH1 [0m [33m0x82[0m
+[37m0x5b[0m [35mJUMP  [0m 
+
+[37m0x5c[0m [32mJUMPDEST[0m 
+[37m0x5d[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x5f[0m [36mDUP1  [0m 
+[37m0x60[0m [36mMLOAD [0m 
+[37m0x61[0m [36mSWAP2 [0m 
+[37m0x62[0m [36mDUP3  [0m 
+[37m0x63[0m [36mMSTORE[0m 
+[37m0x64[0m [36mMLOAD [0m 
+[37m0x65[0m [36mSWAP1 [0m 
+[37m0x66[0m [36mDUP2  [0m 
+[37m0x67[0m [36mSWAP1 [0m 
+[37m0x68[0m [36mSUB   [0m 
+[37m0x69[0m [36mPUSH1 [0m [33m0x20[0m
+[37m0x6b[0m [36mADD   [0m 
+[37m0x6c[0m [36mSWAP1 [0m 
+[37m0x6d[0m [31mRETURN[0m 
+
+[37m0x6e[0m [32mJUMPDEST[0m 
+[37m0x6f[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x71[0m [36mPUSH1 [0m [33m0x77[0m
+[37m0x73[0m [36mDUP3  [0m 
+[37m0x74[0m [36mPUSH1 [0m [33m0x96[0m
+[37m0x76[0m [35mJUMP  [0m 
+
+[37m0x77[0m [32mJUMPDEST[0m 
+[37m0x78[0m [36mPUSH1 [0m [33m0x02[0m
+[37m0x7a[0m [36mMUL   [0m 
+[37m0x7b[0m [36mSWAP1 [0m 
+[37m0x7c[0m [36mPOP   [0m 
+
+[37m0x7d[0m [32mJUMPDEST[0m 
+[37m0x7e[0m [36mSWAP2 [0m 
+[37m0x7f[0m [36mSWAP1 [0m 
+[37m0x80[0m [36mPOP   [0m 
+[37m0x81[0m [35mJUMP  [0m 
+
+[37m0x82[0m [32mJUMPDEST[0m 
+[37m0x83[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x85[0m [36mPUSH1 [0m [33m0x8b[0m
+[37m0x87[0m [36mDUP3  [0m 
+[37m0x88[0m [36mPUSH1 [0m [33m0xb8[0m
+[37m0x8a[0m [35mJUMP  [0m 
+
+[37m0x8b[0m [32mJUMPDEST[0m 
+[37m0x8c[0m [36mPUSH1 [0m [33m0x01[0m
+[37m0x8e[0m [36mADD   [0m 
+[37m0x8f[0m [36mSWAP1 [0m 
+[37m0x90[0m [36mPOP   [0m 
+
+[37m0x91[0m [32mJUMPDEST[0m 
+[37m0x92[0m [36mSWAP2 [0m 
+[37m0x93[0m [36mSWAP1 [0m 
+[37m0x94[0m [36mPOP   [0m 
+[37m0x95[0m [35mJUMP  [0m 
+
+[37m0x96[0m [32mJUMPDEST[0m 
+[37m0x97[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x99[0m [36mDUP2  [0m 
+[37m0x9a[0m [36mPUSH1 [0m [33m0x03[0m
+[37m0x9c[0m [36mEQ    [0m 
+[37m0x9d[0m [36mISZERO[0m 
+[37m0x9e[0m [36mPUSH1 [0m [33m0xa7[0m
+[37m0xa0[0m [35mJUMPI [0m 
+
+[37m0xa1[0m [36mPOP   [0m 
+[37m0xa2[0m [36mPUSH1 [0m [33m0x05[0m
+[37m0xa4[0m [36mPUSH1 [0m [33m0x7d[0m
+[37m0xa6[0m [35mJUMP  [0m 
+
+[37m0xa7[0m [32mJUMPDEST[0m 
+[37m0xa8[0m [36mPUSH1 [0m [33m0x02[0m
+[37m0xaa[0m [36mDUP3  [0m 
+
+[37m0xab[0m [32mJUMPDEST[0m 
+[37m0xac[0m [36mSDIV  [0m 
+[37m0xad[0m [36mSWAP1 [0m 
+[37m0xae[0m [36mPOP   [0m 
+[37m0xaf[0m [36mPUSH1 [0m [33m0x7d[0m
+[37m0xb1[0m [35mJUMP  [0m 
+
+[37m0xb2[0m [32mJUMPDEST[0m 
+
+[37m0xb3[0m [32mJUMPDEST[0m 
+[37m0xb4[0m [36mSWAP2 [0m 
+[37m0xb5[0m [36mSWAP1 [0m 
+[37m0xb6[0m [36mPOP   [0m 
+[37m0xb7[0m [35mJUMP  [0m 
+
+[37m0xb8[0m [32mJUMPDEST[0m 
+[37m0xb9[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0xbb[0m [36mDUP2  [0m 
+[37m0xbc[0m [36mISZERO[0m 
+[37m0xbd[0m [36mISZERO[0m 
+[37m0xbe[0m [36mPUSH1 [0m [33m0xc7[0m
+[37m0xc0[0m [35mJUMPI [0m 
+
+[37m0xc1[0m [36mPOP   [0m 
+[37m0xc2[0m [36mPUSH1 [0m [33m0x01[0m
+[37m0xc4[0m [36mPUSH1 [0m [33m0x7d[0m
+[37m0xc6[0m [35mJUMP  [0m 
+
+[37m0xc7[0m [32mJUMPDEST[0m 
+[37m0xc8[0m [36mPUSH1 [0m [33m0xce[0m
+[37m0xca[0m [36mDUP3  [0m 
+[37m0xcb[0m [36mPUSH1 [0m [33m0x96[0m
+[37m0xcd[0m [35mJUMP  [0m 
+
+[37m0xce[0m [32mJUMPDEST[0m 
+[37m0xcf[0m [36mSWAP1 [0m 
+[37m0xd0[0m [36mPOP   [0m 
+[37m0xd1[0m [36mPUSH1 [0m [33m0x7d[0m
+[37m0xd3[0m [35mJUMP  [0m 
+
+[37m0xd4[0m [32mJUMPDEST[0m 
+
+[37m0xd5[0m [32mJUMPDEST[0m 
+[37m0xd6[0m [36mSWAP2 [0m 
+[37m0xd7[0m [36mSWAP1 [0m 
+[37m0xd8[0m [36mPOP   [0m 
+[37m0xd9[0m [35mJUMP  [0m 
+
+[37m0xda[0m [31mSTOP  [0m 
+
+[37m0xdb[0m [36mLOG1  [0m 
+[37m0xdc[0m [36mPUSH6 [0m [33m0x627a7a723058[0m
+[37m0xe3[0m [36mSHA3  [0m 
+[37m0xe4[0m [31mMISSING[0m [33m0x48[0m
+
+[37m0xe5[0m [36mNOT   [0m 
+[37m0xe6[0m [36mPUSH18[0m [33m0x1fdc8c6ed871077e7c3191247d6e3b9c1979[0m
+[37m0xf9[0m [31mMISSING[0m [33m0xe7[0m
+
+[37m0xfa[0m [36mDUP10 [0m 
+[37m0xfb[0m [36mEXTCODECOPY[0m 
+[37m0xfc[0m [31mMISSING[0m [33m0x2d[0m
+
+[37m0xfd[0m [31mMISSING[0m [33m0xf9[0m
+
+[37m0xfe[0m [31mMISSING[0m [33m0x2c[0m
+
+[37m0xff[0m [36mSLOAD [0m 
+[37m0x100[0m [36mLOG1  [0m 
+[37m0x101[0m [36mBYTE  [0m 
+[37m0x102[0m [36mCALLDATACOPY[0m 
+[37m0x103[0m [31mMISSING[0m [33m0xf7[0m
+
+[37m0x104[0m [31mSTOP  [0m 
+
+[37m0x105[0m [31mMISSING[0m [33m0x29[0m
+

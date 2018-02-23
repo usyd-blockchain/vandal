@@ -442,10 +442,10 @@ class TACGraph(cfg.ControlFlowGraph):
             # Save the edges of each block in case they can't be re-inferred.
             # They will be added back in at a later stage.
             if b.entry not in self.split_node_succs:
-                self.split_node_succs[b.entry] = [s for s in b.succs]
+                self.split_node_succs[b.entry] = [s for s in sorted(b.succs)]
             else:
                 new_list = self.split_node_succs[b.entry]
-                new_list += [s for s in b.succs if s not in new_list]
+                new_list += [s for s in sorted(b.succs) if s not in new_list]
                 self.split_node_succs[b.entry] = new_list
 
             skip.add(b)
@@ -576,8 +576,8 @@ class TACGraph(cfg.ControlFlowGraph):
                 new_block = copy.deepcopy(group[0])
                 new_block.entry_stack = entry_stack
                 new_block.exit_stack = exit_stack
-                new_block.preds = list(preds)
-                new_block.succs = list(succs)
+                new_block.preds = list(sorted(preds))
+                new_block.succs = list(sorted(succs))
                 new_block.ident_suffix = "_" + str(i)
                 new_block.symbolic_overflow = symbolic_overflow
                 new_block.has_unresolved_jump = has_unresolved_jump
@@ -1030,7 +1030,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
             site_vars = [d.get_instruction().lhs for d in dest.def_sites]
             non_top_vars = [v for v in site_vars if not v.is_top]
 
-            existing_dests = [s.entry for s in self.succs]
+            existing_dests = [s.entry for s in sorted(self.succs)]
 
             # join all values to obtain possible jump dests
             # add jumps to those locations if they are valid and don't already exist
@@ -1130,7 +1130,7 @@ class TACBasicBlock(evm_cfg.EVMBasicBlock):
         if len(to_add) != 0:
             fallthrough = to_add
 
-        old_succs = list(self.succs)
+        old_succs = list(sorted(self.succs))
         new_succs = {d for dl in list(jumpdests.values()) + [fallthrough] for d in dl}
         if fallthrough:
             self.fallthrough = fallthrough[0]
