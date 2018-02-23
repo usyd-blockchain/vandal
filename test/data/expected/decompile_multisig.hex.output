@@ -462,7 +462,7 @@ Successors: [0x123, 0x124]
 0x118: V86 = 0x32
 0x11a: V87 = GAS
 0x11b: V88 = SUB V87 0x32
-0x11c: V89 = DELEGATECALL V88 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V84 V85 V84 0x20 V81
+0x11c: V89 = DELEGATECALL V88 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V84 V85 V84 0x20
 0x11d: V90 = ISZERO V89
 0x11e: V91 = ISZERO V90
 0x11f: V92 = 0x124
@@ -470,8 +470,8 @@ Successors: [0x123, 0x124]
 ---
 Entry stack: [V12, 0x12b]
 Stack pops: 0
-Stack additions: [0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
-Exit stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Stack additions: [0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V81]
+Exit stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V81]
 
 ================================
 
@@ -485,10 +485,10 @@ Successors: []
 ---
 0x123: INVALID 
 ---
-Entry stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V81]
 Stack pops: 0
 Stack additions: []
-Exit stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Exit stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V81]
 
 ================================
 
@@ -504,10 +504,10 @@ Successors: [0x127]
 ---
 0x124: JUMPDEST 
 ---
-Entry stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x12b, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V81]
 Stack pops: 2
 Stack additions: []
-Exit stack: [V12]
+Exit stack: [V12, 0x12b]
 
 ================================
 
@@ -521,10 +521,10 @@ Successors: [0x128]
 ---
 0x127: JUMPDEST 
 ---
-Entry stack: [V12, S0]
+Entry stack: [V12, 0x12b]
 Stack pops: 0
 Stack additions: []
-Exit stack: [V12, S0]
+Exit stack: [V12, 0x12b]
 
 ================================
 
@@ -538,10 +538,10 @@ Successors: [0x129]
 ---
 0x128: JUMPDEST 
 ---
-Entry stack: [V12, S0]
+Entry stack: [V12, 0x12b]
 Stack pops: 0
 Stack additions: []
-Exit stack: [V12, S0]
+Exit stack: [V12, 0x12b]
 
 ================================
 
@@ -555,9 +555,9 @@ Successors: [0x12b]
 0x12a JUMP
 ---
 0x129: JUMPDEST 
-0x12a: JUMP S0
+0x12a: JUMP 0x12b
 ---
-Entry stack: [V12, S0]
+Entry stack: [V12, 0x12b]
 Stack pops: 1
 Stack additions: []
 Exit stack: [V12]
@@ -667,7 +667,7 @@ Exit stack: [V12, 0x149, V104]
 Block 0x149
 [0x149:0x15c]
 ---
-Predecessors: []
+Predecessors: [0x2c8, 0x344]
 Successors: []
 ---
 0x149 JUMPDEST
@@ -701,10 +701,10 @@ Successors: []
 0x15a: V113 = ADD 0x20 V111
 0x15c: RETURN V110 V113
 ---
-Entry stack: []
+Entry stack: [V12, S0]
 Stack pops: 1
 Stack additions: []
-Exit stack: []
+Exit stack: [V12]
 
 ================================
 
@@ -1570,7 +1570,7 @@ Successors: [0x2be, 0x2bf]
 0x2b3: V233 = 0x32
 0x2b5: V234 = GAS
 0x2b6: V235 = SUB V234 0x32
-0x2b7: V236 = DELEGATECALL V235 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V231 V232 V231 0x20 V228
+0x2b7: V236 = DELEGATECALL V235 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V231 V232 V231 0x20
 0x2b8: V237 = ISZERO V236
 0x2b9: V238 = ISZERO V237
 0x2ba: V239 = 0x2bf
@@ -1578,8 +1578,8 @@ Successors: [0x2be, 0x2bf]
 ---
 Entry stack: [V12, 0x149, V104]
 Stack pops: 0
-Stack additions: [0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
-Exit stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Stack additions: [0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V228]
+Exit stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V228]
 
 ================================
 
@@ -1593,10 +1593,10 @@ Successors: []
 ---
 0x2be: INVALID 
 ---
-Entry stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V228]
 Stack pops: 0
 Stack additions: []
-Exit stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Exit stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V228]
 
 ================================
 
@@ -1620,10 +1620,10 @@ Successors: [0x2c8]
 0x2c4: V241 = M[0x40]
 0x2c5: V242 = M[V241]
 ---
-Entry stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x149, V104, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V228]
 Stack pops: 3
 Stack additions: [V242]
-Exit stack: [V12, 0x149, V242]
+Exit stack: [V12, 0x149, V104, V242]
 
 ================================
 
@@ -1631,8 +1631,7 @@ Block 0x2c8
 [0x2c8:0x2cc]
 ---
 Predecessors: [0x2bf]
-Successors: []
-Has unresolved jump.
+Successors: [0x149]
 ---
 0x2c8 JUMPDEST
 0x2c9 SWAP2
@@ -1641,12 +1640,12 @@ Has unresolved jump.
 0x2cc JUMP
 ---
 0x2c8: JUMPDEST 
-0x2cc: JUMP V12
+0x2cc: JUMP 0x149
 ---
-Entry stack: [V12, 0x149, V242]
+Entry stack: [V12, 0x149, V104, V242]
 Stack pops: 3
 Stack additions: [S0]
-Exit stack: [V242]
+Exit stack: [V12, V242]
 
 ================================
 
@@ -1832,7 +1831,7 @@ Successors: [0x33a, 0x33b]
 0x32f: V273 = 0x32
 0x331: V274 = GAS
 0x332: V275 = SUB V274 0x32
-0x333: V276 = DELEGATECALL V275 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V271 V272 V271 0x20 V268
+0x333: V276 = DELEGATECALL V275 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3 V271 V272 V271 0x20
 0x334: V277 = ISZERO V276
 0x335: V278 = ISZERO V277
 0x336: V279 = 0x33b
@@ -1840,8 +1839,8 @@ Successors: [0x33a, 0x33b]
 ---
 Entry stack: [V12, 0x149, V163, V171]
 Stack pops: 0
-Stack additions: [0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
-Exit stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Stack additions: [0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V268]
+Exit stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V268]
 
 ================================
 
@@ -1855,10 +1854,10 @@ Successors: []
 ---
 0x33a: INVALID 
 ---
-Entry stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V268]
 Stack pops: 0
 Stack additions: []
-Exit stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Exit stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V268]
 
 ================================
 
@@ -1882,10 +1881,10 @@ Successors: [0x344]
 0x340: V281 = M[0x40]
 0x341: V282 = M[V281]
 ---
-Entry stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3]
+Entry stack: [V12, 0x149, V163, V171, 0x0, 0xa657491c1e7f16adb39b9b60e87bbb8d93988bc3, V268]
 Stack pops: 3
 Stack additions: [V282]
-Exit stack: [V12, 0x149, V163, V282]
+Exit stack: [V12, 0x149, V163, V171, V282]
 
 ================================
 
@@ -1893,8 +1892,7 @@ Block 0x344
 [0x344:0x349]
 ---
 Predecessors: [0x33b]
-Successors: []
-Has unresolved jump.
+Successors: [0x149]
 ---
 0x344 JUMPDEST
 0x345 SWAP3
@@ -1904,12 +1902,12 @@ Has unresolved jump.
 0x349 JUMP
 ---
 0x344: JUMPDEST 
-0x349: JUMP V12
+0x349: JUMP 0x149
 ---
-Entry stack: [V12, 0x149, V163, V282]
+Entry stack: [V12, 0x149, V163, V171, V282]
 Stack pops: 4
 Stack additions: [S0]
-Exit stack: [V282]
+Exit stack: [V12, V282]
 
 ================================
 
@@ -2086,8 +2084,8 @@ Exit stack: []
 Function 0:
 Public function signature: 0x2f54bf6e
 Entry block: 0x12d
-Exit block: 0x2c8
-Body: 0x12d, 0x134, 0x135, 0x269, 0x2be, 0x2bf, 0x2c8
+Exit block: 0x149
+Body: 0x12d, 0x134, 0x135, 0x149, 0x269, 0x2be, 0x2bf, 0x2c8
 
 Function 1:
 Public function signature: 0x4123cb6b
@@ -2116,8 +2114,8 @@ Body: 0x16d, 0x1c3, 0x1ca, 0x1cb, 0x2df
 Function 5:
 Public function signature: 0xc2cf7326
 Entry block: 0x1e5
-Exit block: 0x344
-Body: 0x1e5, 0x1ec, 0x1ed, 0x2e5, 0x33a, 0x33b, 0x344
+Exit block: 0x149
+Body: 0x149, 0x1e5, 0x1ec, 0x1ed, 0x2e5, 0x33a, 0x33b, 0x344
 
 Function 6:
 Public function signature: 0xc41a360a
