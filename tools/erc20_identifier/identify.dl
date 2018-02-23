@@ -1,0 +1,80 @@
+// BSD 3-Clause License
+//
+// Copyright (c) 2016, 2017, 2018, The University of Sydney. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+// Identifies ERC20-compliant smart contracts.
+// The nullary relations ERC20 and ERC20Optional will contain an empty tuple
+// if the contract being examined implements respectively the mandatory and 
+// optional functions of the ERC20 interface.
+// Otherwise, they will be empty.
+
+.type Func
+.type Signature
+
+.decl public_function_sigs(f:Func, s:Signature)
+.input public_function_sigs
+
+.decl approve(f:Func)
+approve(f) :- public_function_sigs(f, "0x95ea7b3").
+
+.decl transferFrom(f:Func)
+transferFrom(f) :- public_function_sigs(f, "0x23b872dd").
+
+.decl transfer(f:Func)
+transfer(f) :- public_function_sigs(f, "0xa9059cbb").
+
+.decl totalSupply(f:Func)
+totalSupply(f) :- public_function_sigs(f, "0x18160ddd").
+
+.decl balanceOf(f:Func)
+balanceOf(f) :- public_function_sigs(f, "0x70a08231").
+
+.decl allowance(f:Func)
+allowance(f) :- public_function_sigs(f, "0xdd62ed3e").
+
+.decl decimals(f:Func)
+decimals(f) :- public_function_sigs(f, "0x313ce567").
+
+.decl name(f:Func)
+name(f) :- public_function_sigs(f, "0x6fdde03").
+
+.decl symbol(f:Func)
+symbol(f) :- public_function_sigs(f, "0x95d89b41").
+
+// Satisfied if the analysed contract provides all mandatory ERC20 functions.
+.decl ERC20()
+.output ERC20
+ERC20() :- approve(_), transferFrom(_), transfer(_),
+           totalSupply(_), balanceOf(_), allowance(_).
+
+// Satisfied if the analysed contract provides additional optional ERC20 functions.
+.decl ERC20Optional()
+.output ERC20Optional
+ERC20Optional() :- ERC20(), decimals(_), name(_), symbol(_).
+
