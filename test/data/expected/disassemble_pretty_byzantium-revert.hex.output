@@ -1,0 +1,11 @@
+[37m0x00[0m [36mPUSH1 [0m [33m0x0c[0m
+[37m0x02[0m [36mPUSH1 [0m [33m0x01[0m
+[37m0x04[0m [36mSSTORE[0m 
+[37m0x05[0m [36mPUSH1 [0m [33m0x01[0m
+[37m0x07[0m [36mPUSH1 [0m [33m0x00[0m
+[37m0x09[0m [31mREVERT[0m 
+
+[37m0x0a[0m [36mPUSH1 [0m [33m0x0d[0m
+[37m0x0c[0m [36mPUSH1 [0m [33m0x03[0m
+[37m0x0e[0m [36mSSTORE[0m 
+

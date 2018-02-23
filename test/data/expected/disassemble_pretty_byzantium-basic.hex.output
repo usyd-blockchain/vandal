@@ -1,0 +1,10 @@
+[37m0x00[0m [36mPUSH1 [0m [33m0x40[0m
+[37m0x02[0m [36mSTATICCALL[0m 
+[37m0x03[0m [31mREVERT[0m 
+
+[37m0x04[0m [31mINVALID[0m 
+
+[37m0x05[0m [36mRETURNDATASIZE[0m 
+[37m0x06[0m [36mRETURNDATACOPY[0m 
+[37m0x07[0m [31mSELFDESTRUCT[0m 
+
