@@ -7,45 +7,15 @@ addons:
   apt:
     packages:
     - graphviz
+    - git
 
 install:
-  - pip install -r requirements.txt
+  - make deps
+  - make clean
 
 script:
-  - make clean test doc
-  - bin/decompile --help
-  - bin/decompile -n -v -a examples/dao_hack.dasm
-  - bin/decompile -n -v -a examples/mem_leak.dasm
-  - bin/decompile -n -v -a examples/withdraw_dao.dasm
-  - bin/decompile -n -v examples/dao_hack.hex
-  - bin/decompile -n -v examples/mem_leak.hex
-  - bin/decompile -n -v examples/withdraw_dao.hex
-  - bin/decompile -n -v -b examples/dao_hack.hex
-  - bin/decompile -n -v -b examples/mem_leak.hex
-  - bin/decompile -n -v -b examples/withdraw_dao.hex
-  - bash -c '[ ! -f graph.pdf ]'
-  - bash -c '[ ! -d tsv ]'
-  - bin/decompile -n -v -g graph.pdf -t tsv -d -b examples/dao_hack.hex
-  - bash -c '[ -s graph.pdf ]'
-  - bash -c '[ -d tsv ]'
-  - bash -c '[ -s tsv/block.facts ]'
-  - bash -c '[ -s tsv/def.facts ]'
-  - bash -c '[ -s tsv/use.facts ]'
-  - bash -c '[ -s tsv/edge.facts ]'
-  - bash -c '[ -s tsv/entry.facts ]'
-  - bash -c '[ -s tsv/exit.facts ]'
-  - bash -c '[ -s tsv/op.facts ]'
-  - bash -c '[ -s tsv/value.facts ]'
-  - bash -c '[ -s tsv/dom.facts ]'
-  - bash -c '[ -s tsv/imdom.facts ]'
-  - bash -c '[ -s tsv/pdom.facts ]'
-  - bash -c '[ -s tsv/impdom.facts ]'
-  - bin/disassemble examples/basic.hex
-  - bin/disassemble -p examples/basic.hex
-  - bin/disassemble examples/dao_hack.hex | bin/decompile -n -v -a
-  - bash -c '[ ! -f basic.tac ]'
-  - bin/decompile -a examples/basic.dasm basic.tac
-  - bash -c '[ -s basic.tac ]'
+  - make pytest
+  - make batstest
 
 notifications:
   slack:

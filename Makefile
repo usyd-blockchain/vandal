@@ -27,14 +27,26 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-.PHONY: doc docs test tests clean
+.PHONY: doc docs test tests pytest batstest clean deps
 
 doc docs:
 	make -C doc html
 
-test tests:
+pytest:
 	pytest
+
+deps:
+	pip install -r requirements.txt
+	git submodule sync
+	git submodule update --init --recursive --remote
+
+batstest:
+	./test/bats/generate.sh
+	./test/bats/bats/bin/bats test/bats
+
+test tests: pytest batstest
 
 clean:
 	make -C doc clean
+	rm -f ./test/bats/*.generated.bats
 	find . | grep -E "(__pycache__|\.pyc|\.pyo$\)" | xargs rm -rf
