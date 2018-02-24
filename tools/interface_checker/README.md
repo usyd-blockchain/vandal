@@ -1,4 +1,4 @@
-## Contract Interface Identifier ##
+## Contract Interface Checker ##
 
 Place smart contract interfaces into the `interfaces/` directory.
 An interface may take one of two forms:
