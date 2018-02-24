@@ -1,0 +1,13 @@
+// The optional functions of the ERC20 interface only.
+// If we provide only four-byte selectors, we can avoid importing eth_utils
+
+// ERC20.name
+0x06fdde03
+
+// ERC20.symbol
+0x95d89b41
+
+// ERC20.decimals
+313ce567
+// The leading '0x' is optional
+
