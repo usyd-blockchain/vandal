@@ -1,0 +1,16 @@
+// ERC20 mandatory functions.
+
+// We can provide the function interface as as canonical Solidity signatures.
+totalSupply()
+balanceOf(address)
+approve(address,uint256)
+transferFrom(address,address,uint256)
+
+// Or else as the encoded four-byte Solidity function selectors.
+// The encoded version of "allowance(address,address)".
+0xdd62ed3e
+
+// We can omit the leading 0x if we wish.
+// transfer(address,uint256)
+a9059cbb
+

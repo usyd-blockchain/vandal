@@ -1,0 +1,45 @@
+Block 0x0
+[0x0:0x3]
+---
+Predecessors: []
+Successors: []
+---
+0x0 PUSH1 0x40
+0x2 STATICCALL
+0x3 REVERT
+---
+0x0: V0 = 0x40
+0x2: V1 = STATICCALL 0x40 S0 S1 S2 S3 S4
+0x3: REVERT V1 S5
+---
+Entry stack: []
+Stack pops: 6
+Stack additions: []
+Exit stack: []
+
+================================
+
+Block 0x4
+[0x4:0x7]
+---
+Predecessors: []
+Successors: []
+---
+0x4 INVALID
+0x5 RETURNDATASIZE
+0x6 RETURNDATACOPY
+0x7 SELFDESTRUCT
+---
+0x4: INVALID 
+0x5: V2 = RETURNDATASIZE
+0x6: RETURNDATACOPY V2 S0 S1
+0x7: SELFDESTRUCT S2
+---
+Entry stack: []
+Stack pops: 0
+Stack additions: []
+Exit stack: []
+
+================================
+
+

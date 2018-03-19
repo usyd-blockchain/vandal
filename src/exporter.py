@@ -193,6 +193,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
             in_function = []
             # A function id appears in this relation if it's private.
             private_function = []
+            public_function_sigs = []
 
             f_e = self.source.function_extractor
             for i, f in enumerate(f_e.functions):
@@ -200,9 +201,12 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                     in_function.append((b.ident(), i))
                 if f.is_private:
                     private_function.append((i,))
+                else:
+                    public_function_sigs.append((i, f.signature))
 
             generate("in_function.facts", in_function)
             generate("private_function.facts", private_function)
+            generate("public_function_sigs.facts", public_function_sigs)
 
         if dominators:
             pairs = sorted([(k, i) for k, v
@@ -303,22 +307,19 @@ class CFGDotExporter(Exporter):
 
         G = cfg.nx_graph()
 
-        callcodes = [opcodes.CALL, opcodes.CALLCODE, opcodes.DELEGATECALL]
-
         # Colour-code the graph.
         returns = {block.ident(): "green" for block in cfg.blocks
                    if block.last_op.opcode == opcodes.RETURN}
         stops = {block.ident(): "blue" for block in cfg.blocks
                  if block.last_op.opcode == opcodes.STOP}
         throws = {block.ident(): "red" for block in cfg.blocks
-                  if (block.last_op.opcode in [opcodes.THROW, opcodes.THROWI] or \
-                      block.last_op.opcode.is_invalid())}
+                  if block.last_op.opcode.is_exception()}
         suicides = {block.ident(): "purple" for block in cfg.blocks
                     if block.last_op.opcode == opcodes.SELFDESTRUCT}
         creates = {block.ident(): "brown" for block in cfg.blocks
                    if any(op.opcode == opcodes.CREATE for op in block.tac_ops)}
         calls = {block.ident(): "orange" for block in cfg.blocks
-                 if any(op.opcode in callcodes for op in block.tac_ops)}
+                 if any(op.opcode.is_call() for op in block.tac_ops)}
         color_dict = {**returns, **stops, **throws, **suicides, **creates, **calls}
         nx.set_node_attributes(G, "color", color_dict)
         filldict = {b.ident(): "white" if len(b.entry_stack) <= 20 else "red"
