@@ -18,6 +18,10 @@ MP="bin/decompile"
     GRAPH_OUTFILE="graph.pdf"
     TSV_OUTFILES="block.facts def.facts use.facts edge.facts entry.facts exit.facts op.facts value.facts dom.facts imdom.facts pdom.facts impdom.facts"
     TSV_OUTDIR="tsv"
+
+    rm -f $GRAPH_OUTFILE
+    rm -rf $TSV_OUTDIR
+
     [ ! -f $GRAPH_OUTFILE ]
     [ ! -d $TSV_OUTDIR ]
 
