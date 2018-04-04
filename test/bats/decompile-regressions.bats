@@ -15,3 +15,8 @@ MP="bin/decompile"
     run timeout 20 $MP $REGRESSION/long_running.hex
     assert_success
 }
+
+@test "$M testing function extraction where private function body is not found (bug 48) (private_func_no_body.hex)" {
+    run $MP $REGRESSION/private_func_no_body.hex
+    assert_success
+}

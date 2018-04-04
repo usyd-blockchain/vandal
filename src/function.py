@@ -297,10 +297,10 @@ class FunctionExtractor:
         for i, block in enumerate(start_blocks):
             return_blocks = list(pair_list[i].values())
             f = self.find_func_body(block, return_blocks, pair_list)
-            f.is_private = True
             if not f or len(f.body) == 1:  # Can't have a function with 1 block in EVM
                 continue
             if f is not None:
+                f.is_private = True
                 private_funcs.append(f)
         return private_funcs
 
