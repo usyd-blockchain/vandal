@@ -42,7 +42,8 @@ def check_exit(progname, stdout, code, timeout)
         raise
     elsif status != 0
         puts "#{basename},ERROR_#{prog}"
-        STDERR.puts "#{basename}: #{stdout}"
+        STDERR.puts "#{basename} Error running #{prog}"
+        STDERR.puts "#{stdout}"
         raise
     end
 end
