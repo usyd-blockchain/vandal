@@ -14,7 +14,7 @@ SOUFFLE_TIMEOUT = 20
 
 # Check correct command-line args
 if ARGV.length != 2
-    abort("Usage: analyse.rb SPEC_FILE BYTECODE_FILE")
+    abort "Usage: analyse.rb SPEC_FILE BYTECODE_FILE"
 end
 
 # Read spec and contract filename
@@ -66,7 +66,6 @@ begin
     vulns.sort!
     puts "#{File.basename(code)},#{vulns.join(',')}"
 rescue
-    abort("Analysis error. Ruby is aborting!")
 ensure
     # remove the temp directory
     FileUtils.remove_entry dir
