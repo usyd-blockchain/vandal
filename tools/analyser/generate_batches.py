@@ -3,6 +3,10 @@ import sys
 import glob
 from os.path import join
 
+if len(sys.argv) != 3:
+    print("Usage: generate_batches.py DIRECTORY NUM_BATCHES", file=sys.stderr)
+    sys.exit(1)
+
 GLOB = '*_runtime.hex'
 
 CONTRACT_DIR = sys.argv[1]
