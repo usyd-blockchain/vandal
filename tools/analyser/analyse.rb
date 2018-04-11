@@ -5,11 +5,12 @@ require 'tmpdir'
 # String constants
 VANDAL = "timeout %s ../../bin/decompile %s"
 VANDAL_ARGS = "-o CALL JUMPI SSTORE SLOAD MLOAD MSTORE -d -n -t %s %s"
-SOUFFLE = "/opt/souffle/bin/souffle %s"
+SOUFFLE = "timeout %s /opt/souffle/bin/souffle %s"
 SOUFFLE_ARGS = "-F %s -D %s %s"
 
 # Timeout for running vandal
 VANDAL_TIMEOUT = 20
+SOUFFLE_TIMEOUT = 20
 
 # Check correct command-line args
 if ARGV.length != 2
@@ -28,18 +29,19 @@ end
 
 def run_souffle(fact_dir, out_dir, spec_filepath)
     args = SOUFFLE_ARGS % [fact_dir, out_dir, spec_filepath]
-    souffle = SOUFFLE % [args]
+    souffle = SOUFFLE % [SOUFFLE_TIMEOUT, args]
     return `#{souffle}`
 end
 
-def check_exit(progname, stdout, code)
+def check_exit(progname, stdout, code, timeout)
     status = $?.exitstatus
     if status == 124
-        abort "#{File.basename(code)},VANDAL_TIMEOUT_#{VANDAL_TIMEOUT}"
+        puts "#{File.basename(code)},TIMEOUT_#{progname.upcase}_#{timeout}"
+        raise
     elsif status != 0
         puts "non-zero exit status when running #{progname}!"
         puts stdout
-        abort()
+        raise
     end
 end
 
@@ -50,10 +52,10 @@ begin
     Dir.mkdir outdir
 
     stdout = run_vandal(dir, code)
-    check_exit('Vandal', stdout, code)
+    check_exit('Vandal', stdout, code, VANDAL_TIMEOUT)
 
     stdout = run_souffle(dir, outdir, spec)
-    check_exit('Souffle', stdout, code)
+    check_exit('Souffle', stdout, code, SOUFFLE_TIMEOUT)
 
     vulns = []
     Dir.glob("#{outdir}/*.csv").each do |f|
@@ -63,6 +65,8 @@ begin
     end
     vulns.sort!
     puts "#{File.basename(code)},#{vulns.join(',')}"
+rescue
+    abort("Analysis error. Ruby is aborting!")
 ensure
     # remove the temp directory
     FileUtils.remove_entry dir
