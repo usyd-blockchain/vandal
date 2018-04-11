@@ -10,7 +10,7 @@ SOUFFLE_ARGS = "-F %s -D %s %s"
 
 # Timeout for running vandal
 VANDAL_TIMEOUT = 20
-SOUFFLE_TIMEOUT = 20
+SOUFFLE_TIMEOUT = 120
 
 # Check correct command-line args
 if ARGV.length != 2
@@ -35,12 +35,14 @@ end
 
 def check_exit(progname, stdout, code, timeout)
     status = $?.exitstatus
+    basename = File.basename(code)
+    prog = progname.upcase
     if status == 124
-        puts "#{File.basename(code)},TIMEOUT_#{progname.upcase}_#{timeout}"
+        puts "#{basename},TIMEOUT_#{prog}_#{timeout}"
         raise
     elsif status != 0
-        puts "non-zero exit status when running #{progname}!"
-        puts stdout
+        puts "#{basename},ERROR_#{prog}"
+        STDERR.puts "#{basename}: #{stdout}"
         raise
     end
 end
