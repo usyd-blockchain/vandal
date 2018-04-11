@@ -14,8 +14,6 @@ N_BATCHES = int(sys.argv[2])
 
 files = glob.glob(join(CONTRACT_DIR, GLOB))
 
-per_batch = max(len(files) // N_BATCHES, 1)
-
 batches = [[] for x in range(N_BATCHES)]
 
 i = 0

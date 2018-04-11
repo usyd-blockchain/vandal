@@ -69,6 +69,8 @@ begin
     vulns.sort!
     puts "#{File.basename(code)},#{vulns.join(',')}"
 rescue
+    # do nothing
+    # TODO: improve this with proper exceptions
 ensure
     # remove the temp directory
     FileUtils.remove_entry dir
