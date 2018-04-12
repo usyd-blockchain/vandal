@@ -2,8 +2,10 @@
 
 require 'tmpdir'
 
+SCRIPT_DIR = File.expand_path(File.dirname(__FILE__))
+
 # String constants
-VANDAL = "timeout %s ../../bin/decompile %s"
+VANDAL = "timeout %s #{File.join(SCRIPT_DIR, "../../bin/decompile")} %s"
 VANDAL_ARGS = "-o CALL JUMPI SSTORE SLOAD MLOAD MSTORE -d -n -t %s %s"
 SOUFFLE = "timeout %s /opt/souffle/bin/souffle %s"
 SOUFFLE_ARGS = "-F %s -D %s %s"
@@ -51,7 +53,7 @@ end
 # create and use a temp directory
 dir = Dir.mktmpdir
 begin
-    outdir = "#{dir}/out"
+    outdir = File.join(dir, "/out")
     Dir.mkdir outdir
 
     stdout = run_vandal(dir, code)
@@ -61,7 +63,7 @@ begin
     check_exit('Souffle', stdout, code, SOUFFLE_TIMEOUT)
 
     vulns = []
-    Dir.glob("#{outdir}/*.csv").each do |f|
+    Dir.glob(File.join(outdir, "/*.csv")).each do |f|
         if File.size(f) > 0
             vulns.push(File.basename(f).split('.')[0])
         end
