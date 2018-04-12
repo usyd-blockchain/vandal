@@ -7,7 +7,7 @@ SCRIPT_DIR = File.expand_path(File.dirname(__FILE__))
 # String constants
 VANDAL = "timeout %s #{File.join(SCRIPT_DIR, "../../bin/decompile")} %s"
 VANDAL_ARGS = "-o CALL JUMPI SSTORE SLOAD MLOAD MSTORE -d -n -t %s %s"
-SOUFFLE = "timeout %s /opt/souffle/bin/souffle %s"
+SOUFFLE = "timeout %s souffle %s"
 SOUFFLE_ARGS = "-F %s -D %s %s"
 
 # Timeout for running vandal
