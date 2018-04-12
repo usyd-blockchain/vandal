@@ -11,8 +11,8 @@ SOUFFLE = "timeout %s /opt/souffle/bin/souffle %s"
 SOUFFLE_ARGS = "-F %s -D %s %s"
 
 # Timeout for running vandal
-VANDAL_TIMEOUT = 2
-SOUFFLE_TIMEOUT = 2
+VANDAL_TIMEOUT = 20
+SOUFFLE_TIMEOUT = 120
 
 # Check correct command-line args
 if ARGV.length != 2
