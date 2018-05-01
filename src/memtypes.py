@@ -165,7 +165,7 @@ class Variable(ssle, Location):
             else:
                 return self.identifier
         else:
-            val_str = ", ".join([hex(val) for val in self.value])
+            val_str = ", ".join(hex(val) for val in sorted(self.value))
             return "{{{}}}".format(val_str)
 
     def __repr__(self):
