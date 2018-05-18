@@ -12,7 +12,7 @@ SOUFFLE_ARGS = "-F %s -D %s %s"
 
 # Timeout for running vandal
 VANDAL_TIMEOUT = 20
-SOUFFLE_TIMEOUT = 120
+SOUFFLE_TIMEOUT = 240
 
 # Check correct command-line args
 if ARGV.length != 2
