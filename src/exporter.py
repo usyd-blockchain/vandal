@@ -88,25 +88,16 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         A list of pairs (op.pc, variable) that specify all write locations.
         """
 
-    def export(self, output_dir: str = "", dominators: bool = False, out_opcodes=[]):
-        """
-        Args:
-          output_dir: location to write the output to.
-          dominators: output relations specifying dominators
-          out_opcodes: a list of opcode names all occurences thereof to output,
-                       with the names of all argument variables.
-        """
-        if output_dir != "":
-            os.makedirs(output_dir, exist_ok=True)
+        self.__output_dir = None
 
-        def generate(filename, entries):
-            path = os.path.join(output_dir, filename)
+    def __generate(self, filename, entries):
+        path = os.path.join(self.__output_dir, filename)
+        with open(path, 'w') as f:
+            writer = csv.writer(f, delimiter='\t', lineterminator='\n')
+            for e in entries:
+                writer.writerow(e)
 
-            with open(path, 'w') as f:
-                writer = csv.writer(f, delimiter='\t', lineterminator='\n')
-                for e in entries:
-                    writer.writerow(e)
-
+    def __generate_blocks_ops(self, out_opcodes):
         # Write a mapping from operation addresses to corresponding opcode names;
         # a mapping from operation addresses to the block they inhabit;
         # any specified opcode listings.
@@ -123,25 +114,29 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                                          [arg.value.name for arg in op.args])
                     op_rels[op.opcode.name].append(output_tuple)
 
-        generate("op.facts", ops)
-        generate("block.facts", block_nums)
-        for opcode in op_rels:
-            generate("op_{}.facts".format(opcode), op_rels[opcode])
+        self.__generate("op.facts", ops)
+        self.__generate("block.facts", block_nums)
 
+        for opcode in op_rels:
+            self.__generate("op_{}.facts".format(opcode), op_rels[opcode])
+
+    def __generate_edges(self):
         # Write out the collection of edges between instructions (not basic blocks).
         edges = [(hex(h.pc), hex(t.pc))
                  for h, t in self.source.op_edge_list()]
-        generate("edge.facts", edges)
+        self.__generate("edge.facts", edges)
 
+    def __generate_entry_exit(self):
         # Entry points
         entry_ops = [(hex(b.tac_ops[0].pc),)
                      for b in self.source.blocks if len(b.preds) == 0]
-        generate("entry.facts", entry_ops)
+        self.__generate("entry.facts", entry_ops)
 
         # Exit points
         exit_points = [(hex(op.pc),) for op in self.source.terminal_ops]
-        generate("exit.facts", exit_points)
+        self.__generate("exit.facts", exit_points)
 
+    def __generate_def_use_value(self):
         # Mapping from variable names to the addresses they were defined at.
         define = []
         # Mapping from variable names to the addresses they were used at.
@@ -184,48 +179,71 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                         for val in var.values:
                             value.append((name, hex(val)))
 
-        generate("def.facts", define)
-        generate("use.facts", use)
-        generate("value.facts", value)
+        self.__generate("def.facts", define)
+        self.__generate("use.facts", use)
+        self.__generate("value.facts", value)
+
+    def __generate_function(self):
+        # Mapping from blocks to the solidity function they're in (if any)
+        in_function = []
+        # A function id appears in this relation if it's private.
+        private_function = []
+        public_function_sigs = []
+
+        f_e = self.source.function_extractor
+        for i, f in enumerate(f_e.functions):
+            for b in f.body:
+                in_function.append((b.ident(), i))
+            if f.is_private:
+                private_function.append((i,))
+            else:
+                public_function_sigs.append((i, f.signature))
+
+        self.__generate("in_function.facts", in_function)
+        self.__generate("private_function.facts", private_function)
+        self.__generate("public_function_sigs.facts", public_function_sigs)
+
+    def __generate_dominators(self):
+        pairs = sorted([(k, i) for k, v
+                        in self.source.dominators(op_edges=True).items()
+                        for i in v])
+        self.__generate("dom.facts", pairs)
+
+        pairs = sorted(self.source.immediate_dominators(op_edges=True).items())
+        self.__generate("imdom.facts", pairs)
+
+        pairs = sorted([(k, i) for k, v
+                        in self.source.dominators(post=True,
+                                                  op_edges=True).items()
+                        for i in v])
+        self.__generate("pdom.facts", pairs)
+
+        pairs = sorted(self.source.immediate_dominators(post=True,
+                                                        op_edges=True).items())
+        self.__generate("impdom.facts", pairs)
+
+    def export(self, output_dir: str = "", dominators: bool = False, out_opcodes=[]):
+        """
+        Args:
+          output_dir: location to write the output to.
+          dominators: output relations specifying dominators
+          out_opcodes: a list of opcode names all occurences thereof to output,
+                       with the names of all argument variables.
+        """
+        if output_dir != "":
+            os.makedirs(output_dir, exist_ok=True)
+        self.__output_dir = output_dir
+
+        self.__generate_blocks_ops(out_opcodes)
+        self.__generate_edges()
+        self.__generate_entry_exit()
+        self.__generate_def_use_value()
 
         if self.source.function_extractor is not None:
-            # Mapping from blocks to the solidity function they're in (if any)
-            in_function = []
-            # A function id appears in this relation if it's private.
-            private_function = []
-            public_function_sigs = []
-
-            f_e = self.source.function_extractor
-            for i, f in enumerate(f_e.functions):
-                for b in f.body:
-                    in_function.append((b.ident(), i))
-                if f.is_private:
-                    private_function.append((i,))
-                else:
-                    public_function_sigs.append((i, f.signature))
-
-            generate("in_function.facts", in_function)
-            generate("private_function.facts", private_function)
-            generate("public_function_sigs.facts", public_function_sigs)
+            self.__generate_function()
 
         if dominators:
-            pairs = sorted([(k, i) for k, v
-                            in self.source.dominators(op_edges=True).items()
-                            for i in v])
-            generate("dom.facts", pairs)
-
-            pairs = sorted(self.source.immediate_dominators(op_edges=True).items())
-            generate("imdom.facts", pairs)
-
-            pairs = sorted([(k, i) for k, v
-                            in self.source.dominators(post=True,
-                                                      op_edges=True).items()
-                            for i in v])
-            generate("pdom.facts", pairs)
-
-            pairs = sorted(self.source.immediate_dominators(post=True,
-                                                            op_edges=True).items())
-            generate("impdom.facts", pairs)
+            self.__generate_dominators()
 
 
 class CFGStringExporter(Exporter, patterns.DynamicVisitor):
