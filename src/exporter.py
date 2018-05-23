@@ -222,6 +222,12 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                                                         op_edges=True).items())
         self.__generate("impdom.facts", pairs)
 
+    def __generate_basic_block_range(self):
+        blocks = []
+        for block in self.source.blocks:
+            blocks.append((block.ident(), block.entry, block.exit,))
+        self.__generate("basicblockrange.facts", blocks)
+
     def export(self, output_dir: str = "", dominators: bool = False, out_opcodes=[]):
         """
         Args:
@@ -238,6 +244,7 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.__generate_edges()
         self.__generate_entry_exit()
         self.__generate_def_use_value()
+        self.__generate_basic_block_range()
 
         if self.source.function_extractor is not None:
             self.__generate_function()
