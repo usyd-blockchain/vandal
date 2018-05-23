@@ -223,12 +223,14 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.__generate("impdom.facts", pairs)
 
     def __generate_basic_block_range(self):
+        # Relation: ident, entry_pc, exit_pc
         blocks = []
         for block in self.source.blocks:
             blocks.append((block.ident(), block.entry, block.exit,))
         self.__generate("basicblockrange.facts", blocks)
 
     def __generate_ops_hex_dec(self):
+        # Relation: op_ident, op_pc
         ops = []
         for block in self.source.blocks:
             for op in block.tac_ops:
