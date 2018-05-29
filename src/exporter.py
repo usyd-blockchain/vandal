@@ -231,19 +231,22 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.__generate("op_hexdec.facts", ops)
 
     def __generate_global_order(self):
+        # Relations:
+        #   BasicBlockRange(block_ident, global_start, global_end)
+        #   op_globalcount(op_hex, op_global_count)
         counter = 0
         ops = []
         block_ranges = []
-        pc2counter = {}
+        entry, exit = None, None
         for block in self.source.blocks:
-            for op in block.tac_ops:
-                op_pc_to_global[op.pc] = counter
+            for i, op in enumerate(block.tac_ops):
+                if i == 0:
+                    entry = counter
+                if i == len(block.tac_ops)-1:
+                    exit = counter
                 ops.append((hex(op.pc), counter))
                 counter += 1
-            pc2counter = dict(ops)
-            block_ranges.append(
-               ( pc2counter[hex(block.entry)]
-               , pc2counter[hex(block.exit)] ))
+            block_ranges.append((hex(block.entry), entry, exit))
         self.__generate("op_globalcount.facts", ops)
         self.__generate("BasicBlockRange.facts", block_ranges)
 
