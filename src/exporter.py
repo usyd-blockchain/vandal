@@ -222,13 +222,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                                                         op_edges=True).items())
         self.__generate("impdom.facts", pairs)
 
-    def __generate_basic_block_range(self):
-        # Relation: ident, entry_pc, exit_pc
-        blocks = []
-        for block in self.source.blocks:
-            blocks.append((block.ident(), block.entry, block.exit,))
-        self.__generate("BasicBlockRange.facts", blocks)
-
     def __generate_ops_hex_dec(self):
         # Relation: op_ident, op_pc
         ops = []
@@ -236,6 +229,23 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
             for op in block.tac_ops:
                 ops.append((hex(op.pc), op.pc))
         self.__generate("op_hexdec.facts", ops)
+
+    def __generate_global_order(self):
+        counter = 0
+        ops = []
+        block_ranges = []
+        pc2counter = {}
+        for block in self.source.blocks:
+            for op in block.tac_ops:
+                op_pc_to_global[op.pc] = counter
+                ops.append((hex(op.pc), counter))
+                counter += 1
+            pc2counter = dict(ops)
+            block_ranges.append(
+               ( pc2counter[hex(block.entry)]
+               , pc2counter[hex(block.exit)] ))
+        self.__generate("op_globalcount.facts", ops)
+        self.__generate("BasicBlockRange.facts", block_ranges)
 
     def export(self, output_dir: str = "", dominators: bool = False, out_opcodes=[]):
         """
@@ -253,8 +263,8 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.__generate_edges()
         self.__generate_entry_exit()
         self.__generate_def_use_value()
-        self.__generate_basic_block_range()
         self.__generate_ops_hex_dec()
+        self.__generate_global_order()
 
         if self.source.function_extractor is not None:
             self.__generate_function()
