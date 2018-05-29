@@ -238,17 +238,26 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         ops = []
         block_ranges = []
         entry, exit = None, None
+        block_id_to_global_entry = {}
         for block in self.source.blocks:
             for i, op in enumerate(block.tac_ops):
                 if i == 0:
                     entry = counter
+                    block_id_to_global_entry[block.entry] = counter
                 if i == len(block.tac_ops)-1:
                     exit = counter
                 ops.append((hex(op.pc), counter))
                 counter += 1
             block_ranges.append((hex(block.entry), entry, exit))
+
+        cfg_edges = []
+        for (u, v) in self.source.edge_list():
+            cfg_edges.append((block_id_to_global_entry[u.entry],
+                block_id_to_global_entry[v.entry]))
+
         self.__generate("op_globalcount.facts", ops)
         self.__generate("BasicBlockRange.facts", block_ranges)
+        self.__generate("CFGEdge.facts", cfg_edges)
 
     def export(self, output_dir: str = "", dominators: bool = False, out_opcodes=[]):
         """
