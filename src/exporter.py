@@ -222,18 +222,15 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
                                                         op_edges=True).items())
         self.__generate("impdom.facts", pairs)
 
-    def __generate_ops_hex_dec(self):
-        # Relation: op_ident, op_pc
-        ops = []
-        for block in self.source.blocks:
-            for op in block.tac_ops:
-                ops.append((hex(op.pc), op.pc))
-        self.__generate("op_hexdec.facts", ops)
-
     def __generate_global_order(self):
+        # Introduce a total order for IR instructions, allowing inductive
+        # reasoning in Souffle. Simply number each IR instruction from 0 to n,
+        # and use this global counter for relations BasicBlockRange, CFGEdge,
+        # and the mapping from hex PCs to global counters: op_globalcount.
         # Relations:
         #   BasicBlockRange(block_ident, global_start, global_end)
         #   op_globalcount(op_hex, op_global_count)
+        #   CFGEdge(global_block_entry, global_block_exit)
         counter = 0
         ops = []
         block_ranges = []
@@ -275,7 +272,6 @@ class CFGTsvExporter(Exporter, patterns.DynamicVisitor):
         self.__generate_edges()
         self.__generate_entry_exit()
         self.__generate_def_use_value()
-        self.__generate_ops_hex_dec()
         self.__generate_global_order()
 
         if self.source.function_extractor is not None:
