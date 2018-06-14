@@ -56,11 +56,19 @@ begin
     outdir = File.join(dir, "/out")
     Dir.mkdir outdir
 
+    # run Vandal
+    t1 = Time.now
     stdout = run_vandal(dir, code)
+    t2 = Time.now
     check_exit('Vandal', stdout, code, VANDAL_TIMEOUT)
+    vandal_runtime = t2 - t1
 
+    # run Souffle
+    t1 = Time.now
     stdout = run_souffle(dir, outdir, spec)
+    t2 = Time.now
     check_exit('Souffle', stdout, code, SOUFFLE_TIMEOUT)
+    souffle_runtime = t2 - t1
 
     vulns = []
     Dir.glob(File.join(outdir, "/*.csv")).each do |f|
@@ -69,7 +77,7 @@ begin
         end
     end
     vulns.sort!
-    puts "#{File.basename(code)},#{vulns.join(',')}"
+    puts "#{File.basename(code)},#{vandal_runtime},#{souffle_runtime},#{vulns.join(',')}"
 rescue
     # do nothing
     # TODO: improve this with proper exceptions
