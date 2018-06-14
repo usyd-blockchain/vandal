@@ -50,6 +50,10 @@ def check_exit(progname, stdout, code, timeout)
     end
 end
 
+def wc_l(filename)
+    return %x{wc -l < "#{filename}"}.to_i
+end
+
 # create and use a temp directory
 dir = Dir.mktmpdir
 begin
@@ -70,14 +74,37 @@ begin
     check_exit('Souffle', stdout, code, SOUFFLE_TIMEOUT)
     souffle_runtime = t2 - t1
 
+    # Count nodes and edges
+    ifnodes = wc_l(File.join(outdir, "infoflowNodes.csv"))
+    ifedges = wc_l(File.join(outdir, "infoflow.csv"))
+    tifnodes = wc_l(File.join(outdir, "taintedFlowNodes.csv"))
+    tifedges = wc_l(File.join(outdir, "taintedFlow.csv"))
+
+    # Build a list of flagged vulns
     vulns = []
     Dir.glob(File.join(outdir, "/*.csv")).each do |f|
-        if File.size(f) > 0
+        ignore = [
+            "infoflow.csv",
+            "taintedFlow.csv",
+            "infoflowNodes.csv",
+            "taintedFlowNodes.csv",
+        ]
+        if not ignore.include?(File.basename(f)) and File.size(f) > 0
             vulns.push(File.basename(f).split('.')[0])
         end
     end
     vulns.sort!
-    puts "#{File.basename(code)},#{vandal_runtime},#{souffle_runtime},#{vulns.join(',')}"
+
+    # CSV output format:
+    # 1. file basename
+    # 2. vandal runtime in seconds
+    # 3. souffle runtime in seconds
+    # 4. number of nodes in infoflow graph
+    # 5. number of edges in infoflow graph
+    # 6. number of nodes in tainted flow graph
+    # 7. number of edges in tainted flow graph
+    # 8- names of other relations output by Souffle (e.g. flagged vulnerabilities)
+    puts "#{File.basename(code)},#{vandal_runtime},#{souffle_runtime},#{ifnodes},#{ifedges},#{tifnodes},#{tifedges},#{vulns.join(',')}"
 rescue
     # do nothing
     # TODO: improve this with proper exceptions
