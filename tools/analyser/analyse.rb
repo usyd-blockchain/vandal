@@ -89,7 +89,7 @@ begin
     # 2. vandal runtime in seconds
     # 3. souffle runtime in seconds
     # 4. names of other relations output by Souffle (e.g. flagged vulnerabilities)
-    puts "#{File.basename(code)},#{vandal_runtime},#{souffle_runtime},#{ifnodes},#{ifedges},#{tifnodes},#{tifedges},#{vulns.join(',')}"
+    puts "#{File.basename(code)},#{vandal_runtime},#{souffle_runtime},#{vulns.join(',')}"
 rescue
     # do nothing
     # TODO: improve this with proper exceptions

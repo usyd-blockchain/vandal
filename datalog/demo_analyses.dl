@@ -73,11 +73,11 @@ reentrantCall(stmt) :-
 
 // Dependency from the origin opcode to an actual use of it.
 // stmt is the statement where the origin value is used.
-originUsed(stmt) :-
-	op(stmt, "ORIGIN"),
-	def(originVar, _),
+originUsed(useStmt) :-
+  op(originStmt, "ORIGIN"),
+  def(originVar, originStmt),
   depends(useVar, originVar),
-  usedInStateOrCond(useVar, stmt).
+  usedInStateOrCond(useVar, useStmt).
 
 // UNCHECKED SEND
 
