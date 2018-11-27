@@ -69,7 +69,7 @@ DEFAULT_CONTRACT_DIR = 'contracts'
 DEFAULT_RESULTS_FILE = 'results.json'
 """File to write results to by default."""
 
-DEFAULT_SPEC_DL = 'spec.dl'
+DEFAULT_SPEC_DL = '../../datalog/demo_analyses.dl'
 """Vulnerability specification file."""
 
 TEMP_WORKING_DIR = ".temp"
