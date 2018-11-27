@@ -27,9 +27,6 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/* #include "lib/types.dl" */
-/* #include "lib/edb.dl" */
-/* #include "lib/opcodes.dl" */
 #include "lib/vandal.dl"
 
 .decl reentrantCall(stmt: Statement)
