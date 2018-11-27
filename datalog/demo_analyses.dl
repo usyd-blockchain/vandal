@@ -34,14 +34,14 @@
 .decl checkedCallStateUpdate(callStmt:Statement)
 .decl uncheckedCall(u:Statement)
 .decl unsecuredValueSend(stmt:Statement)
-.decl accessibleSuicide(stmt:Statement)
+.decl destroyable(stmt:Statement)
 
 .output reentrantCall
 .output originUsed
 .output checkedCallStateUpdate
 .output uncheckedCall
 .output unsecuredValueSend
-.output accessibleSuicide
+.output destroyable
 
 // OUTPUT
 
@@ -109,6 +109,6 @@ unsecuredValueSend(stmt) :-
 
 // SUICIDE
 
-accessibleSuicide(stmt) :-
+destroyable(stmt) :-
   !inaccessible(stmt),
-  op(stmt, "SUICIDE").
+  op(stmt, "SELFDESTRUCT").
