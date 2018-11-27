@@ -37,6 +37,9 @@ packages. The recommended way to install all package dependencies is using
 $ pip install -r requirements.txt
 ```
 
+To run the Datalog analysis, Souffle should be installed with the `souffle`
+binary in `$PATH`. Installation instructions can be found
+[here](https://souffle-lang.github.io/download/).
 
 ## Usage
 
@@ -70,14 +73,45 @@ $ bin/decompile --help
 $ bin/disassemble --help
 ```
 
+To run the entire analysis pipeline including Datalog analyses, there is a glue
+script called `bin/analyze.sh`:
+
+```
+$ mkdir results
+$ cd results
+$ ../bin/analyze.sh ../examples/use_of_origin.hex ../datalog/demo_analyses.dl
+```
+
+The above command will first decompile the given bytecode and then run Souffle
+with the specified Datalog specification. In this case, the `demo_analyses.dl`
+specification will warn us about the presence of several vulnerabilities.
+Souffle will create one CSV file in the current directory for each Datalog
+output relation.
+
+```
+$ ls -l
+total 12K
+-rw-rw-r-- 1  0 Nov 27 15:50 checkedCallStateUpdate.csv
+-rw-rw-r-- 1  0 Nov 27 15:50 destroyable.csv
+-rw-rw-r-- 1  6 Nov 27 15:50 originUsed.csv
+-rw-rw-r-- 1  0 Nov 27 15:50 reentrantCall.csv
+-rw-rw-r-- 1 18 Nov 27 15:50 uncheckedCall.csv
+-rw-rw-r-- 1  6 Nov 27 15:50 unsecuredValueSend.csv
+```
+
+Here we can see that `originUsed.csv` is non-zero in size, meaning that at
+least one use of the `ORIGIN` operation in this contract has been flagged by
+the Datalog analysis. We can see that the contract has also been flagged for
+`uncheckedCall` and `unsecuredValueSend`.
+
 ### Configuration
 
-Configuration options can be set in `bin/config.ini`. A default value and brief
-description of each option is provided in `src/default_config.ini`. Any of
-these settings can also be overridden with the `-c` command-line flag in
-a `"key=value"` fashion.
+Configuration options for Vandal's decompiler can be set in `bin/config.ini`.
+A default value and brief description of each option is provided in
+`src/default_config.ini`. Any of these settings can also be overridden with the
+`-c` command-line flag in a `"key=value"` fashion.
 
-### Example
+### Decompiler Example
 
 A contract, `loop.sol`:
 ```javascript
