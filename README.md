@@ -106,7 +106,14 @@ from the repository root. The generated documentation will be placed in
 
 ## Tests
 
-To run all tests:
+To run all tests, first initialize git submodules:
+
+```
+$ git submodule update --init --recursive
+$ git pull --recurse-submodules
+```
+
+Then, run:
 
 ```
 $ make test
