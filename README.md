@@ -93,8 +93,8 @@ $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 
 ## Documentation
 
-Sphinx is used for code documentation generation. Sphinx source files are in
-`doc/source/`. To build clean HTML documentation, run:
+Sphinx is used to generate code documentation for the decompiler. Sphinx source
+files are in `doc/source/`. To build clean HTML documentation, run:
 
 ```
 $ make clean doc
