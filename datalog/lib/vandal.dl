@@ -1,0 +1,355 @@
+// BSD 3-Clause License
+//
+// Copyright (c) 2016, 2017, The University of Sydney. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#include "types.dl"
+#include "edb.dl"
+#include "opcodes.dl"
+
+// LOGIC
+
+// p reaches q if there is a path from p to q in the CFG.
+.decl reaches(p:Statement, q:Statement)
+reaches(p, p) :-
+  op(p, _).
+
+reaches(p, q) :-
+  edge(p, q).
+
+reaches(p, q) :-
+  edge(p, u),
+  reaches(u, q).
+
+// The value of x depends on the value of y
+// I.e. y is used to calculate x, either directly as an input of the operation
+// that defined x, or transitively.
+.decl depends(x:Variable, y:Variable)
+depends(x, x) :-
+  use(x, _, _).
+
+depends(x, x) :-
+  def(x, _).
+
+depends(x, y) :-
+  def(x, stmt),
+  use(y, stmt, _).
+
+depends(x, z) :-
+  depends(x, y),
+  depends(y, z).
+
+// x controls whether y is executed.
+.decl controls(x:Statement, y:Statement)
+controls(x, y) :-
+  edge(x, w1),
+  edge(x, w2),
+  pdom(w1, y),
+  !reaches(w2, y).
+
+controls(x, y) :-
+  pdom(x, y),
+  op(x, "THROWI").
+//controls(x, z) :- controls(x, y), controls(y, z). // We probably don't want transitivity here?
+
+// var is the guard variable of some conditional jump or throw stmt
+.decl conditionVar(var: Variable, stmt:Statement)
+
+conditionVar(var, stmt) :-
+  op(stmt, "THROWI"),
+  use(var, stmt, _).
+
+conditionVar(var, stmt) :-
+  op_JUMPI(stmt, _, var).
+
+// x controls whether y executes by the value in cond
+.decl controlsWith(x:Statement, y:Statement, cond:Variable)
+
+controlsWith(x, y, cond) :-
+  controls(x, y),
+  conditionVar(cond, x).
+
+// var holds the result of executing the ORIGIN opcode
+.decl originResult(var:Variable, stmt:Statement)
+originResult(var, stmt) :-
+  op(stmt, "ORIGIN"),
+  def(var, stmt).
+
+// var holds the result of executing the GAS opcode
+.decl gasResult(var:Variable, stmt:Statement)
+gasResult(var, stmt) :-
+  op(stmt, "GAS"),
+  def(var, stmt).
+
+// var is the result of a CALL operation, stmt
+.decl callResult(var:Variable, stmt:Statement)
+callResult(var, stmt) :-
+  op(stmt, "CALL"),
+  def(var, stmt).
+
+.decl stateReadResult(var:Variable, stmt:Statement)
+stateReadResult(var, stmt) :-
+  op(stmt, "SLOAD"),
+  def(var, stmt).
+
+// variable is used to store to state at stmt
+.decl stateWriteUse(var:Variable, stmt:Statement)
+stateWriteUse(var, stmt) :-
+  op(stmt, "SSTORE"),
+  use(var, stmt, _).
+
+// Disjunction of previous relations.
+.decl usedInStateOrCond(var:Variable, stmt:Statement)
+usedInStateOrCond(var, stmt) :-
+  conditionVar(var, stmt).
+
+usedInStateOrCond(var, stmt) :-
+  stateWriteUse(var, stmt).
+
+
+// statement is a binary operator and has two distinct argument variables
+.decl distinctArgs2(stmt:Statement, op1:Variable, op2:Variable)
+distinctArgs2(stmt, op1, op2) :-
+  op(stmt, opcode),
+  binArith(opcode),
+  use(op1, stmt, _),
+  use(op2, stmt, _),
+  op1 != op2.
+
+// statement is a ternary operator and has at least two distinct argument variables
+.decl twoDistinctArgs3(stmt:Statement, op1:Variable, op2:Variable)
+twoDistinctArgs3(stmt, op1, op2) :-
+  op(stmt, opcode),
+  ternArith(opcode),
+  use(op1, stmt, _),
+  use(op2, stmt, _),
+  op1 != op2.
+
+// statement is a ternary operator and has three distinct argument variables
+.decl distinctArgs3(stmt:Statement, op1:Variable, op2:Variable, op3:Variable)
+distinctArgs3(stmt, op1, op2, op3) :-
+  op(stmt, opcode),
+  ternArith(opcode),
+  use(op1, stmt, _),
+  use(op2, stmt, _),
+  use(op3, stmt, _),
+  op1 != op2,
+  op1 != op3,
+  op2 != op3.
+
+// Note: distinctArgs3 => twoDistinctArgs3 but not vice versa.
+
+.decl manipulable(var:Variable)
+// A variable with a known value is "manipulable" in the sense that we can predict its value.
+manipulable(var) :-
+  value(var, _).
+
+// We will also consider address values which have been masked out to be manipulable, as they are zero in their meaningful portion.
+manipulable(var) :-
+  manipulableAddress(var).
+
+// A variable is "manipulable" if it can be set by the transaction source
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  runtimeKnowable(opcode).
+
+// Or if it's a call data load whose address is itself also settable by the transaction source.
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, "CALLDATALOAD"),
+  use(addressVar, stmt, _),
+  manipulable(addressVar).
+
+// Transitively, if it's the result of applying an operation to manipulable operands.
+// unary operators
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  unaryArith(opcode),
+  use(operand, stmt, _),
+  manipulable(operand).
+
+// binary operators
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  binArith(opcode),
+  distinctArgs2(stmt, op1, op2),
+  manipulable(op1),
+  manipulable(op2).
+
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  binArith(opcode),
+  use(operand, stmt, _),
+  manipulable(operand),
+  !distinctArgs2(stmt, _, _).
+
+// ternary operators
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  ternArith(opcode),
+  distinctArgs3(stmt, op1, op2, op3),
+  manipulable(op1),
+  manipulable(op2),
+  manipulable(op3).
+
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  ternArith(opcode),
+  twoDistinctArgs3(stmt, op1, op2),
+  manipulable(op1),
+  manipulable(op2),
+  !distinctArgs3(stmt, _, _, _).
+
+manipulable(var) :-
+  def(var, stmt),
+  op(stmt, opcode),
+  ternArith(opcode),
+  use(operand, stmt, _),
+  manipulable(operand),
+  !twoDistinctArgs3(stmt, _, _).
+
+// A variable whose value is masked out in the lower 20 bytes is considered constant for addressing purposes
+.decl manipulableAddress(var:Variable)
+
+manipulableAddress(var) :-
+  def(var, stmt),
+  op(stmt, "AND"),
+  use(mask, stmt, _),
+  value(mask, "0xffffffffffffffffffffffff0000000000000000000000000000000000000000").
+
+// Finally, if a variable was recovered from some storage location which can be written with a manipulable
+// value at some accessible program point, it's manipulable.
+// Possible improvements: check if the stateLocVar is manipulable, rather than just constant
+//                        check that the state location was not overwritten on some incoming path from the root
+//                        with an unmanipulable value.
+
+// var is read from a possibly-nonmanipulable-because-inaccessible state location written at storeStmt
+.decl possAccessManipState(var:Variable, storeStmt:Statement)
+
+possAccessManipState(var, storeStmt) :-
+  stateReadResult(var, stateReadStmt),
+  use(stateLocVar, stateReadStmt, _),
+  op_SSTORE(storeStmt, stateLocVar2, stateVal),
+  value(stateLocVar, stateLoc),
+  value(stateLocVar2, stateLoc),
+  manipulable(stateVal),
+  !inaccessible(storeStmt).
+
+//manipulable(var) :- possAccessManipState(var, storeStmt), !inaccessible(storeStmt).
+//manipulable(var) :- possAccessManipState(var, storeStmt),
+                    //!controlsWith(_, storeStmt, _).
+//manipulable(var) :- possAccessManipState(var, storeStmt),
+                    //controlsWith(_, storeStmt, cond), manipulable(cond).
+
+
+// Check that all paths from root to a statment n MUST go through some node in a set S.
+
+// stmt is a SSTORE to location loc, writing a non-manipulable value or a constant.
+//.decl storenonManipAtLoc(stmt:Statement, loc:Value)
+//storenonManipAtLoc(stmt, loc) :- op_SSTORE(stmt, var, val), value(var, loc), !nonConstManip(val).
+
+//edgeNotIncidentOnLocStores(u, v, loc) :- edge(u, v), !storenonManipAtLoc(u, loc), !storenonManipAtLoc(v, loc).
+//entryReachesMinusLocStores(stmt, _) :- entry(stmt).
+//entryReachesMinusLocStores(stmt, loc) :- edgeNotIncidentOnLocStores(u, stmt, loc), entryReachesMinusLocStores(u, loc).
+
+
+// locOverWrittenBefore(loc, stmt) :- reaches(e, s), entry(e), storeAtLoc(s, loc),
+
+
+// A manipulable value which is non-constant, i.e. input-dependent.
+.decl nonConstManipulable(var:Variable)
+
+nonConstManipulable(var) :-
+  manipulable(var),
+  !value(var, _).
+
+// A statement is inaccessible if some condition controls it which is not manipulable by the caller.
+// Or if it can't be reached from the program entry point.
+.decl inaccessible(stmt:Statement)
+
+inaccessible(stmt) :-
+  controlsWith(_, stmt, cond),
+  !manipulable(cond).
+
+inaccessible(stmt) :-
+  op(stmt, _),
+  !reaches("0x0", stmt).
+
+.decl protectedByLoc(protectedStmt:Statement, sLoc:Value)
+protectedByLoc(protectedStmt, sLoc) :-
+  controlsWith(controlStmt, protectedStmt, condVar),
+  dom(setMutexStmt, controlStmt),
+  dom(protectedStmt, setMutexStmt),
+  depends(condVar, mutexResVar),
+  stateReadResult(mutexResVar, readMutexStmt),
+  op(readMutexStmt, "SLOAD"),
+  use(readMutexLoc, readMutexStmt, _),
+  op_SSTORE(setMutexStmt, setMutexLoc, _),
+  value(readMutexLoc, sLoc),
+  value(setMutexLoc, sLoc).
+
+// A statement is considered gassy if it uses some variable that depends on a GAS operation
+.decl gassy(stmt:Statement, var:Variable)
+
+gassy(stmt, var) :-
+  use(var, stmt, _),
+  depends(var, gasVar),
+  gasResult(gasVar, _).
+
+.decl fromCallValue(var:Variable)
+
+fromCallValue(var) :-
+  depends(var, callValVar),
+  def(callValVar, callValStmt),
+  op(callValStmt, "CALLVALUE").
+
+.decl usefulValue(var:Variable)
+
+usefulValue(var) :-
+  !value(var, "0x0"),
+  !fromCallValue(var),
+  def(var, _).
+
+.decl checkedCallThrows(callStmt:Statement)
+
+checkedCallThrows(callStmt) :-
+  callResult(resVar, callStmt),
+  depends(cond, resVar),
+  controlsWith(_, throwStmt, cond),
+  isThrow(throwStmt).
+
+checkedCallThrows(callStmt) :-
+  callResult(resVar, callStmt),
+  depends(cond, resVar),
+  use(cond, throwStmt, _),
+  isThrow(throwStmt).

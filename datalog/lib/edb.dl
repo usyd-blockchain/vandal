@@ -1,0 +1,62 @@
+// BSD 3-Clause License
+//
+// Copyright (c) 2016, 2017, The University of Sydney. All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
+//
+// * Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// * Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// * Neither the name of the copyright holder nor the names of its
+//   contributors may be used to endorse or promote products derived from
+//   this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+// INPUT
+
+.decl entry(s:Statement) 			                // statements without predecessors
+.decl edge(h:Statement, t:Statement)                // There is a CFG edge from h to t
+.decl def(var:Variable, stmt:Statement)             // var is defined by stmt
+.decl use(var:Variable, stmt:Statement, i:number)   // var is used by stmt as argument i
+.decl op(stmt:Statement, op:Opcode)                 // stmt's opcode is op
+.decl value(var:Variable, val:Value)                // A variable's possible value set if known
+
+// Requires dominator, CALL, JUMPI, SSTORE relations.
+.decl op_CALL(stmt:Statement, gas:Variable, target:Variable, value:Variable, data_start:Variable, data_length:Variable, return_start:Variable, return_length:Variable)
+.decl op_JUMPI(stmt:Statement, dest:Variable, cond:Variable)
+.decl op_SSTORE(stmt:Statement, loc:Variable, val:Variable)
+
+// Dominance relations
+// [p]dom(s, d) => s is [post-]dominated by d
+// x is dominated by y if all paths from the root to x must go through y
+// Post-domination is domination in the reversed cfg with an auxiliary node connected to all
+// exit nodes.
+.decl dom(s:Statement, d:Statement)
+.decl pdom(s:Statement, d:Statement)
+
+.input edge
+.input entry
+.input def
+.input use
+.input op
+.input value
+.input op_CALL
+.input op_JUMPI
+.input op_SSTORE
+.input dom
+.input pdom
