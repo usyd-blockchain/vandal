@@ -18,6 +18,15 @@ construct arbitrary program analyses over the intermediate representation of
 a contract. Vandal includes a static program analysis library that predefines
 many useful Datalog relations.
 
+The main components of Vandal are:
+1. Disassembler (Python)
+2. Decompiler (Python)
+3. Analysis library (Datalog)
+
+The decompiler and disassembler share many of the same modules located in
+`src/`. The Datalog analysis library is designed to run on the Souffle Datalog
+engine, and is located in `datalog/`.
+
 ## Requirements
 
 An installation of **Python 3.5** or later is required, alongside various
