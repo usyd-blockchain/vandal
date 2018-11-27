@@ -128,5 +128,5 @@ Then, run:
 $ make test
 ```
 
-Currently, Vandal contains tests primarily for the decompiler. There are no
-tests for the Datalog code.
+Currently Vandal only contains tests for the decompiler. There are no tests for
+the Datalog code.
