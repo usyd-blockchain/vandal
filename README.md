@@ -112,56 +112,8 @@ report](https://arxiv.org/abs/1809.03981).
 
 To write your own analyses, we recommend starting by copying `demo_analyses.dl`
 to a new file, and then removing the irrelevant Datalog relations. A basic demo
-tutorial is [available on the Vandal Wiki](#TODO).
-
-As a simple example, suppose we wanted to write an analysis that lists all
-static addresses used in `CALL` instructions. Let's begin with the following
-empty template that simply imports Vandal's core static analysis library:
-
-```
-#include "lib/vandal.dl"
-
-```
-
-We need to declare a new output relation for our analysis. Since we are
-interested in just the constant address values, we declare a new output
-relation with a single field of type `Value`. (The available types are defined
-in `datalog/lib/types.dl` and documented in [the Vandal technical report](#TODO))
-
-```
-#include "lib/vandal.dl"
-
-.decl StaticCallAddresses(staticAddr: Value)
-.output StaticCallAddresses
-```
-
-Now we need to write the corresponding logic used to generate the values in
-this relation. We are interested in statements that:
-1. Execute EVM's `CALL` opcode; and
-2. Have a known constant value for the second position argument (which is the callee's address).
-
-Hence, we can add the following rule:
-
-```
-#include "lib/vandal.dl"
-
-.decl StaticCallAddresses(staticAddrValue: Value)
-.output StaticCallAddresses
-
-StaticCallAddresses(staticAddrValue) :-
-  op(callStmt, "CALL"),
-  use(addrVar, callStmt, 2),
-  value(addrVar, staticAddrValue).
-```
-
-Each respective line of this rule says that:
-1. There exists some statement `callStmt` that performs an EVM `CALL` operation.
-2. Some variable `addrVar` is passed as the 2nd positional argument to the operation in our `callStmt`.
-3. The `addrVar` variable has a known, constant value `staticAddrValue`.
-
-Relations `op`, `use`, and `value` are produced by the Vandal decompiler. The
-Vandal static analysis library contains several useful relations, which are
-documented [on this page](#TODO).
+tutorial is [available on the Vandal
+Wiki](https://github.com/usyd-blockchain/vandal/wiki/Demo:-Writing-an-Analysis-with-Vandal).
 
 ### Decompiler Configuration
 
