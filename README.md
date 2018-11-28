@@ -159,7 +159,9 @@ Each respective line of this rule says that:
 2. Some variable `addrVar` is passed as the 2nd positional argument to the operation in our `callStmt`.
 3. The `addrVar` variable has a known, constant value `staticAddrValue`.
 
-Relations `op`, `use`, and `value` are produced by the Vandal decompiler. The Vandal static analysis library contains several useful relations, which are documented [on this page](#TODO).
+Relations `op`, `use`, and `value` are produced by the Vandal decompiler. The
+Vandal static analysis library contains several useful relations, which are
+documented [on this page](#TODO).
 
 ### Decompiler Configuration
 
