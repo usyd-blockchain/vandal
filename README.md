@@ -123,7 +123,7 @@ empty template that simply imports Vandal's core static analysis library:
 
 ```
 
-Now, let's declare a new output relation for our analysis. Since we are
+We need to declare a new output relation for our analysis. Since we are
 interested in just the constant address values, we declare a new output
 relation with a single field of type `Value`. (The available types are defined
 in `datalog/lib/types.dl` and documented in [the Vandal technical report](#TODO))
