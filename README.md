@@ -27,7 +27,10 @@ The decompiler and disassembler share many of the same modules located in
 `src/`. The Datalog analysis library is designed to run on the Souffle Datalog
 engine, and is located in `datalog/`.
 
-## Requirements
+A more comprehensive description of the Vandal Framework is [available on the
+Wiki](https://github.com/usyd-blockchain/vandal/wiki).
+
+## Prerequisites
 
 An installation of **Python 3.5** or later is required, alongside various
 packages. The recommended way to install all package dependencies is using
@@ -122,7 +125,7 @@ A default value and brief description of each option is provided in
 `src/default_config.ini`. Any of these settings can also be overridden with the
 `-c` command-line flag in a `"key=value"` fashion.
 
-### Decompiler Example
+### Decompilation Example
 
 A contract, `loop.sol`:
 ```javascript
@@ -145,7 +148,7 @@ $ bin/decompile -n -v -c "remove_unreachable=1" -g loop.html loop.hex
 ```
 
 
-## Documentation
+## Code Documentation
 
 Sphinx is used to generate code documentation for the decompiler. Sphinx source
 files are in `doc/source/`. To build clean HTML documentation, run:
