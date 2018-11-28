@@ -13,7 +13,7 @@ the extraction of program properties.
 A more comprehensive description of the Vandal Framework is [available on the
 Wiki](https://github.com/usyd-blockchain/vandal/wiki), along with a [getting started guide](https://github.com/usyd-blockchain/vandal/wiki/Getting-Started-with-Vandal).
 
-### Publications
+## Publications
 
 * _Vandal: A Scalable Security Analysis Framework for Smart Contracts_,
  Lexi Brent, Anton Jurisevic, Michael Kong, Eric Liu, Francois
@@ -24,6 +24,9 @@ Neville Grech, Michael Kong, Anton Jurisevic, Lexi Brent, Bernhard Scholz, Yanni
 
 * _A Scalable Method to Analyze Gas Costs, Loops and Related Security Vulnerabilities on the Ethereum Virtual Machine_, Michael Kong, Honours Thesis, November 2017, School of Computer Science, The University of Sydney. [[pdf](pubs/MKong17.pdf)] [[BibTeX](pubs/MKong17.bib)]
 
-## Getting Started
+## Resources
 
-Please see the [getting started wiki page](https://github.com/usyd-blockchain/vandal/wiki/Getting-Started-with-Vandal).
+- [Overview of Vandal](https://github.com/usyd-blockchain/vandal/wiki)
+- [Getting Started with Vandal](https://github.com/usyd-blockchain/vandal/wiki/Getting-Started-with-Vandal)
+- [Demo: Creating a new analysis specification in Vandal](https://github.com/usyd-blockchain/vandal/wiki/Demo:-Creating-a-new-analysis-specification-in-Vandal)
+- [Vandal technical paper](https://arxiv.org/pdf/1809.03981.pdf)
