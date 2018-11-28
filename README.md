@@ -30,7 +30,7 @@ engine, and is located in `datalog/`.
 A more comprehensive description of the Vandal Framework is [available on the
 Wiki](https://github.com/usyd-blockchain/vandal/wiki).
 
-## Publications
+### Publications
 
 * _Vandal: A Scalable Security Analysis Framework for Smart Contracts_,
  Lexi Brent, Anton Jurisevic, Michael Kong, Eric Liu, Francois
