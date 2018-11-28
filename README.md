@@ -13,6 +13,8 @@ the extraction of program properties.
 A more comprehensive description of the Vandal Framework is [available on the
 Wiki](https://github.com/usyd-blockchain/vandal/wiki), along with a [getting started guide](https://github.com/usyd-blockchain/vandal/wiki/Getting-Started-with-Vandal).
 
+Vandal is licensed under the [BSD 3-Clause License](/LICENSE).
+
 ## Publications
 
 * _Vandal: A Scalable Security Analysis Framework for Smart Contracts_,
