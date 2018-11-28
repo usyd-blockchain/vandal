@@ -34,12 +34,12 @@ Wiki](https://github.com/usyd-blockchain/vandal/wiki).
 
 * _Vandal: A Scalable Security Analysis Framework for Smart Contracts_,
  Lexi Brent, Anton Jurisevic, Michael Kong, Eric Liu, Francois
-  Gauthier, Vincent Gramoli, Ralph Holz, Bernhard Scholz, Technical Report, School of Information Technologies, The University of Sydney, Sydney, Australia, September 2018. [[pdf](https://arxiv.org/pdf/1809.03981.pdf)] [[BibTeX](pubs/Vandal18.bib)]
+  Gauthier, Vincent Gramoli, Ralph Holz, Bernhard Scholz, Technical Report, School of Computer Science, The University of Sydney, Sydney, Australia, September 2018. [[pdf](https://arxiv.org/pdf/1809.03981.pdf)] [[BibTeX](pubs/Vandal18.bib)]
 
 * _MadMax: Surviving Out-of-Gas Conditions in Ethereum Smart Contracts_,
 Neville Grech, Michael Kong, Anton Jurisevic, Lexi Brent, Bernhard Scholz, Yannis Smaragdakis, SPLASH 2018 OOPSLA, Boston, November 2018. [[pdf](pubs/Grech18-OOPSLA.pdf)] [[BibTeX](pubs/Grech18.bib)]
 
-* _A Scalable Method to Analyze Gas Costs, Loops and Related Security Vulnerabilities on the Ethereum Virtual Machine_, Michael Kong, Honours Thesis, November 2017, School of Information Technologies, The University of Sydney. [[pdf](pubs/MKong17.pdf)] [[BibTeX](pubs/MKong17.bib)]
+* _A Scalable Method to Analyze Gas Costs, Loops and Related Security Vulnerabilities on the Ethereum Virtual Machine_, Michael Kong, Honours Thesis, November 2017, School of Computer Science, The University of Sydney. [[pdf](pubs/MKong17.pdf)] [[BibTeX](pubs/MKong17.bib)]
 
 ## Prerequisites
 
