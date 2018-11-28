@@ -30,3 +30,4 @@ Neville Grech, Michael Kong, Anton Jurisevic, Lexi Brent, Bernhard Scholz, Yanni
 - [Getting Started with Vandal](https://github.com/usyd-blockchain/vandal/wiki/Getting-Started-with-Vandal)
 - [Demo: Creating a new analysis specification in Vandal](https://github.com/usyd-blockchain/vandal/wiki/Demo:-Creating-a-new-analysis-specification-in-Vandal)
 - [Vandal technical paper](https://arxiv.org/pdf/1809.03981.pdf)
+- [Summary of EVM Instructions](https://github.com/usyd-blockchain/vandal/wiki/Summary-of-EVM-Instructions)
