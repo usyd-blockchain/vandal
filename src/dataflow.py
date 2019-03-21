@@ -222,8 +222,21 @@ def stack_analysis(cfg: tac_cfg.TACGraph) -> bool:
     settings.mutate_jumps = False
     settings.generate_throws = False
 
+    # the fixpoint analysis might run for a time > bailout, causing the timeout to be ignored
+    bail_time = settings.bailout_seconds 
+    start_clock = time.clock()
+    counter = 0 
+
     # Churn until we reach a fixed point.
     while queue:
+
+        # check if we are running over time budget
+        counter += 1 
+        if counter % 1000 == 0 and bail_time >= 0:
+            elapsed = time.clock() - start_clock
+            if elapsed > bail_time:
+                break
+
         curr_block = queue.pop(0)
 
         # If there was no change to the entry stack, then there will be no
