@@ -290,7 +290,7 @@ CALL = OpCode("CALL", 0xf1, 7, 1)
 CALLCODE = OpCode("CALLCODE", 0xf2, 7, 1)
 RETURN = OpCode("RETURN", 0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 6, 1)
-CREATE2 = OpCode("CREATE2", 4, 1)
+CREATE2 = OpCode("CREATE2", 0xfb, 4, 1)
 INVALID = OpCode("INVALID", 0xfe, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
 
