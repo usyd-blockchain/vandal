@@ -391,6 +391,20 @@ class Variable(ssle, Location):
         """Return the b'th byte of v."""
         return (v >> ((cls.SIZE - b) * 8)) & 0xFF
 
+    @classmethod
+    def SHL(cls, b: int, v: int) -> int:
+        """Bitwise shift left."""
+        return v << b
+
+    @classmethod
+    def SHR(cls, b: int, v: int) -> int:
+        """Bitwise shift right."""
+        return v >> b
+
+    @classmethod
+    def SAR(cls, b: int, v: int) -> int:
+        """Arithmetic shift right."""
+        return cls.twos_comp(v) >> b
 
 class MetaVariable(Variable):
     """A Variable to stand in for Variables."""
