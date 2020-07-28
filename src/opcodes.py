@@ -166,9 +166,9 @@ OR = OpCode("OR", 0x17, 2, 1)
 XOR = OpCode("XOR", 0x18, 2, 1)
 NOT = OpCode("NOT", 0x19, 1, 1)
 BYTE = OpCode("BYTE", 0x1a, 2, 1)
-SHL = OpCode("SHL", 0x1b, 2, 1)
-SHR = OpCode("SHR", 0x1c, 2, 1)
-SAR = OpCode("SAR", 0x1d, 2, 1)
+SHL = OpCode("SHL", 0x1b, 2, 1) # for block.number >= CONSTANTINOPLE_FORK_BLKNUM
+SHR = OpCode("SHR", 0x1c, 2, 1) # for block.number >= CONSTANTINOPLE_FORK_BLKNUM
+SAR = OpCode("SAR", 0x1d, 2, 1) # for block.number >= CONSTANTINOPLE_FORK_BLKNUM
 
 SHA3 = OpCode("SHA3", 0x20, 2, 1)
 
@@ -186,7 +186,9 @@ CODECOPY = OpCode("CODECOPY", 0x39, 3, 0)
 GASPRICE = OpCode("GASPRICE", 0x3a, 0, 1)
 EXTCODESIZE = OpCode("EXTCODESIZE", 0x3b, 1, 1)
 EXTCODECOPY = OpCode("EXTCODECOPY", 0x3c, 4, 0)
-EXTCODEHASH = OpCode("EXTCODEHASH", 0x3f, 1, 1)
+RETURNDATASIZE = OpCode("RETURNDATASIZE", 0x3d, 0, 1) # for block.number >= BYZANTIUM_FORK_BLKNUM
+RETURNDATACOPY = OpCode("RETURNDATACOPY", 0x3e, 3, 0) # for block.number >= BYZANTIUM_FORK_BLKNUM
+EXTCODEHASH = OpCode("EXTCODEHASH", 0x3f, 1, 1) # for block.number >= CONSTANTINOPLE_FORK_BLKNUM
 
 # Block Information
 BLOCKHASH = OpCode("BLOCKHASH", 0x40, 1, 1)
@@ -290,15 +292,11 @@ CALL = OpCode("CALL", 0xf1, 7, 1)
 CALLCODE = OpCode("CALLCODE", 0xf2, 7, 1)
 RETURN = OpCode("RETURN", 0xf3, 2, 0)
 DELEGATECALL = OpCode("DELEGATECALL", 0xf4, 6, 1)
-CREATE2 = OpCode("CREATE2", 0xfb, 4, 1)
+CREATE2 = OpCode("CREATE2", 0xf5, 4, 1) # for block.number >= CONSTANTINOPLE_FORK_BLKNUM
+STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1) # for block.number >= BYZANTIUM_FORK_BLKNUM
+REVERT = OpCode("REVERT", 0xfd, 2, 0) # for block.number >= BYZANTIUM_FORK_BLKNUM
 INVALID = OpCode("INVALID", 0xfe, 0, 0)
 SELFDESTRUCT = OpCode("SELFDESTRUCT", 0xff, 1, 0)
-
-# New Byzantinium OpCodes for block.number >= BYZANTIUM_FORK_BLKNUM
-REVERT = OpCode("REVERT", 0xfd, 2, 0)
-RETURNDATASIZE = OpCode("RETURNDATASIZE", 0x3d, 0, 1)
-RETURNDATACOPY = OpCode("RETURNDATACOPY", 0x3e, 3, 0)
-STATICCALL = OpCode("STATICCALL", 0xfa, 6, 1)
 
 # TAC Operations
 # These are not EVM opcodes, but they are used by the three-address code
