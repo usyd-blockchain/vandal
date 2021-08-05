@@ -199,6 +199,7 @@ DIFFICULTY = OpCode("DIFFICULTY", 0x44, 0, 1)
 GASLIMIT = OpCode("GASLIMIT", 0x45, 0, 1)
 CHAINID = OpCode("CHAINID", 0x46, 0 ,1) # for block.number >= ISTANBUL_FORK_BLKNUM
 SELFBALANCE = OpCode("SELFBALANCE", 0x47, 0, 1) # for block.number >= ISTANBUL_FORK_BLKNUM
+BASEFEE = OpCode("BASEFEE", 0x48, 0, 1) # for block.number >= LONDON_FORK_BLKNUM
 
 # Stack, Memory, Storage, Flow
 POP = OpCode("POP", 0x50, 1, 0)
