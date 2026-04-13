@@ -12,7 +12,7 @@ networkx==1.11
 pydotplus==2.0.2
 
 # Unit testing uses pytest
-pytest==3.0.2
+pytest==9.0.3
 
 # termcolor for ANSI colours in terminal output
 termcolor==1.1.0
